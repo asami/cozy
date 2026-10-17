@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,11 +26,39 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoRuntime {
+  import CozyVideoImplementation._
+
+  private[video] final case class WaveData(
+    audioformat: Int,
+    samplerate: Int,
+    channels: Int,
+    bitspersample: Int,
+    data: Array[Byte]
+  ) {
+    def durationSeconds: Double =
+      if (samplerate <= 0 || channels <= 0 || bitspersample <= 0)
+        0.0
+      else
+        data.length.toDouble / (samplerate.toDouble * channels.toDouble * (bitspersample.toDouble / 8.0))
+  }
+
+  private[video] final case class NarrationSelection(
+    provider: String,
+    diagnostics: Vector[String]
+  )
+}
+
 private[cozy] trait CozyVideoRuntime {
   self: CozyVideoTypes with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private[video] type WaveData = CozyVideoRuntime.WaveData
+  private[video] lazy val WaveData = CozyVideoRuntime.WaveData
+  private[video] type NarrationSelection = CozyVideoRuntime.NarrationSelection
+  private[video] lazy val NarrationSelection = CozyVideoRuntime.NarrationSelection
   trait VideoProcessRunner {
     def run(args: Vector[String], cwd: Path): VideoCommandResult
   }
@@ -57,27 +84,8 @@ private[cozy] trait CozyVideoRuntime {
     }
   }
 
-  private[video] final case class WaveData(
-    audioformat: Int,
-    samplerate: Int,
-    channels: Int,
-    bitspersample: Int,
-    data: Array[Byte]
-  ) {
-    def durationSeconds: Double =
-      if (samplerate <= 0 || channels <= 0 || bitspersample <= 0)
-        0.0
-      else
-        data.length.toDouble / (samplerate.toDouble * channels.toDouble * (bitspersample.toDouble / 8.0))
-  }
-
-  private[video] final case class NarrationSelection(
-    provider: String,
-    diagnostics: Vector[String]
-  )
-
-  private[video] def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path): String =
-    execution.toolMode match {
+  private[video] def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path, tool: String = "ffmpeg"): String =
+    execution.selected(tool).mode match {
       case VideoToolMode.Docker => _docker_path(projectroot, path)
       case _ => path.toString
     }
@@ -87,9 +95,11 @@ private[cozy] trait CozyVideoRuntime {
     execution: VideoExecutionConfig,
     tool: String,
     args: Vector[String],
-    networkdisabled: Boolean = false
-  ): Vector[String] =
-    execution.toolMode match {
+    networkdisabled: Boolean = false,
+    mounts: Vector[DockerMount] = Vector.empty
+  ): Vector[String] = {
+    val selection = execution.selected(tool)
+    selection.mode match {
       case VideoToolMode.Docker =>
         Vector(
           "docker",
@@ -97,25 +107,31 @@ private[cozy] trait CozyVideoRuntime {
           "--rm"
         ) ++ (if (networkdisabled) Vector("--network=none") else Vector.empty) ++ Vector(
           "-v",
-          s"${projectroot}:/workspace",
+          s"${projectroot.toAbsolutePath.normalize()}:/workspace",
           "-w",
-          "/workspace",
-          execution.dockerImage,
-          tool
+          "/workspace"
+        ) ++ mounts.flatMap { mount =>
+          val access = if (mount.readonly) "ro" else "rw"
+          Vector("-v", s"${mount.hostpath}:${mount.containerpath}:$access")
+        } ++ Vector(
+          selection.dockerImage,
+          selection.executable
         ) ++ args
       case VideoToolMode.Host =>
-        Vector(tool) ++ args
+        Vector(selection.executable) ++ args
       case VideoToolMode.ExternalService =>
         RAISE.invalidArgumentFault(s"$tool cannot use external-service tool mode")
     }
+  }
 
   private[video] def _review_execution_command(
     execution: VideoExecutionConfig,
     tool: String,
     args: Vector[String],
     mounts: Vector[DockerMount]
-  ): Vector[String] =
-    execution.toolMode match {
+  ): Vector[String] = {
+    val selection = execution.selected(tool)
+    selection.mode match {
       case VideoToolMode.Docker =>
         Vector(
           "docker",
@@ -126,20 +142,33 @@ private[cozy] trait CozyVideoRuntime {
           val access = if (mount.readonly) "ro" else "rw"
           Vector("-v", s"${mount.hostpath}:${mount.containerpath}:$access")
         } ++ Vector(
-          execution.dockerImage,
-          tool
+          selection.dockerImage,
+          selection.executable
         ) ++ args
       case VideoToolMode.Host =>
-        Vector(tool) ++ args
+        Vector(selection.executable) ++ args
       case VideoToolMode.ExternalService =>
         RAISE.invalidArgumentFault(s"$tool cannot use external-service tool mode")
     }
+  }
 
   private[video] def _docker_path(projectroot: Path, path: Path): String = {
+    val root = projectroot.toAbsolutePath.normalize()
     val normalized = path.toAbsolutePath.normalize()
-    if (normalized.startsWith(projectroot))
-      "/workspace/" + projectroot.relativize(normalized).toString
+    if (normalized.startsWith(root))
+      "/workspace/" + root.relativize(normalized).toString
     else
       normalized.toString
+  }
+
+  private[video] def _selected_path_mounts(projectroot: Path, inputs: Vector[Path], outputs: Vector[Path] = Vector.empty): Vector[DockerMount] = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val parents = outputs.map(_.toAbsolutePath.normalize().getParent).distinct
+    parents.foreach(Files.createDirectories(_))
+    val externalparents = parents.filterNot(_.startsWith(root))
+    val files = inputs.map(_.toAbsolutePath.normalize()).distinct
+      .filterNot(path => path.startsWith(root) || externalparents.exists(path.startsWith(_)))
+    files.map(path => DockerMount(path, path.toString, readonly = true)) ++
+      externalparents.map(path => DockerMount(path, path.toString, readonly = false))
   }
 }

@@ -18,7 +18,7 @@ import cozy.video.{CozyVideo, CozyVideoSpec}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 25, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -29,7 +29,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Given("a valid detailed-infographic descriptor, build manifest, and PNG output")
           _write_config(root)
           val fixture = _media(root, "update", "development-process/update", "ja", "images/update.png", _png(0xff3366cc))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false)
+          val config = _config(root, Some("1.0.0"), videoenabled = false)
 
           When("update-publication executes its producer sequence")
           val result = CozyBok.updatePublication(config, VoicevoxStub, VideoRunnerStub)
@@ -51,7 +51,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           _video_package(root, "video", Some("development-process/video"))
           _media(root, "media", "development-process/media", "ja", "images/media.png", _png(0xff3366cc))
           _project_package(root)
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = true)
 
           When("update-publication publishes all three producer surfaces")
           val result = CozyBok.updatePublication(
@@ -75,7 +75,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Given("a valid infographic and a local no-op upload workflow")
           _write_config(root)
           _media(root, "publish", "development-process/publish", "ja", "images/publish.png", _png(0xff3366cc))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false)
+          val config = _config(root, Some("1.0.0"), videoenabled = false)
           val runner = new RecordingRunner(root)
 
           When("one-stop publish runs with a recording build runner")
@@ -100,7 +100,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           val repository = root.resolve("repository")
           val beforepublication = _tree(publication)
           val beforerepository = _tree(repository)
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = true)
           val refusingvoicevox = new CozyVideo.VoicevoxClient {
             def speakers(baseurl: String): io.circe.Json = fail("planning must not request video speakers")
             def audioQuery(baseurl: String, text: String, speakerid: Int): io.circe.Json = fail("planning must not create video audio queries")
@@ -124,32 +124,6 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
       }
     }
 
-    "revalidate committed infographic evidence before registry merge" which {
-      "preserve every registry bundle when the build manifest disappears after artifact installation" in {
-        _with_root { root =>
-          Given("a valid infographic, its build manifest, and an unrelated configured registry bundle")
-          _write_config(root)
-          val fixture = _media(root, "post-install", "development-process/post-install", "ja", "images/post-install.png", _png(0xff3366cc))
-          val registry = root.resolve("src/main/publication/existing.json")
-          _write_bundle(registry, "existing")
-          val before = _registry_bundles(root.resolve("src/main/publication"))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false)
-          val manifest = root.resolve("src/main/doxsite/post-install/target/cozy-media/manifest.json")
-
-          When("the manifest is removed after the artifact commit and before the registry merge")
-          val error = intercept[IllegalArgumentException](
-            CozyArticleMediaInfographicCommand.publish(config, () => (), () => Files.delete(manifest))
-          )
-
-          Then("the artifact may be installed but every registry bundle remains byte-identical")
-          error.getMessage should include("build manifest")
-          Files.isRegularFile(fixture.destination) shouldBe true
-          _registry_bundles(root.resolve("src/main/publication")) shouldBe before
-          Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
-        }
-      }
-    }
-
     "perform complete non-mutating one-stop dry-run preflight" which {
       "report descriptor/resource/article/locale/destination/version without build or upload" in {
         _with_root { root =>
@@ -159,7 +133,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Files.createDirectories(root.resolve("src/main/publication"))
           val beforepublication = _tree(root.resolve("src/main/publication"))
           val beforerepository = _tree(root.resolve("repository"))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false, dryrun = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = false, dryrun = true)
           val output = new ByteArrayOutputStream()
           val runner = new RecordingRunner(root)
 
@@ -200,7 +174,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Files.createDirectories(root.resolve("src/main/publication"))
           val beforepublication = _tree(root.resolve("src/main/publication"))
           val beforerepository = _tree(root.resolve("repository"))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = true, dryrun = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = true, dryrun = true)
           val refusingvoicevox = new CozyVideo.VoicevoxClient {
             def speakers(baseurl: String): io.circe.Json = fail("dry-run must not synthesize video audio")
             def audioQuery(baseurl: String, text: String, speakerid: Int): io.circe.Json = fail("dry-run must not create video audio queries")
@@ -225,8 +199,6 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
             "video" -> Json.fromString("dry-video"),
             "version" -> Json.fromString("1.0.0"),
             "destination" -> Json.fromString(root.resolve("repository/video/dry-video/1.0.0/dry-video-1.0.0.mp4").toString),
-            "destinationState" -> Json.fromString("missing"),
-            "forceRequested" -> Json.fromBoolean(false),
             "owner" -> Json.fromString("article-media")
           )))
           _tree(root.resolve("src/main/publication")) shouldBe beforepublication
@@ -235,82 +207,35 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
         }
       }
 
-      "reject an existing video destination without force before invoking render collaborators" in {
-        _with_root { root =>
-          Given("a bound video package whose final repository artifact already exists")
-          _write_config(root)
-          _video_package(root, "video-conflict", Some("development-process/video-conflict"))
-          Files.createDirectories(root.resolve("src/main/publication"))
-          val destination = root.resolve("repository/video/video-conflict/1.0.0/video-conflict-1.0.0.mp4")
-          _write_bytes(destination, Array[Byte](1, 2, 3))
-          val beforepublication = _tree(root.resolve("src/main/publication"))
-          val beforerepository = _tree(root.resolve("repository"))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = true, dryrun = true)
-          val refusingvoicevox = new CozyVideo.VoicevoxClient {
-            def speakers(baseurl: String): io.circe.Json = fail("dry-run must not inspect video audio")
-            def audioQuery(baseurl: String, text: String, speakerid: Int): io.circe.Json = fail("dry-run must not create video audio")
-            def synthesis(baseurl: String, speakerid: Int, audioquery: io.circe.Json): Array[Byte] = fail("dry-run must not synthesize video audio")
-          }
-          val refusingrunner = new CozyVideo.VideoProcessRunner {
-            def run(command: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = fail("dry-run must not render video")
-          }
-
-          When("one-stop dry-run preflight examines the existing final target")
-          val error = intercept[IllegalArgumentException](CozyBok.publish(config, new RecordingRunner(root), refusingvoicevox, refusingrunner))
-
-          Then("force-required replacement is rejected without rendering, registry mutation, manifest output, or byte replacement")
-          error.getMessage should include("Use --force")
-          _tree(root.resolve("src/main/publication")) shouldBe beforepublication
-          _tree(root.resolve("repository")) shouldBe beforerepository
-          Files.exists(config.manifestPath) shouldBe false
-        }
-      }
-
-      "report an explicitly forced existing video destination without replacing its bytes" in {
+      "report an existing selected video destination during dry-run" in {
         _with_root { root =>
           Given("a bound video package and an existing final repository artifact")
           _write_config(root)
-          _video_package(root, "video-forced", Some("development-process/video-forced"))
+          _video_package(root, "video-existing", Some("development-process/video-existing"))
           Files.createDirectories(root.resolve("src/main/publication"))
-          val destination = root.resolve("repository/video/video-forced/1.0.0/video-forced-1.0.0.mp4")
+          val destination = root.resolve("repository/video/video-existing/1.0.0/video-existing-1.0.0.mp4")
           _write_bytes(destination, Array[Byte](4, 5, 6))
           val before = Files.readAllBytes(destination).toVector
-          val config = _config(root, Some("1.0.0"), force = true, videoenabled = true, dryrun = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = true, dryrun = true)
 
-          When("one-stop dry-run plans an explicitly forced video replacement")
+          When("one-stop dry-run plans the selected existing video destination")
           CozyBok.publish(config, new RecordingRunner(root), VoicevoxStub, VideoRunnerStub)
 
-          Then("the planned candidate records current destination state and force intent without replacement")
+          Then("the planned candidate retains identity, target, version and owner while dry-run leaves outputs unchanged")
           val manifest = parse(Files.readString(config.manifestPath, StandardCharsets.UTF_8)).fold(error => fail(error.message), identity)
-          manifest.hcursor.downField("videoCandidates").downArray.downField("destinationState").as[String] shouldBe Right("existing-regular-file")
-          manifest.hcursor.downField("videoCandidates").downArray.downField("forceRequested").as[Boolean] shouldBe Right(true)
+          val candidate = manifest.hcursor.downField("videoCandidates").downArray
+          candidate.downField("articleIdentity").as[String] shouldBe Right("development-process/video-existing")
+          candidate.downField("locale").as[String] shouldBe Right("ja")
+          candidate.downField("role").as[String] shouldBe Right("video")
+          candidate.downField("video").as[String] shouldBe Right("video-existing")
+          candidate.downField("version").as[String] shouldBe Right("1.0.0")
+          candidate.downField("destination").as[String] shouldBe Right(destination.toString)
+          candidate.downField("owner").as[String] shouldBe Right("article-media")
           Files.readAllBytes(destination).toVector shouldBe before
           Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
         }
       }
 
-      "reject an external registry snapshot change without mutating registry bytes" in {
-        _with_root { root =>
-          Given("a valid dry-run candidate and a configured registry bundle")
-          _write_config(root)
-          _media(root, "snapshot", "development-process/snapshot", "ja", "images/snapshot.png", _png(0xff3366cc))
-          val bundle = root.resolve("src/main/publication/existing.json")
-          _write_bundle(bundle, "existing")
-          val changed = _bundle_json("existing", pretty = true).getBytes(StandardCharsets.UTF_8)
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false, dryrun = true)
-
-          When("read-only dry-run planning observes a changed registry bundle before snapshot revalidation")
-          val error = intercept[IllegalArgumentException](
-            CozyArticleMediaInfographicCommand.plan(config, () => _write_bytes(bundle, changed))
-          )
-
-          Then("planning fails and leaves the controlled external registry bytes in place")
-          error.getMessage should include("stale read-only snapshot")
-          Files.readAllBytes(bundle).toVector shouldBe changed.toVector
-          Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
-          Files.exists(root.resolve("repository/images/snapshot.png")) shouldBe false
-        }
-      }
     }
 
     "preserve publication-root alias parity" which {
@@ -322,7 +247,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           val target = Files.createDirectories(root.resolve("publication-target"))
           val alias = root.resolve("publication-alias")
           Files.createSymbolicLink(alias, target)
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false, publication = "publication-alias")
+          val config = _config(root, Some("1.0.0"), videoenabled = false, publication = "publication-alias")
 
           When("read-only planning and actual publication use the configured alias")
           CozyArticleMediaInfographicCommand.plan(config)
@@ -355,13 +280,13 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
       }
     }
 
-    "reject dry-run media preflight before mutation" which {
+    "retain ordinary dry-run media preflight" which {
       "fail when version is missing" in {
         _with_root { root =>
           Given("a selected infographic without an explicit version")
           _write_config(root)
           _media(root, "missing-version", "development-process/version", "ja", "images/version.png", _png(0xff3366cc))
-          val config = _config(root, None, force = false, videoenabled = false, dryrun = true)
+          val config = _config(root, None, videoenabled = false, dryrun = true)
 
           When("one-stop dry-run performs media preflight")
           val error = intercept[IllegalArgumentException](CozyBok.publish(config, new RecordingRunner(root), VoicevoxStub, VideoRunnerStub))
@@ -374,7 +299,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
         }
       }
 
-      "fail a differing destination without force and preserve bytes" in {
+      "plan a differing destination without replacing its bytes" in {
         _with_root { root =>
           Given("a differing existing infographic destination")
           _write_config(root)
@@ -382,53 +307,18 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           val destination = root.resolve("repository/images/conflict.png")
           _write_bytes(destination, _png(0xffcc6633))
           val before = Files.readAllBytes(destination).toVector
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false, dryrun = true)
+          val config = _config(root, Some("1.0.0"), videoenabled = false, dryrun = true)
 
           When("one-stop dry-run validates the current destination")
-          val error = intercept[IllegalArgumentException](CozyBok.publish(config, new RecordingRunner(root), VoicevoxStub, VideoRunnerStub))
-
-          Then("the conflict fails without manifest, registry, or byte replacement")
-          error.getMessage should include("use force")
-          Files.readAllBytes(destination).toVector shouldBe before
-          Files.exists(config.manifestPath) shouldBe false
-          Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
-        }
-      }
-
-      "accept a differing destination with explicit force without replacing it" in {
-        _with_root { root =>
-          Given("a differing existing infographic destination and explicit force")
-          _write_config(root)
-          _media(root, "forced", "development-process/forced", "ja", "images/forced.png", _png(0xff3366cc))
-          val destination = root.resolve("repository/images/forced.png")
-          _write_bytes(destination, _png(0xffcc6633))
-          val before = Files.readAllBytes(destination).toVector
-          val config = _config(root, Some("1.0.0"), force = true, videoenabled = false, dryrun = true)
-
-          When("one-stop dry-run plans the forced replacement")
           CozyBok.publish(config, new RecordingRunner(root), VoicevoxStub, VideoRunnerStub)
 
-          Then("the plan succeeds but does not replace the destination")
+          Then("the plan manifest is written while destination bytes and registry remain unchanged")
           Files.readAllBytes(destination).toVector shouldBe before
           Files.isRegularFile(config.manifestPath) shouldBe true
           Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
         }
       }
-    }
 
-    "isolate legacy video force from infographic force" which {
-      "retain video force while leaving mediaForce disabled" in {
-        _with_root { root =>
-          Given("a project config with bok.video.force enabled and no CLI force")
-          _write_config(root, videoforce = true)
-
-          When("publication arguments are normalized")
-          val config = CozyBok.PublicationConfig.create("publish", List(root.toString, "--dry-run", "--version", "1.0.0"))
-          Then("legacy video force remains enabled but infographic force remains isolated")
-          config.force shouldBe true
-          config.mediaForce shouldBe false
-        }
-      }
     }
 
     "preserve media-free compatibility" which {
@@ -437,7 +327,7 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Given("a source with no media descriptors and an absent publication root")
           Files.createDirectories(root.resolve("src/main/doxsite"))
           Files.createDirectories(root.resolve("repository"))
-          val config = _config(root, Some("1.0.0"), force = false, videoenabled = false)
+          val config = _config(root, Some("1.0.0"), videoenabled = false)
 
           When("the infographic plan is evaluated")
           val plan = CozyArticleMediaInfographicCommand.plan(config)
@@ -447,8 +337,10 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
           Files.exists(root.resolve("src/main/publication")) shouldBe false
           _direct_children(root.resolve("repository")) shouldBe Vector.empty
 
-          And("an explicit publish-media dry-run remains invalid")
+          When("the explicit publish-media command receives dry-run")
           val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicCommand.publish(config.copy(dryRun = true)))
+
+          Then("the explicit command rejects dry-run")
           error.getMessage should include("only supported by bok publish")
         }
       }
@@ -481,27 +373,19 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
   private def _config(
     root: Path,
     version: Option[String],
-    force: Boolean,
     videoenabled: Boolean,
     dryrun: Boolean = false,
     publication: String = "src/main/publication"
   ): CozyBok.PublicationConfig =
-    CozyBok.PublicationConfig(root, "src/main/doxsite", publication, None, "repository", version, force, videoenabled, dryrun, "draft", force)
+    CozyBok.PublicationConfig(root, "src/main/doxsite", publication, None, "repository", version, videoenabled, dryrun, "draft")
 
-  private def _bundle_json(name: String, pretty: Boolean = false): String =
-    if (pretty)
-      s"""{
-         |  "type": "publication-bundle",
-         |  "publication": { "name": "$name" },
-         |  "entries": []
-         |}""".stripMargin
-    else
-      s"""{"type":"publication-bundle","publication":{"name":"$name"},"entries":[]}"""
+  private def _bundle_json(name: String): String =
+    s"""{"type":"publication-bundle","publication":{"name":"$name"},"entries":[]}"""
 
   private def _write_bundle(path: Path, name: String): Unit =
     _write_bytes(path, _bundle_json(name).getBytes(StandardCharsets.UTF_8))
 
-  private def _write_config(root: Path, videoforce: Boolean = false, project: Boolean = false): Unit = {
+  private def _write_config(root: Path, project: Boolean = false): Unit = {
     val projectconfig = if (project)
       s"""  projects:
          |    project:
@@ -511,8 +395,6 @@ final class CozyArticleMediaPublicationOrchestrationSpec extends AnyWordSpec wit
     else ""
     val command =
       s"""bok:
-         |  video:
-         |    force: ${videoforce}
          |${projectconfig}
          |  workflow:
          |    upload:

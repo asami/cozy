@@ -3,7 +3,7 @@
 The semantic foundation is a Cozy-only, additive boundary between admitted CML
 model data and later consumer-neutral projections. It centers a validated,
 immutable `Catalog`, so consumers can retain exact qualified identities and
-source snapshots without reparsing CML or rebuilding identity from display
+source attribution without reparsing CML or rebuilding identity from display
 text.
 
 ## Boundary shape
@@ -11,8 +11,8 @@ text.
 The design separates four concerns:
 
 - qualified model, Term, relation, and profile identities;
-- source attribution, which records authority and an admitted project-relative
-  snapshot without becoming identity;
+- source attribution, which records authority, canonical project-relative path, and optional positive
+  line without becoming identity;
 - explicit `Presence`, which makes semantic gaps observable without inventing
   defaults or policy; and
 - common `SemanticReference` vocabulary for future CBD Support and Capability
@@ -53,3 +53,21 @@ Detailed projections are deferred to Phases 54.1–54.7. MMD-54-03 separately
 owns the versioned publication envelope and compatibility policy. Phase 64
 later consumes the reference vocabulary for Capability IR without redefining
 this foundation.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.

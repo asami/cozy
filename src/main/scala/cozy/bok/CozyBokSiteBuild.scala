@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipFile, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
@@ -33,7 +33,7 @@ import io.circe.syntax._
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 28, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -110,6 +110,8 @@ private[cozy] trait CozyBokSiteBuild {
       "-e",
       "SMARTDOX_KROKI_PORT=8000",
       "-e",
+      "KROKI_LISTEN=127.0.0.1:8000",
+      "-e",
       s"SMARTDOX_KROKI_DOCKER_IMAGE=${config.dockerImage}",
       "-v",
       s"${config.project.toString}:/workspace",
@@ -174,10 +176,9 @@ private[cozy] trait CozyBokSiteBuild {
       "css/cozy-bok-dashboard.css" -> Right("cozy/antora-ui/css/cozy-bok-dashboard.css")
     )
     val assetnames = assets.map(_._1).toSet
-    val tmp = Files.createTempFile(Option(target.getParent).getOrElse(Paths.get(".")), "ui-bundle-", ".zip")
+    val in = new ZipInputStream(Files.newInputStream(source))
     try {
-      val in = new ZipInputStream(Files.newInputStream(source))
-      val out = new ZipOutputStream(Files.newOutputStream(tmp))
+      val out = new ZipOutputStream(Files.newOutputStream(target))
       try {
         var entry = in.getNextEntry
         while (entry != null) {
@@ -205,11 +206,9 @@ private[cozy] trait CozyBokSiteBuild {
         }
       } finally {
         out.close()
-        in.close()
       }
-      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING)
     } finally {
-      Files.deleteIfExists(tmp)
+      in.close()
     }
   }
 
@@ -225,30 +224,6 @@ private[cozy] trait CozyBokSiteBuild {
           else {
             Option(target.getParent).foreach(Files.createDirectories(_))
             Files.copy(path, target, StandardCopyOption.REPLACE_EXISTING)
-          }
-        }
-      } finally {
-        stream.close()
-      }
-    }
-
-  // Preserve links so handoff validation sees the same trust boundary after target cleanup.
-  private[bok] def _copy_sie_handoff_directory(source: Path, dest: Path): Unit =
-    if (Files.exists(source)) {
-      val stream = Files.walk(source)
-      try {
-        stream.iterator.asScala.foreach { path =>
-          val rel = source.relativize(path)
-          val target = dest.resolve(rel)
-          if (Files.isSymbolicLink(path)) {
-            Option(target.getParent).foreach(Files.createDirectories(_))
-            Files.deleteIfExists(target)
-            Files.createSymbolicLink(target, Files.readSymbolicLink(path))
-          } else if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-            Files.createDirectories(target)
-          else {
-            Option(target.getParent).foreach(Files.createDirectories(_))
-            Files.copy(path, target, LinkOption.NOFOLLOW_LINKS, StandardCopyOption.REPLACE_EXISTING)
           }
         }
       } finally {

@@ -3,7 +3,8 @@ package cozy.ui
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 2, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUi {
@@ -231,7 +232,6 @@ private[cozy] object CozyLogicalUi {
   )
 
   final case class UseCaseScreenProjection(
-    candidateIdentity: String,
     catalog: Vector[UseCaseLayers],
     steps: Vector[UiUseCaseStep],
     screens: Vector[LogicalScreen],
@@ -239,13 +239,9 @@ private[cozy] object CozyLogicalUi {
     aggregateBoundaries: Vector[AggregateBoundary]
   )
 
-  final case class AcceptanceDecision(decisionId: String, candidateIdentity: String) {
-    def decisionIdentity: String = CozyLogicalUiProjection.decisionIdentity(this)
-  }
+  final case class AcceptanceDecision(decisionId: String)
 
   final class LogicalUiCandidate private[CozyLogicalUi] (
-    val identity: String,
-    val inputIdentity: String,
     val input: CandidateInput
   ) {
     def canonicalContent: String = CozyLogicalUiProjection.canonicalLogicalContent(input)
@@ -253,27 +249,19 @@ private[cozy] object CozyLogicalUi {
   }
 
   final class AcceptedLogicalUi private[CozyLogicalUi] (
-    val identity: String,
     val candidate: LogicalUiCandidate,
     val decision: AcceptanceDecision
   )
 
   final class LogicalUiProjection private[CozyLogicalUi] (
-    val identity: String,
     val candidate: LogicalUiCandidate,
     val input: UseCaseScreenProjection
   ) {
-    def canonicalContent: String = CozyLogicalUiProjection.canonicalProjectionContent(candidate.identity, input)
+    def canonicalContent: String = CozyLogicalUiProjection.canonicalProjectionContent(input)
   }
 
   private val _schema = "cozy.logical-ui.v1"
   private val _version = 1
-  private val _candidate_kind = "candidate"
-  private val _consumed_input_kind = "consumed-input"
-  private val _acceptance_decision_kind = "acceptance-decision"
-  private val _accepted_kind = "accepted"
-  private val _projection_schema = "cozy.usecase-screen-projection.v1"
-  private val _projection_version = 1
   private val _component_segment_pattern = "[A-Za-z][A-Za-z0-9_-]*".r
 
   def schema: String = _schema
@@ -283,8 +271,7 @@ private[cozy] object CozyLogicalUi {
     _normalize_input(input) match {
       case Left(error) => Left(error)
       case Right(normalized) =>
-        val content = CozyLogicalUiProjection.canonicalLogicalContent(normalized)
-        Right(new LogicalUiCandidate(CozyLogicalUiProjection.identity(content), CozyLogicalUiProjection.inputIdentity(content), normalized))
+        Right(new LogicalUiCandidate(normalized))
     }
 
   def project(
@@ -294,8 +281,7 @@ private[cozy] object CozyLogicalUi {
     _normalize_projection(candidate, input) match {
       case Left(error) => Left(error)
       case Right(normalized) =>
-        val content = CozyLogicalUiProjection.canonicalProjectionContent(candidate.identity, normalized)
-        Right(new LogicalUiProjection(CozyLogicalUiProjection.identity(content), candidate, normalized))
+        Right(new LogicalUiProjection(candidate, normalized))
     }
   }
 
@@ -306,14 +292,9 @@ private[cozy] object CozyLogicalUi {
     if (candidate == null)
       Left(LogicalUiError("LUI43_ACCEPTANCE_CANDIDATE_MISSING", "candidate", "candidate is required"))
     else
-      _acceptance_error(candidate, decision) match {
+      _acceptance_error(decision) match {
         case Some(error) => Left(error)
-        case None =>
-          val identity = CozyLogicalUiProjection.acceptedIdentity(candidate, decision)
-          if (identity == candidate.identity)
-            Left(LogicalUiError("LUI43_ACCEPTANCE_IDENTITY_INVALID", "acceptance", "accepted identity must differ from candidate identity"))
-          else
-            Right(new AcceptedLogicalUi(identity, candidate, decision))
+        case None => Right(new AcceptedLogicalUi(candidate, decision))
       }
   }
 
@@ -325,10 +306,6 @@ private[cozy] object CozyLogicalUi {
       Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "candidate", "a LogicalUiCandidate is required"))
     else if (input == null)
       Left(LogicalUiError("LUI43_PROJECTION_INPUT_MISSING", "projection", "a typed UseCase-to-Screen projection is required"))
-    else if (_required_text_error(input.candidateIdentity, "projection.candidateIdentity").isDefined)
-      Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "projection.candidateIdentity", "candidate identity must be nonempty and trimmed"))
-    else if (input.candidateIdentity != candidate.identity)
-      Left(LogicalUiError("LUI43_PROJECTION_CANDIDATE_MISMATCH", "projection.candidateIdentity", "projection must bind the exact LogicalUiCandidate identity"))
     else
       _normalize_projection_catalog(input.catalog, candidate.input.useCases) match {
         case Left(error) => Left(error)
@@ -966,18 +943,11 @@ private[cozy] object CozyLogicalUi {
     else
       None
 
-  private def _acceptance_error(candidate: LogicalUiCandidate, decision: AcceptanceDecision): Option[LogicalUiError] = {
+  private def _acceptance_error(decision: AcceptanceDecision): Option[LogicalUiError] = {
     if (decision == null)
       Some(LogicalUiError("LUI43_ACCEPTANCE_DECISION_MISSING", "decision", "an explicit acceptance decision is required"))
     else
-      _required_text_error(decision.decisionId, "decision.decisionId").orElse {
-        _required_text_error(decision.candidateIdentity, "decision.candidateIdentity")
-      }.orElse {
-        if (decision.candidateIdentity != candidate.identity)
-          Some(LogicalUiError("LUI43_ACCEPTANCE_CANDIDATE_MISMATCH", "decision.candidateIdentity", "acceptance decision must bind exactly the supplied candidate identity"))
-        else
-          None
-      }
+      _required_text_error(decision.decisionId, "decision.decisionId")
   }
 
   private def _binding_key(value: ComponentBinding): (String, String, String, String) =

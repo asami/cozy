@@ -1,7 +1,7 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, Path, StandardCopyOption}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.time.Instant
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser => JacksonParser}
@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 21, 2026
- * @version Aug. 21, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -36,9 +36,6 @@ private[archive] object LegacyComponentRepositoryMigration {
     latestSnapshot: Option[String]
   )
   private final case class LegacyIndex(entries: Vector[LegacyEntry])
-  private final case class Prepared(destination: Path, bytes: Array[Byte])
-  private final case class Staged(destination: Path, temporary: Path)
-  private final case class Snapshot(destination: Path, backup: Option[Path])
 
   /** Returns a strict v2 index only when `indexPath` is a v1 index. */
   def migrateIfNeeded(warehouse: Path, indexPath: Path, generatedAt: Instant): Option[ComponentRepositoryIndex] = {
@@ -54,9 +51,7 @@ private[archive] object LegacyComponentRepositoryMigration {
           _require_no_duplicate_json_fields(new String(original, StandardCharsets.UTF_8), "index")
           val legacy = _legacy_index(original)
           val mappings = _load_mapping(warehouse)
-          val migrated = _prepare(warehouse, indexPath, legacy, mappings, generatedAt)
-          _commit(migrated._2 :+ Prepared(indexPath, ComponentRepositoryIndex.render(migrated._1).getBytes(StandardCharsets.UTF_8)))
-          Some(migrated._1)
+          Some(_migrate(warehouse, indexPath, legacy, mappings, generatedAt))
         } catch {
           case error: Throwable if _is_migration_error(error) => throw error
           case NonFatal(error) =>
@@ -133,157 +128,95 @@ private[archive] object LegacyComponentRepositoryMigration {
     mappings
   }
 
-  private def _prepare(
+  private def _migrate(
     warehouse: Path,
-    indexPath: Path,
+    indexpath: Path,
     legacy: LegacyIndex,
     mappings: Vector[Mapping],
-    generatedAt: Instant
-  ): (ComponentRepositoryIndex, Vector[Prepared]) = {
+    generatedat: Instant
+  ): ComponentRepositoryIndex = {
     val cars = legacy.entries.filter(_.kind == "car")
-    val mappingByArtifact = mappings.map(mapping => mapping.artifactId -> mapping).toMap
-    if (cars.exists(entry => !mappingByArtifact.contains(entry.artifactId)))
+    val mappingbyartifact = mappings.map(mapping => mapping.artifactId -> mapping).toMap
+    if (cars.exists(entry => !mappingbyartifact.contains(entry.artifactId)))
       _fail("mapping.missing")
     if (mappings.exists(mapping => !cars.exists(_.artifactId == mapping.artifactId)))
       _fail("mapping.unused")
 
-    val prepared = scala.collection.mutable.ArrayBuffer.empty[Prepared]
     val v2cars = cars.map { entry =>
-      val mapping = mappingByArtifact(entry.artifactId)
-      val catalogPath = _legacy_catalog_path(warehouse, indexPath, entry.catalog)
-      if (!Files.isRegularFile(catalogPath) || Files.isSymbolicLink(catalogPath))
+      val mapping = mappingbyartifact(entry.artifactId)
+      val catalogpath = _legacy_catalog_path(warehouse, indexpath, entry.catalog)
+      if (!Files.isRegularFile(catalogpath) || Files.isSymbolicLink(catalogpath))
         _fail("catalog.path")
-      val catalog = RepositoryArtifactCatalog.loadLegacyMigration(catalogPath)
+      val catalog = RepositoryArtifactCatalog.loadLegacyMigration(catalogpath)
       if (catalog.artifactId != entry.artifactId || catalog.versions.isEmpty)
         _fail("catalog.shape")
       val versions = catalog.versions.map { version =>
         if (version.version.trim.isEmpty || version.file.forall(_.trim.isEmpty))
           _fail("catalog.shape")
         val coordinate = _coordinate(mapping, version.version)
-        val legacyArchive = _inside_warehouse(warehouse, version.file.get, "archive.path")
-        if (!Files.isRegularFile(legacyArchive) || Files.isSymbolicLink(legacyArchive))
+        val legacyarchive = _inside_warehouse(warehouse, version.file.get, "archive.path")
+        if (!Files.isRegularFile(legacyarchive) || Files.isSymbolicLink(legacyarchive))
           _fail("archive.path")
-        val digest = RepositoryArtifactPublisher.sha256(legacyArchive)
-        version.checksumSha256.foreach { expected =>
-          if (expected != digest) _fail("integrity.mismatch")
-        }
-        val legacySidecar = legacyArchive.resolveSibling(legacyArchive.getFileName.toString + ".sha256")
-        if (Files.exists(legacySidecar)) {
-          if (!Files.isRegularFile(legacySidecar) || Files.isSymbolicLink(legacySidecar) ||
-            new String(Files.readAllBytes(legacySidecar), StandardCharsets.UTF_8) != digest + "\n")
-            _fail("integrity.mismatch")
-        }
-        val canonicalArchive = warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath).normalize()
-        val canonicalSidecar = canonicalArchive.resolveSibling(canonicalArchive.getFileName.toString + ".sha256")
-        _add_if_new(prepared, canonicalArchive, Files.readAllBytes(legacyArchive))
-        _add_if_new(prepared, canonicalSidecar, (digest + "\n").getBytes(StandardCharsets.UTF_8))
+        val canonicalarchive = warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath).normalize()
+        _copy(legacyarchive, canonicalarchive)
         version.copy(
           component = Some(coordinate.qualifiedId),
-          file = Some(s"repository/car/${coordinate.carRepositoryRelativePath}"),
-          checksumSha256 = Some(digest),
-          integrityKey = Some(coordinate.integrityKey(digest))
+          file = Some(s"repository/car/${coordinate.carRepositoryRelativePath}")
         )
       }
       if (versions.map(_.version).distinct.size != versions.size)
         _fail("catalog.shape")
       val coordinate = _coordinate(mapping, "0.0.0")
-      val migratedCatalog = RepositoryArtifactCatalog(
+      val migratedcatalog = RepositoryArtifactCatalog(
         schemaVersion = "2", kind = "car", artifactId = coordinate.mavenArtifactId,
         recommended = catalog.recommended, latestStable = catalog.latestStable, latestSnapshot = catalog.latestSnapshot,
         status = catalog.status.orElse(Some(entry.status)), aliases = catalog.aliases, versions = versions,
         tags = catalog.tags, terms = catalog.terms, namespace = Some(mapping.namespace), id = Some(mapping.id)
       )
-      val canonicalCatalog = warehouse.resolve("repository/catalog").resolve(coordinate.carCatalogRelativePath).normalize()
-      _add_if_new(prepared, canonicalCatalog, migratedCatalog.toYaml.getBytes(StandardCharsets.UTF_8))
-      _copy_sidecars(prepared, catalogPath, canonicalCatalog, entry.artifactId)
+      val canonicalcatalog = warehouse.resolve("repository/catalog").resolve(coordinate.carCatalogRelativePath).normalize()
+      _write(canonicalcatalog, migratedcatalog.toYaml)
+      _copy_sidecars(catalogpath, canonicalcatalog, entry.artifactId)
       ComponentRepositoryIndexEntry(
         "car", coordinate.mavenArtifactId, coordinate.carCatalogRelativePath, entry.status,
-        migratedCatalog.recommended, migratedCatalog.latestStable, migratedCatalog.latestSnapshot,
+        migratedcatalog.recommended, migratedcatalog.latestStable, migratedcatalog.latestSnapshot,
         Some(mapping.namespace), Some(mapping.id)
       )
     }
     val sars = legacy.entries.filter(_.kind == "sar").map { entry =>
       ComponentRepositoryIndexEntry("sar", entry.artifactId, entry.catalog, entry.status, entry.recommended, entry.latestStable, entry.latestSnapshot)
     }
-    val index = ComponentRepositoryIndex(ComponentRepositoryIndex.SCHEMA_VERSION, generatedAt, v2cars ++ sars).normalized
-    val staged = _stage(prepared.toVector)
-    try {
-      val candidates = staged.map(item => item.destination.toAbsolutePath.normalize() -> Some(item.temporary)).toMap
-      ComponentRepositoryIndex.validateCatalogs(index, indexPath, candidates)
-      staged.foreach(item => Files.deleteIfExists(item.temporary))
-      index -> prepared.toVector
-    } catch {
-      case error: Throwable =>
-        staged.foreach(item => Files.deleteIfExists(item.temporary))
-        throw error
-    }
+    val index = ComponentRepositoryIndex(ComponentRepositoryIndex.SCHEMA_VERSION, generatedat, v2cars ++ sars).normalized
+    ComponentRepositoryIndex.validateCatalogs(index, indexpath)
+    ComponentRepositoryIndex.write(indexpath, index)
+    index
   }
 
   private def _coordinate(mapping: Mapping, version: String): CozyComponentReleaseCoordinateCodec.Coordinate =
     try CozyComponentReleaseCoordinateCodec.admit(mapping.namespace, mapping.id, version, "migration-manifest")
     catch { case NonFatal(_) => _fail("mapping.identity") }
 
-  private def _copy_sidecars(prepared: scala.collection.mutable.ArrayBuffer[Prepared], legacyCatalog: Path, canonicalCatalog: Path, artifactId: String): Unit =
+  private def _copy_sidecars(legacycatalog: Path, canonicalcatalog: Path, artifactid: String): Unit =
     Vector(".cml", ".model-metadata.json", ".model-metadata.yaml").foreach { suffix =>
-      val source = legacyCatalog.resolveSibling(artifactId + suffix)
+      val source = legacycatalog.resolveSibling(artifactid + suffix)
       if (Files.exists(source)) {
         if (!Files.isRegularFile(source) || Files.isSymbolicLink(source)) _fail("catalog.sidecar")
-        _add_if_new(prepared, canonicalCatalog.resolveSibling(artifactId + suffix), Files.readAllBytes(source))
+        _copy(source, canonicalcatalog.resolveSibling(artifactid + suffix))
       }
     }
 
-  private def _add_if_new(prepared: scala.collection.mutable.ArrayBuffer[Prepared], destination: Path, bytes: Array[Byte]): Unit = {
-    val normalized = destination.toAbsolutePath.normalize()
-    prepared.find(_.destination.toAbsolutePath.normalize() == normalized) match {
-      case Some(existing) if java.util.Arrays.equals(existing.bytes, bytes) => ()
-      case Some(_) => _fail("collision")
-      case None if Files.exists(normalized) =>
-        if (!Files.isRegularFile(normalized) || Files.isSymbolicLink(normalized) || !java.util.Arrays.equals(Files.readAllBytes(normalized), bytes))
-          _fail("collision")
-      case None => prepared += Prepared(normalized, bytes)
-    }
+  private def _copy(source: Path, destination: Path): Unit = {
+    if (Files.isSymbolicLink(destination) || (Files.exists(destination) && !Files.isRegularFile(destination)))
+      _fail("collision")
+    Option(destination.getParent).foreach(Files.createDirectories(_))
+    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  private def _stage(prepared: Vector[Prepared]): Vector[Staged] =
-    prepared.map { item =>
-      Option(item.destination.getParent).foreach(Files.createDirectories(_))
-      val temporary = Files.createTempFile(item.destination.getParent, s".${item.destination.getFileName}-migration-", ".tmp")
-      Files.write(temporary, item.bytes)
-      Staged(item.destination, temporary)
-    }
-
-  /** The index candidate is deliberately appended last: it is the visibility marker. */
-  private def _commit(prepared: Vector[Prepared]): Unit = {
-    val staged = _stage(prepared)
-    var snapshots = Vector.empty[Snapshot]
-    try {
-      snapshots = staged.map(item => _snapshot(item.destination))
-      staged.foreach { item => _replace(item.destination, item.temporary) }
-    } catch {
-      case error: Throwable =>
-        snapshots.reverse.foreach(_restore)
-        throw error
-    } finally {
-      staged.foreach(item => Files.deleteIfExists(item.temporary))
-      snapshots.foreach(_.backup.foreach(Files.deleteIfExists(_)))
-    }
+  private def _write(destination: Path, text: String): Unit = {
+    if (Files.isSymbolicLink(destination) || (Files.exists(destination) && !Files.isRegularFile(destination)))
+      _fail("collision")
+    Option(destination.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(destination, text, StandardCharsets.UTF_8)
   }
-
-  private def _snapshot(destination: Path): Snapshot =
-    if (Files.exists(destination)) {
-      val backup = Files.createTempFile(destination.getParent, s".${destination.getFileName}-migration-rollback-", ".bak")
-      Files.copy(destination, backup, StandardCopyOption.REPLACE_EXISTING)
-      Snapshot(destination, Some(backup))
-    } else Snapshot(destination, None)
-
-  private def _restore(snapshot: Snapshot): Unit = snapshot.backup match {
-    case Some(backup) => _replace(snapshot.destination, backup)
-    case None => Files.deleteIfExists(snapshot.destination)
-  }
-
-  private def _replace(destination: Path, source: Path): Unit =
-    try Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-    catch { case _: AtomicMoveNotSupportedException => Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING) }
 
   private def _inside_warehouse(warehouse: Path, relative: String, code: String): Path = {
     val root = warehouse.toAbsolutePath.normalize()

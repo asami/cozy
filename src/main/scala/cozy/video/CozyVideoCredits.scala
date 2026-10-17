@@ -3,10 +3,9 @@ package cozy.video
 import cozy.config.{CozyProjectContext, CozyProjectYamlConfig}
 import io.circe.{Decoder, HCursor, Json}
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
+import scala.util.Try
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
 
@@ -15,7 +14,8 @@ import org.goldenport.RAISE
  * Personal attribution policy belongs in discovered profiles, never here.
  *
  * @since   Jul. 20, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCredits {
@@ -185,7 +185,6 @@ private[cozy] object CozyVideoCredits {
 
   final case class ProfileSelection(id: String, layer: String, configPath: Option[Path])
 
-  private final case class ProfileSnapshot(path: Path, bytes: Array[Byte])
   private final case class ProfileCatalog(
     profiles: Map[String, ProfileSource],
     considered: Vector[(String, Option[Path], Vector[Path], Vector[String])]
@@ -241,15 +240,13 @@ private[cozy] object CozyVideoCredits {
         RAISE.invalidArgumentFault(errors.map(x => s"${x.code}: ${x.message}").mkString("Invalid video credits: ", "; ", ""))
       this
     }
-    lazy val digest: String = _sha256(_semantic_json(this).noSpaces)
   }
 
   final case class OutputFiles(
     directory: Path,
     jsonFile: Path,
     markdownFile: Path,
-    rendererPropsFile: Path,
-    digest: String
+    rendererPropsFile: Path
   )
 
   def resolve(
@@ -285,9 +282,9 @@ private[cozy] object CozyVideoCredits {
     }
   }
 
-  def write(outputdir: Path, effective: EffectiveSet): OutputFiles = {
+  def write(outputDir: Path, effective: EffectiveSet): OutputFiles = {
     effective.requireValid()
-    val directory = outputdir.toAbsolutePath.normalize()
+    val directory = outputDir.toAbsolutePath.normalize()
     Files.createDirectories(directory)
     val jsonfile = directory.resolve("credits.json")
     val markdownfile = directory.resolve("credits.md")
@@ -295,11 +292,11 @@ private[cozy] object CozyVideoCredits {
     Files.writeString(jsonfile, toJson(effective).spaces2 + "\n", StandardCharsets.UTF_8)
     Files.writeString(markdownfile, toMarkdown(effective), StandardCharsets.UTF_8)
     Files.writeString(rendererpropsfile, toRendererProps(effective).spaces2 + "\n", StandardCharsets.UTF_8)
-    OutputFiles(directory, jsonfile, markdownfile, rendererpropsfile, effective.digest)
+    OutputFiles(directory, jsonfile, markdownfile, rendererpropsfile)
   }
 
   def toJson(effective: EffectiveSet): Json =
-    _canonical_json(effective).deepMerge(Json.obj("digest" -> Json.fromString(effective.digest)))
+    _canonical_json(effective)
 
   def toMarkdown(effective: EffectiveSet): String = {
     val items = effective.publicationItems
@@ -321,7 +318,6 @@ private[cozy] object CozyVideoCredits {
     Json.obj(
       "schema" -> Json.fromString("cozy.video.credit-renderer-props.v1"),
       "profile" -> effective.profileId.map(Json.fromString).getOrElse(Json.Null),
-      "digest" -> Json.fromString(effective.digest),
       "locale" -> Json.fromString(effective.locale),
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
       "holdSeconds" -> Json.fromDoubleOrNull(effective.holdSeconds),
@@ -335,6 +331,81 @@ private[cozy] object CozyVideoCredits {
         )
       })
     )
+
+  /** Current attribution and display obligations, not a historical-content seal. */
+  private[cozy] def validJson(actual: Json, effective: EffectiveSet): Boolean = {
+    val expected = toJson(effective)
+    val profile = actual.hcursor.downField("profile").focus
+    val expectedprofile = expected.hcursor.downField("profile").focus.get
+    val profilevalid = if (expectedprofile.isNull) profile.contains(Json.Null) else profile.exists { value =>
+      _fields_match(value, expectedprofile, Vector("id", "sourceLayer", "selectionLayer")) &&
+        _descriptive_path(value, "sourcePath", optional = false) &&
+        _descriptive_path(value, "selectionPath", optional = expectedprofile.hcursor.downField("selectionPath").focus.contains(Json.Null)) &&
+        value.hcursor.downField("presentation").focus.exists(_fields_match(_, expectedprofile.hcursor.downField("presentation").focus.get,
+          Vector("title", "holdSeconds", "enabled")))
+    }
+    _fields_match(actual, expected, Vector("schema", "locale")) && profilevalid &&
+      _credit_items_valid(actual, expected) && _credit_evidence_valid(actual, expected) &&
+      actual.hcursor.downField("diagnostics").focus.flatMap(_.asArray).exists(_.forall { value =>
+        value.hcursor.get[String]("severity").toOption.exists(Set("error", "warning")) &&
+          Vector("code", "message").forall(field => _meaningful_string(value, field))
+      })
+  }
+
+  private[cozy] def validRendererProps(actual: Json, effective: EffectiveSet): Boolean = {
+    val expected = toRendererProps(effective)
+    _fields_match(actual, expected, Vector("schema", "profile", "locale", "title", "holdSeconds", "enabled")) &&
+      _ordered_items_match(actual, expected, "items", Vector("id", "category", "label", "creator"))
+  }
+
+  private[cozy] def validMarkdown(actual: String, effective: EffectiveSet): Boolean = {
+    def _lines_(text: String): Vector[String] = text.linesIterator.map(_.trim.replaceAll("\\s+", " ")).filter(_.nonEmpty).toVector
+    val required = _lines_(toMarkdown(effective))
+    val lines = _lines_(actual)
+    required.forall(lines.contains)
+  }
+
+  private def _fields_match(actual: Json, expected: Json, fields: Vector[String]): Boolean =
+    actual.isObject && fields.forall { field =>
+      actual.hcursor.downField(field).focus.exists(value => expected.hcursor.downField(field).focus.contains(value))
+    }
+
+  private def _ordered_items_match(actual: Json, expected: Json, field: String, fields: Vector[String]): Boolean =
+    actual.hcursor.downField(field).focus.flatMap(_.asArray).exists { values =>
+      val selected = expected.hcursor.downField(field).focus.flatMap(_.asArray).get
+      values.size == selected.size && values.zip(selected).forall { case (value, required) => _fields_match(value, required, fields) }
+    }
+
+  private def _credit_items_valid(actual: Json, expected: Json): Boolean = {
+    val fields = Vector("id", "category", "label", "publicationText", "creator", "sourceUrl", "termsUrl", "obligation", "surfaces")
+    _ordered_items_match(actual, expected, "credits", fields) &&
+      actual.hcursor.downField("credits").focus.flatMap(_.asArray).exists(_.forall { item =>
+        item.hcursor.downField("evidence").as[Vector[String]].toOption.exists(reasons => reasons.nonEmpty && reasons.forall { reason =>
+          reason == "project:include" || Vector("character:", "asset:", "asset-tag:", "asset-license:", "asset-provenance:", "locale:", "audio:")
+            .exists(prefix => reason.startsWith(prefix) && reason.length > prefix.length)
+        })
+      })
+  }
+
+  private def _credit_evidence_valid(actual: Json, expected: Json): Boolean =
+    actual.hcursor.downField("evidence").focus.exists { evidence =>
+      val required = expected.hcursor.downField("evidence").focus.get
+      _fields_match(evidence, required, Vector("characterIds", "assetTags", "assetLicenses", "assetProvenance")) &&
+        _ordered_items_match(evidence, required, "audio", Vector("provider", "voiceIdentity", "voiceId", "modelIdentity", "speaker")) &&
+        evidence.hcursor.downField("audio").focus.flatMap(_.asArray).exists(_.forall(_descriptive_path(_, "manifestPath", optional = false)))
+    }
+
+  private def _meaningful_string(value: Json, field: String): Boolean =
+    value.hcursor.get[String](field).toOption.exists(text => text.trim.nonEmpty && !text.exists(_.isControl))
+
+  private def _descriptive_path(value: Json, field: String, optional: Boolean): Boolean =
+    value.hcursor.downField(field).focus.exists { path =>
+      (optional && path.isNull) || (path.asString.exists { text =>
+        text.trim.nonEmpty && !text.exists(_.isControl) && Try(Path.of(text)).toOption.exists { path =>
+          Option(path.getFileName).exists(name => name.toString.nonEmpty && name.toString != "." && name.toString != "..")
+        }
+      })
+    }
 
   private def _resolve_profile(
     source: ProfileSource,
@@ -519,27 +590,33 @@ private[cozy] object CozyVideoCredits {
     val initial = (Map.empty[String, ProfileSource], Vector.empty[(String, Option[Path], Vector[Path], Vector[String])])
     val (profiles, considered) = context.layers.foldLeft(initial) { case ((current, evidence), layer) =>
       val directory = layer.root.map(_.path.resolve("video").resolve("credit-profiles").normalize())
-      val snapshots = directory.toVector.flatMap(_profile_files)
-      val sources = snapshots.map(snapshot => _profile_source(layer.name, snapshot))
+      val paths = directory.toVector.flatMap(_profile_files)
+      val sources = paths.map(path => _profile_source(layer.name, path))
       val duplicateids = sources.groupBy(_.profile.id).collect { case (id, xs) if xs.size > 1 => id }.toVector.sorted
       if (duplicateids.nonEmpty)
         RAISE.invalidArgumentFault(s"Duplicate video credit profile ids in ${layer.name}: ${duplicateids.mkString(", ")}")
       val next = sources.foldLeft(current) { (z, source) => z.updated(source.profile.id, source) }
-      (next, evidence :+ (layer.name, directory, snapshots.map(_.path), sources.map(_.profile.id).sorted))
+      (next, evidence :+ (layer.name, directory, paths, sources.map(_.profile.id).sorted))
     }
     ProfileCatalog(profiles, considered)
   }
 
-  private def _profile_source(layer: String, snapshot: ProfileSnapshot): ProfileSource = {
-    val config = try CozyProjectYamlConfig.parsePublic(snapshot.bytes, snapshot.path.toUri) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: ${snapshot.path}: ${e.getMessage}")
+  private def _profile_source(layer: String, path: Path): ProfileSource = {
+    val lexical = path.toAbsolutePath.normalize()
+    _direct_file(lexical, s"video credit profile: $lexical")
+    val realpath = _real_path(lexical, s"video credit profile: $lexical")
+    if (realpath != lexical)
+      RAISE.invalidArgumentFault(s"Video credit profile must not use a lexical or symlink alias: $lexical")
+    val bytes = _read_profile_bytes(lexical)
+    val config = try CozyProjectYamlConfig.parsePublic(bytes, lexical.toUri) catch {
+      case NonFatal(e) => RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: $lexical: ${e.getMessage}")
     }
     val profile = config.json.flatMap(_.as[Profile].toOption).getOrElse(
-      RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: ${snapshot.path}")
+      RAISE.invalidArgumentFault(s"Invalid video credit profile in layer $layer: $lexical")
     )
     if (profile.schema != SCHEMA)
-      RAISE.invalidArgumentFault(s"Unsupported video credit profile schema ${profile.schema}: ${snapshot.path}")
-    ProfileSource(profile, layer, snapshot.path)
+      RAISE.invalidArgumentFault(s"Unsupported video credit profile schema ${profile.schema}: $lexical")
+    ProfileSource(profile, layer, lexical)
   }
 
   private def _unknown_profile(id: String, catalog: ProfileCatalog): Nothing = {
@@ -552,7 +629,7 @@ private[cozy] object CozyVideoCredits {
   private val _obligations = Set("required", "recommended")
   private val _surfaces = Set("publication", "rdf", "video")
 
-  private def _profile_files(directory: Path): Vector[ProfileSnapshot] = {
+  private def _profile_files(directory: Path): Vector[Path] = {
     Option(directory.getParent).foreach { video =>
       if (Files.exists(video, LinkOption.NOFOLLOW_LINKS))
         _direct_directory(video, s"video credit profile component: $video")
@@ -562,27 +639,9 @@ private[cozy] object CozyVideoCredits {
     else {
       _direct_directory(directory, s"video credit profile directory: $directory")
       val stream = Files.list(directory)
-      try stream.iterator.asScala.toVector.sortBy(_.getFileName.toString).flatMap { path =>
-        if (_supported_profile_file(path)) Vector(_profile_snapshot(path)) else Vector.empty
-      }
+      try stream.iterator.asScala.toVector.sortBy(_.getFileName.toString).filter(_supported_profile_file)
       finally stream.close()
     }
-  }
-
-  private def _profile_snapshot(path: Path): ProfileSnapshot = {
-    val lexical = path.toAbsolutePath.normalize()
-    val before = _regular_attributes(lexical, s"video credit profile: $lexical")
-    val identity = _real_path(lexical, s"video credit profile: $lexical")
-    if (identity != lexical)
-      RAISE.invalidArgumentFault(s"Video credit profile must not use a lexical or symlink alias: $lexical")
-    val first = _read_profile_bytes(lexical)
-    val middle = _regular_attributes(lexical, s"video credit profile: $lexical")
-    val second = _read_profile_bytes(lexical)
-    val after = _regular_attributes(lexical, s"video credit profile: $lexical")
-    if (!_same_attributes(before, middle) || !_same_attributes(before, after) ||
-      first.length.toLong != before.size() || second.length.toLong != before.size() || !first.sameElements(second))
-      RAISE.invalidArgumentFault(s"Video credit profile changed while being read: $lexical")
-    ProfileSnapshot(lexical, first)
   }
 
   private def _read_profile_bytes(path: Path): Array[Byte] =
@@ -594,24 +653,14 @@ private[cozy] object CozyVideoCredits {
     if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"$label must be a direct non-symlink directory")
 
-  private def _regular_attributes(path: Path, label: String): BasicFileAttributes = {
+  private def _direct_file(path: Path, label: String): Unit =
     if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"$label must be a direct regular non-symlink file")
-    val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"$label attributes cannot be read: ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      RAISE.invalidArgumentFault(s"$label has no stable file identity")
-    attributes
-  }
 
   private def _real_path(path: Path, label: String): Path =
     try path.toRealPath() catch {
       case NonFatal(e) => RAISE.invalidArgumentFault(s"$label cannot be resolved: ${e.getMessage}")
     }
-
-  private def _same_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() && before.size() == after.size() && before.lastModifiedTime() == after.lastModifiedTime()
 
   private def _supported_profile_file(path: Path): Boolean = {
     val name = path.getFileName.toString.toLowerCase(java.util.Locale.ROOT)
@@ -652,36 +701,6 @@ private[cozy] object CozyVideoCredits {
       "diagnostics" -> _diagnostics_json(effective)
     )
 
-  // The digest identifies effective credit semantics, not the machine-specific workspace.
-  private def _semantic_json(effective: EffectiveSet): Json =
-    Json.obj(
-      "schema" -> Json.fromString(SCHEMA),
-      "profile" -> effective.profile.map { source =>
-        Json.obj(
-          "id" -> Json.fromString(source.profile.id),
-          "presentation" -> _presentation_json(effective)
-        )
-      }.getOrElse(Json.Null),
-      "locale" -> Json.fromString(effective.locale),
-      "evidence" -> Json.obj(
-        "characterIds" -> Json.fromValues(effective.evidence.characterIds.map(Json.fromString)),
-        "assetTags" -> Json.fromValues(effective.evidence.assetTags.map(Json.fromString)),
-        "assetLicenses" -> Json.fromValues(effective.evidence.assetLicenses.map(Json.fromString)),
-        "assetProvenance" -> Json.fromValues(effective.evidence.assetProvenance.map(Json.fromString)),
-        "audio" -> Json.fromValues(effective.evidence.audio.map { audio =>
-          Json.obj(
-            "provider" -> Json.fromString(audio.provider),
-            "voiceIdentity" -> audio.voiceIdentity.map(Json.fromString).getOrElse(Json.Null),
-            "voiceId" -> audio.voiceId.map(Json.fromString).getOrElse(Json.Null),
-            "modelIdentity" -> audio.modelIdentity.map(Json.fromString).getOrElse(Json.Null),
-            "speaker" -> audio.speaker.map(Json.fromString).getOrElse(Json.Null)
-          )
-        })
-      ),
-      "credits" -> _effective_credits_json(effective),
-      "diagnostics" -> _diagnostics_json(effective)
-    )
-
   private def _presentation_json(effective: EffectiveSet): Json =
     Json.obj(
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
@@ -714,11 +733,6 @@ private[cozy] object CozyVideoCredits {
         "message" -> Json.fromString(diagnostic.message)
       )
     })
-
-  private def _sha256(value: String): String = {
-    val digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))
-    digest.map("%02x".format(_)).mkString
-  }
 
   private def _localized(values: Map[String, String], locale: String): Option[String] = {
     val normalized = locale.toLowerCase(java.util.Locale.ROOT)

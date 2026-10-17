@@ -5,7 +5,7 @@ import CmlTerminologyMetadata._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  */
 private[cozy] object CmlTerminologyNavigation {
   final case class TermLink(element: ElementRecord, reference: SemanticReference)
@@ -180,7 +180,7 @@ private[cozy] object CmlTerminologyNavigation {
 
   private def _valid_source(source: SourceAttribution): Boolean = {
     source != null && _valid_text(source.authorityId) && _valid_path(source.path) &&
-      source.sha256 != null && source.sha256.matches("[0-9a-f]{64}") && (source.line match {
+      (source.line match {
         case None => true
         case Some(line) => line > 0
         case _ => false

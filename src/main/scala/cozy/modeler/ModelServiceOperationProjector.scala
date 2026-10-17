@@ -36,12 +36,13 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  5, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelServiceOperationProjector(
   val context: ModelBuildContext,
-  val typeProjector: ModelTypeProjector
+  val typeProjector: ModelTypeProjector,
+  canonicalTypeBindings: Option[ModelServiceOperationProjector.CanonicalTypeBindings] = None
 ) {
   import context._
   import Modeler._
@@ -143,7 +144,10 @@ private[modeler] final class ModelServiceOperationProjector(
       }.toMap
 
     private lazy val _value_input_field_map: Map[String, Vector[OperationModel.FieldDefinition]] =
-      (value.classes.values.toVector ++ typeProjector.serviceInlineValues).map(x => x.name -> _operation_fields(x)).toMap
+      canonicalTypeBindings match {
+        case Some(bindings) => bindings.values.map { case (name, source) => name -> _operation_fields(source) }
+        case None => (value.classes.values.toVector ++ typeProjector.serviceInlineValues).map(x => x.name -> _operation_fields(x)).toMap
+      }
 
     private lazy val _service_operation_type_names: Set[String] =
       _legacy_input_value_definition_map.keySet ++
@@ -153,7 +157,8 @@ private[modeler] final class ModelServiceOperationProjector(
         datatype.classes.keySet ++
         cmlDeclaredTypeNames ++
         _builtin_service_operation_input_type_names ++
-        predefinedResultCatalog.names
+        predefinedResultCatalog.names ++
+        canonicalTypeBindings.map(_.names).getOrElse(Set.empty)
 
     private lazy val _builtin_service_operation_input_type_names: Set[String] =
       Set(
@@ -290,7 +295,10 @@ private[modeler] final class ModelServiceOperationProjector(
         )
         _validate_service_operation_type_reference(p.name, "INPUT", inputtype)
         _validate_service_operation_type_reference(p.name, "OUTPUT", outputtype)
-        val legacyinput = _legacy_input_value_definition_map.get(inputtype)
+        val legacyinput = canonicalTypeBindings match {
+          case Some(bindings) => bindings.values.get(inputtype).flatMap(source => _legacy_input_value_definition_map.get(source.name))
+          case None => _legacy_input_value_definition_map.get(inputtype)
+        }
         val inputvaluekind = p.input.value.
           map(_local_service_operation_input_kind(p.name, kind, _)).
           getOrElse(_resolve_service_operation_input_kind(p.name, inputtype, kind, legacyinput))
@@ -350,7 +358,10 @@ private[modeler] final class ModelServiceOperationProjector(
       legacyinput: Option[OperationModel.InputValueDefinition]
     ): OperationModel.InputValueKind =
       legacyinput.map(_.kind).
-        orElse(value.get(inputtype).map(_top_level_value_input_kind(operationname, _))).
+        orElse((canonicalTypeBindings match {
+          case Some(bindings) => bindings.values.get(inputtype)
+          case None => value.get(inputtype)
+        }).map(_top_level_value_input_kind(operationname, _))).
         getOrElse(_input_value_kind(operationkind))
 
     private def _top_level_value_input_kind(
@@ -919,4 +930,8 @@ private[modeler] final class ModelServiceOperationProjector(
         case '\t' => "\\t"
         case c => c.toString
       } + "\""
+}
+
+private[modeler] object ModelServiceOperationProjector {
+  case class CanonicalTypeBindings(names: Set[String], values: Map[String, ValueClass])
 }

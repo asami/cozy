@@ -11,7 +11,8 @@ import scala.collection.mutable
 /*
  * @since   Sep.  7, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ *  version Oct.  3, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Normalizes and validates the CSM-06 CML surface into the CSM-07 typed IR. */
@@ -34,7 +35,8 @@ private[modeler] object CompositeStateMachineCml {
   }
 
   def definitions(model: KaleidoxModel): Vector[CompositeStateMachineDefinition] = {
-    val roots = model.divisions.toVector.flatMap(_logical_section)
+    val roots = model.divisions.toVector.flatMap(_logical_section).
+      filterNot(_.nameForModel == "CAPABILITY-MODEL")
     WorkflowDeclarationOwnershipCml.validateOwnership(roots, _direct_field_entries)
     WorkflowExecutionSafetyPolicyCml.validateOwnership(roots, _direct_field_entries)
     val operations = _operation_contracts(model)
@@ -42,7 +44,8 @@ private[modeler] object CompositeStateMachineCml {
   }
 
   def workflowDefinitions(model: KaleidoxModel): Vector[WorkflowDefinition] = {
-    val roots = model.divisions.toVector.flatMap(_logical_section)
+    val roots = model.divisions.toVector.flatMap(_logical_section).
+      filterNot(_.nameForModel == "CAPABILITY-MODEL")
     WorkflowDeclarationOwnershipCml.validateOwnership(roots, _direct_field_entries)
     WorkflowExecutionSafetyPolicyCml.validateOwnership(roots, _direct_field_entries)
     _workflow_definitions(roots, model, _operation_contracts(model))

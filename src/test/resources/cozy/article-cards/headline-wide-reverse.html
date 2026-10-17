@@ -1,0 +1,44 @@
+        <div class="row">
+          <c:optional binding="notice.title_image">
+            <div class="col-lg-6 justify-content-center d-flex flex-column">
+              <div class="card border-radius-lg">
+                <div class="d-block blur-shadow-image">
+                  <img src="${notice.title_image}" alt="img-blur-shadow-blog-2" class="img-fluid border-radius-lg w-100">
+                </div>
+              </div>
+            </div>
+          </c:optional>
+          <div class="col-lg-6 justify-content-center d-flex flex-column ps-lg-5 pt-lg-0 pt-3">
+            <h6 class="category text-info mt-3"><a href="${home_locale}${notice.category.uri}" alt="${notice.category.description}" style="all: unset; display: contents;">${notice.category.title}</a></h6>
+            <h3>
+              <a href="${home_locale}${notice.uri}" class="text-dark">${notice.title}</a>
+            </h3>
+            <p>
+              ${notice.summary} <a href="${home_locale}${notice.uri}" class="text-darker icon-move-right text-sm">${page_locale == 'ja' ? '続きを読む' : 'Read More'}
+                <i class="fas fa-arrow-right text-xs ms-1"></i>
+              </a>
+            </p>
+            <c:optional binding="notice.published">
+              <p>${notice.published}</p>
+            </c:optional>
+            <c:optional binding="notice.media.infographic.public_path notice.media.article_pdf.public_path notice.media.summary_slides_pdf.public_path notice.media.video.watch_url notice.media.video.content_url">
+              <div class="simplemodeling-article-media-links d-flex flex-wrap gap-2 mt-3">
+                <c:optional binding="notice.media.infographic.public_path">
+                  <a href="${notice.media.infographic.public_path}" class="simplemodeling-article-media-infographic btn btn-sm btn-outline-info">${page_locale == 'ja' ? 'インフォグラフィックを見る' : 'View infographic'}</a>
+                </c:optional>
+                <c:optional binding="notice.media.article_pdf.public_path">
+                  <a href="${notice.media.article_pdf.public_path}" class="simplemodeling-article-media-article-pdf btn btn-sm btn-outline-info">${notice.media.article_pdf.label ? notice.media.article_pdf.label : (page_locale == 'ja' ? '記事 PDF' : 'Article PDF')}</a>
+                </c:optional>
+                <c:optional binding="notice.media.summary_slides_pdf.public_path">
+                  <a href="${notice.media.summary_slides_pdf.public_path}" class="simplemodeling-article-media-summary-slides-pdf btn btn-sm btn-outline-info">${notice.media.summary_slides_pdf.label ? notice.media.summary_slides_pdf.label : (page_locale == 'ja' ? 'まとめスライド PDF' : 'Summary slides PDF')}</a>
+                </c:optional>
+                <c:optional binding="notice.media.video.watch_url">
+                  <a href="${notice.media.video.watch_url}" class="simplemodeling-article-media-video btn btn-sm btn-outline-info" target="_blank" rel="noopener noreferrer">${page_locale == 'ja' ? '動画を見る' : 'Watch video'}</a>
+                </c:optional>
+                <c:optional binding="notice.media.video.content_url">
+                  <a href="${notice.media.video.content_url}" class="simplemodeling-article-media-video btn btn-sm btn-outline-info">${page_locale == 'ja' ? '動画を見る' : 'Watch video'}</a>
+                </c:optional>
+              </div>
+            </c:optional>
+          </div>
+        </div>

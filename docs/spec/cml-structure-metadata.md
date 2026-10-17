@@ -33,7 +33,10 @@ one of `entity`, `value`, or `aggregate`. `RelationProjection` is `element`,
 `composition`, `aggregation`, or `association`. The six tags remain distinct
 and every projection embeds the full existing v1 `ElementRecord` JSON.
 
-An embedded record must exactly equal an admitted core record. A present
+An embedded record must equal an admitted core record as a full typed
+ElementRecord after ordinary semantic-reader admission in the complete Catalog
+context. Unknown source extras are irrelevant in both copies, including nested
+reference and Derived sources; known fact contradictions remain invalid. A present
 qualified identity resolves through `Catalog.element` and must agree on every
 fact; identity-absent records retain their exact `Presence` and are checked by
 full-record multiplicity only. Each supported core kind has exactly one
@@ -126,3 +129,21 @@ external acceptance.
 
 The authored scenarios do not claim passed validation, Step acceptance, or
 Phase closure; those dispositions remain with the parent workflow.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.

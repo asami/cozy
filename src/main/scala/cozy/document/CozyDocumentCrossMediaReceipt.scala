@@ -1,139 +1,18 @@
 package cozy.document
 
-import cozy.media.CozyExplanation
-import io.circe.Json
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /*
  * @since   Sep.  6, 2026
- * @version Sep.  6, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaReceipt {
-  final case class Receipt(
-    contentCoreId: String,
-    contentCoreIdentity: String,
-    compositionIdentity: String,
-    planIdentity: String,
-    explanationCatalogIdentity: String,
-    presentationCatalogIdentity: String,
-    presentationLogicalCatalogIdentity: String,
-    policyIdentity: String,
-    sources: Vector[CozyExplanation.SourceDeclaration],
-    assets: Vector[CozyExplanation.AssetDeclaration],
-    semanticIdentity: String,
-    currentnessIdentity: String,
-    projectionIdentity: String,
-    rendererIdentity: String,
-    profileIdentity: String,
-    outputIdentity: String,
-    identity: String
-  ) {
-    def outputSha256: String = outputIdentity
-  }
-
-  final case class Currentness(isCurrent: Boolean, reason: String)
-
   final case class CoverageDiagnostic(code: String, path: String, reason: String)
 
   final case class CoverageResult(satisfied: Boolean, diagnostics: Vector[CoverageDiagnostic]) {
     def isComplete: Boolean = satisfied
   }
-
-  final case class ReceiptFault(code: String, path: String, reason: String)
-    extends IllegalArgumentException(s"$code path=$path reason=$reason")
-
-  def capture(
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Receipt = {
-    _require_rendered(projection, rendered)
-    val provisional = Receipt(
-      projection.contentCoreId,
-      projection.contentCoreIdentity,
-      projection.compositionIdentity,
-      projection.planIdentity,
-      projection.explanationCatalogIdentity,
-      projection.presentationCatalogIdentity,
-      projection.presentationLogicalCatalogIdentity,
-      projection.policyIdentity,
-      projection.sources.sortBy(_.id),
-      projection.assets.sortBy(_.id),
-      projection.semanticIdentity,
-      projection.currentnessIdentity,
-      projection.identity,
-      rendered.rendererIdentity,
-      rendered.profileIdentity,
-      rendered.identity,
-      ""
-    )
-    provisional.copy(identity = _identity(_receipt_value(provisional, includeidentity = false).noSpaces))
-  }
-
-  def receipt(
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Receipt = capture(projection, rendered)
-
-  def create(
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Receipt = capture(projection, rendered)
-
-  def canonicalJson(value: Receipt): String = _receipt_value(value, includeidentity = true).noSpaces
-
-  def receiptIdentity(value: Receipt): String = _identity(_receipt_value(value, includeidentity = false).noSpaces)
-
-  def currentness(
-    receipt: Receipt,
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Currentness = {
-    if (receiptIdentity(receipt) != receipt.identity)
-      Currentness(isCurrent = false, "receipt identity changed")
-    else {
-      val projectionchecks = Vector(
-        (receipt.contentCoreId == projection.contentCoreId) -> "Content Core id changed",
-        (receipt.contentCoreIdentity == projection.contentCoreIdentity) -> "accepted Core identity changed",
-        (receipt.sources == projection.sources.sortBy(_.id)) -> "declared source identities changed",
-        (receipt.assets == projection.assets.sortBy(_.id)) -> "declared asset identities changed",
-        (receipt.compositionIdentity == projection.compositionIdentity) -> "Composition identity changed",
-        (receipt.planIdentity == projection.planIdentity) -> "Plan identity changed",
-        (receipt.explanationCatalogIdentity == projection.explanationCatalogIdentity) -> "explanation catalog identity changed",
-        (receipt.presentationCatalogIdentity == projection.presentationCatalogIdentity) -> "presentation catalog identity changed",
-        (receipt.presentationLogicalCatalogIdentity == projection.presentationLogicalCatalogIdentity) -> "presentation logical catalog identity changed",
-        (receipt.policyIdentity == projection.policyIdentity) -> "projection policy identity changed",
-        (receipt.semanticIdentity == projection.semanticIdentity) -> "semantic identity changed",
-        (receipt.currentnessIdentity == projection.currentnessIdentity) -> "currentness identity changed",
-        (receipt.projectionIdentity == projection.identity) -> "projection identity changed"
-      )
-      projectionchecks.collectFirst { case (false, reason) => Currentness(isCurrent = false, reason) }.getOrElse {
-        val renderingchecks = Vector(
-          (receipt.rendererIdentity == rendered.rendererIdentity) -> "renderer identity changed",
-          (receipt.profileIdentity == rendered.profileIdentity) -> "renderer profile identity changed",
-          (receipt.projectionIdentity == rendered.projectionIdentity) -> "rendered projection identity changed",
-          (receipt.outputIdentity == rendered.identity) -> "rendered output identity changed",
-          (rendered.identity == _identity(rendered.html.getBytes(StandardCharsets.UTF_8))) -> "rendered output SHA-256 does not match exact UTF-8 bytes",
-          (rendered.html == CozyDocumentCrossMediaConfirmationHtml.render(projection).html) -> "rendered HTML bytes changed"
-        )
-        renderingchecks.collectFirst { case (false, reason) => Currentness(isCurrent = false, reason) }
-          .getOrElse(Currentness(isCurrent = true, "receipt inputs and exact UTF-8 output are current"))
-      }
-    }
-  }
-
-  def isCurrent(
-    receipt: Receipt,
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Boolean = currentness(receipt, projection, rendered).isCurrent
-
-  def verifyCurrent(
-    receipt: Receipt,
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Currentness = currentness(receipt, projection, rendered)
 
   def verifyCoverage(
     validated: CozyDocumentPresentationSemantics.Validated,
@@ -141,7 +20,7 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
     rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
   ): CoverageResult = {
     val diagnostics =
-      _rendering_diagnostics(projection, rendered) ++
+      _rendering_diagnostics(rendered) ++
         _step_diagnostics(validated, projection, rendered) ++
         _structure_diagnostics(validated, projection, rendered) ++
         _unprojected_diagnostics(validated, projection)
@@ -154,38 +33,12 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
     rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
   ): CoverageResult = verifyCoverage(validated, projection, rendered)
 
-  private def _require_rendered(
-    projection: CozyDocumentCrossMediaProjection.Projection,
-    rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Unit = {
-    if (rendered.rendererIdentity != CozyDocumentCrossMediaConfirmationHtml._renderer_identity)
-      _fail("DP-REC-001", "$.rendered.rendererIdentity", "rendering uses an incompatible renderer identity")
-    if (rendered.profileIdentity != CozyDocumentCrossMediaConfirmationHtml._profile_identity)
-      _fail("DP-REC-001", "$.rendered.profileIdentity", "rendering uses an incompatible renderer profile identity")
-    if (rendered.projectionIdentity != projection.identity)
-      _fail("DP-REC-002", "$.rendered.projectionIdentity", "rendering does not retain the input Projection identity")
-    val outputidentity = _identity(rendered.html.getBytes(StandardCharsets.UTF_8))
-    if (rendered.identity != outputidentity)
-      _fail("DP-REC-003", "$.rendered.identity", "rendering identity does not equal the exact UTF-8 output SHA-256")
-    val expected = CozyDocumentCrossMediaConfirmationHtml.render(projection)
-    if (rendered.html != expected.html)
-      _fail("DP-REC-004", "$.rendered.html", "rendering is not the deterministic output of the fixed renderer/profile")
-    if (rendered.identity != expected.identity)
-      _fail("DP-REC-004", "$.rendered.identity", "rendering output identity is incompatible with the fixed renderer/profile")
-  }
-
   private def _rendering_diagnostics(
-    projection: CozyDocumentCrossMediaProjection.Projection,
     rendered: CozyDocumentCrossMediaConfirmationHtml.Rendered
-  ): Vector[CoverageDiagnostic] = {
-    val identitydiagnostics = Vector(
-      if (rendered.projectionIdentity != projection.identity) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.projectionIdentity", "confirmation HTML does not retain the Projection identity")) else None,
-      if (rendered.rendererIdentity != CozyDocumentCrossMediaConfirmationHtml._renderer_identity) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.rendererIdentity", "confirmation HTML uses an incompatible renderer identity")) else None,
-      if (rendered.profileIdentity != CozyDocumentCrossMediaConfirmationHtml._profile_identity) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.profileIdentity", "confirmation HTML uses an incompatible renderer profile identity")) else None,
-      if (rendered.identity != _identity(rendered.html.getBytes(StandardCharsets.UTF_8))) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.identity", "confirmation HTML identity does not match exact UTF-8 bytes")) else None
-    ).flatten
-    identitydiagnostics
-  }
+  ): Vector[CoverageDiagnostic] = Vector(
+    if (rendered.rendererIdentity != CozyDocumentCrossMediaConfirmationHtml._renderer_identity) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.rendererIdentity", "confirmation HTML uses an incompatible renderer")) else None,
+    if (rendered.profileIdentity != CozyDocumentCrossMediaConfirmationHtml._profile_identity) Some(_diagnostic("DP-COV-INCOMPATIBLE", "$.rendered.profileIdentity", "confirmation HTML uses an incompatible renderer profile")) else None
+  ).flatten
 
   private def _step_diagnostics(
     validated: CozyDocumentPresentationSemantics.Validated,
@@ -295,43 +148,4 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
     else Iterator.iterate(value.indexOf(token))(index => if (index < 0) -1 else value.indexOf(token, index + token.length)).takeWhile(_ >= 0).size
   }
 
-  private def _receipt_value(value: Receipt, includeidentity: Boolean): Json = {
-    val fields = Vector(
-      "contentCoreId" -> Json.fromString(value.contentCoreId),
-      "contentCoreIdentity" -> Json.fromString(value.contentCoreIdentity),
-      "compositionIdentity" -> Json.fromString(value.compositionIdentity),
-      "planIdentity" -> Json.fromString(value.planIdentity),
-      "explanationCatalogIdentity" -> Json.fromString(value.explanationCatalogIdentity),
-      "presentationCatalogIdentity" -> Json.fromString(value.presentationCatalogIdentity),
-      "presentationLogicalCatalogIdentity" -> Json.fromString(value.presentationLogicalCatalogIdentity),
-      "policyIdentity" -> Json.fromString(value.policyIdentity),
-      "sources" -> Json.fromValues(value.sources.sortBy(_.id).map(_source_value)),
-      "assets" -> Json.fromValues(value.assets.sortBy(_.id).map(_asset_value)),
-      "semanticIdentity" -> Json.fromString(value.semanticIdentity),
-      "currentnessIdentity" -> Json.fromString(value.currentnessIdentity),
-      "projectionIdentity" -> Json.fromString(value.projectionIdentity),
-      "rendererIdentity" -> Json.fromString(value.rendererIdentity),
-      "profileIdentity" -> Json.fromString(value.profileIdentity),
-      "outputIdentity" -> Json.fromString(value.outputIdentity)
-    )
-    Json.fromFields(if (includeidentity) fields :+ ("identity" -> Json.fromString(value.identity)) else fields)
-  }
-
-  private def _source_value(value: CozyExplanation.SourceDeclaration): Json = Json.obj(
-    "id" -> Json.fromString(value.id),
-    "sha256" -> Json.fromString(value.sha256)
-  )
-
-  private def _asset_value(value: CozyExplanation.AssetDeclaration): Json = Json.obj(
-    "id" -> Json.fromString(value.id),
-    "mediaType" -> Json.fromString(value.mediaType),
-    "sha256" -> Json.fromString(value.sha256)
-  )
-
-  private def _identity(value: String): String = _identity(value.getBytes(StandardCharsets.UTF_8))
-
-  private def _identity(bytes: Array[Byte]): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(item => f"${item & 0xff}%02x").mkString
-
-  private def _fail(code: String, path: String, reason: String): Nothing = throw ReceiptFault(code, path, reason)
 }

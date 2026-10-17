@@ -73,8 +73,8 @@ slug. Lookup is by the qualified identity pair only; authored order and
 presentation text cannot select a record.
 
 SourceAttribution records admitted authority, canonical project-relative path,
-digest, and optional positive line. It is evidence about an admitted source
-snapshot, not source-currentness or identity verification. The foundation and
+and optional positive line. It supplies no hash, snapshot, currentness, or
+identity verification guarantee. The foundation and
 reader do not read files or calculate hashes.
 
 Presence distinguishes Present(value) from Absent with NotDeclared,
@@ -89,8 +89,8 @@ grouping, or derivation.
 The v1 JSON envelope fixes its core object shapes and tags, preserves authored
 array order, and treats namespaced extension objects as opaque. Extension
 content cannot add or override a core identity, reference, or absence fact.
-Unknown schema versions fail closed; a core change requires a separately
-designed schema and migration. Canonical rendering recursively sorts object
+Unknown schema versions fail closed. Future material core semantics require a
+separately designed schema and migration. Canonical rendering recursively sorts object
 keys lexicographically, retains array order and exact strings, and uses normal
 Play JSON number rendering. These are the deterministic bounds for a fixed
 JSON value; this is not RFC 8785, a signature protocol, source-byte
@@ -174,3 +174,21 @@ external acceptance, or Phase 64 capability projection. The final sentence
 above is a historical Phase 54 boundary statement; current child status is
 governed by the applicable phase and child checklists, including the
 in-progress Structure handoff in Phase 54.1.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.

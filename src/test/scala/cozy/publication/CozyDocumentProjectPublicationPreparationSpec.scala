@@ -4,7 +4,6 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import cozy.document.{CozyDocumentProject, CozyDocumentProjectEvidence, CozyDocumentProjectExport, CozyDocumentWorkflow}
 import cozy.media.{CozyExplanation, CozyMedia, CozyMediaDispatcher, CozyVisualPage}
 import org.scalacheck.{Gen, Prop, Test}
@@ -16,10 +15,11 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Oct.  1, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyDocumentProjectPublicationPreparationSpec._
   "CozyDocumentProjectPublicationPreparation" should {
     "consume the real native command sequence" which {
       "prepare the accepted Article review export while unrelated required PDF remains blocked" in {
@@ -55,7 +55,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           pdfoperation.providerAvailability shouldBe CozyDocumentWorkflow.NativeProviderAvailability.Unavailable
           pdfoperation.immediateExecutability shouldBe CozyDocumentWorkflow.NativeImmediateExecutability.Blocked
 
-          When("the actual media dispatcher prepares the current export into the absent task child")
+          When("the actual media dispatcher prepares the selected export into the absent task child")
           val dispatched = _dispatch(_preparation_args(fixture, destination))
 
           Then("PREPARED names verified installed export and registry paths and preserves every original authority")
@@ -66,7 +66,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           dispatched._2 should include(s"  - ${destination.resolve("article-media.json")}")
           CozyDocumentProjectExport.verifyBundle(destination.resolve("export")) shouldBe evidence
           CozyDocumentProjectPublicationTarget.admit(destination.resolve("export")).evidence shouldBe evidence
-          _require_registry(destination, CozyDocumentProjectPublicationTarget.planCurrentRegistration(
+          _require_registry(destination, CozyDocumentProjectPublicationTarget.planProjectRegistration(
             _config(fixture, destination, paired = true).registration).registration.siteBinding)
           _authorities(fixture) shouldBe before
           _children(fixture.taskroot) shouldBe Vector(destination)
@@ -86,7 +86,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           val pdf = snapshot.products.find(_.value.workProduct.id == "article-pdf").get
           val operation = snapshot.nativeOperations.find(_.operation.id == "article.render-pdf").get
           val exportfailure = _capture_failure { _execute(_export_args(fixture)) }
-          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration) }
           val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
           val cli = _dispatch_failure(_preparation_args(fixture, destination))
 
@@ -137,7 +137,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           When("native dry-run resolves Article review and export and preparation are requested without accepted evidence")
           val dryrun = _execute_output(List("document-project", "run", fixture.project.toString, "--operation", "article.render-review", "--dry-run"))
           val exportfailure = _capture_failure { _execute(_export_args(fixture)) }
-          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration) }
           val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
           val cli = _dispatch_failure(_preparation_args(fixture, destination))
 
@@ -189,59 +189,11 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
       }
     }
 
-    "propagate live and portable producer failures" which {
-      "preserve each stale facet through API and real dispatch while portable admission succeeds" in {
-        val cases: Vector[(String, String, Fixture => Unit)] = Vector(
-          ("source", "sourceauthority=stale", fixture => _write(fixture.project.resolve("index.dox"), "Changed source\n")),
-          ("selection", "selection=stale", fixture => {
-            val path = fixture.project.resolve("document-project.yaml")
-            _write(path, Files.readString(path, StandardCharsets.UTF_8).replace(
-              "activeOptionalWorkProducts:\n  - article-review-html", "activeOptionalWorkProducts: []"))
-          }),
-          ("receipt", "retainedproductionevidence=stale", fixture => {
-            val path = _children(fixture.project.resolve("evidence/attempts")).head
-            _write(path, Files.readString(path, StandardCharsets.UTF_8).replace(
-              "cozy.document-project.native-receipt.v1", "changed-receipt"))
-          }),
-          ("missing-attempt", "retainedproductionevidence=stale", fixture => {
-            Files.delete(_children(fixture.project.resolve("evidence/attempts")).head)
-            ()
-          })
-        )
-        cases.foreach { case (name, diagnostic, mutate) =>
-          Given(s"genuine accepted and exported authorities followed by an independent $name mutation and sibling sentinel")
-          _with_fixture(s"stale-$name") { fixture =>
-            val destination = fixture.taskroot.resolve("prepared")
-            val config = _config(fixture, destination, paired = true)
-            val original = CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
-            _write(fixture.taskroot.resolve("existing/sentinel"), "keep existing destination bytes\n")
-            mutate(fixture)
-            val before = _tree(fixture.root)
-
-            When("portable admission and the fresh original producer precede preparation API and actual dispatch")
-            val portable = CozyDocumentProjectPublicationTarget.admit(fixture.bundle)
-            val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
-            val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
-            val cli = _dispatch_failure(_preparation_args(fixture, destination))
-
-            Then("both client failures equal the exact live stale producer diagnostic and preserve the mutated baseline")
-            portable shouldBe original.registration.export
-            producer.getMessage should include("DP-OP-001")
-            producer.getMessage should include(diagnostic)
-            api.getMessage shouldBe producer.getMessage
-            cli._1.getMessage shouldBe producer.getMessage
-            cli._2 should not include "status: PREPARED"
-            _require_no_write(fixture, destination, before)
-          }
-        }
-      }
-
-      "reject partial private tampered and unreceipted exports with exact producer diagnostics" in {
+    "propagate portable producer and CLI failures" which {
+      "reject malformed private and incomplete exports with exact producer diagnostics" in {
         val cases: Vector[(String, Fixture => Unit)] = Vector(
           ("malformed-manifest", fixture => _write(fixture.bundle.resolve("manifest.yaml"), "damaged manifest\n")),
-          ("changed-html", fixture => _write(fixture.bundle.resolve("work-products/article-review-html/article-review.html"), "damaged output\n")),
           ("missing-manifest", fixture => { Files.delete(fixture.bundle.resolve("manifest.yaml")); () }),
-          ("missing-receipt", fixture => { Files.delete(fixture.bundle.resolve("receipt.yaml")); () }),
           ("missing-html", fixture => { Files.delete(fixture.bundle.resolve("work-products/article-review-html/article-review.html")); () }),
           ("private-entry", fixture => _write(fixture.bundle.resolve("work-products/private.yaml"), "private: preserved\n"))
         )
@@ -250,13 +202,13 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           _with_fixture(s"bundle-$name") { fixture =>
             val destination = fixture.taskroot.resolve("prepared")
             val config = _config(fixture, destination, paired = true)
-            CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
+            CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration)
             _write(fixture.taskroot.resolve("existing/sentinel"), "keep existing destination bytes\n")
             mutate(fixture)
             val before = _tree(fixture.root)
 
             When("the unchanged original producer and both actual preparation entry points consume the damaged bundle")
-            val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+            val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration) }
             val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
             val cli = _dispatch_failure(_preparation_args(fixture, destination))
 
@@ -307,9 +259,9 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
           for (paired <- Vector(false, true); target <- Vector(None, Some("summary-en"))) {
             val destination = fixture.taskroot.resolve(s"prepared-$paired-${target.getOrElse("all")}")
             val config = _config(fixture, destination, paired, target)
-            val original = CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
+            val original = CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration)
 
-            When("preparation consumes the original live registration and installs into its absent direct child")
+            When("preparation consumes the selected project registration and installs into its absent direct child")
             val prepared = CozyDocumentProjectPublicationPreparation.prepare(config)
 
             Then("all returned paths name installed files with exactly the original portable evidence and selected metadata")
@@ -318,7 +270,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
             prepared.exportRoot shouldBe destination.resolve("export")
             CozyDocumentProjectExport.verifyBundle(prepared.exportRoot) shouldBe evidence
             CozyDocumentProjectPublicationTarget.admit(prepared.exportRoot).evidence shouldBe evidence
-            _files(prepared.exportRoot) shouldBe Set("manifest.yaml", "receipt.yaml", "work-products/article-review-html/article-review.html")
+            _files(prepared.exportRoot) shouldBe Set("manifest.yaml", "work-products/article-review-html/article-review.html")
             _tree(prepared.exportRoot) shouldBe _tree(fixture.bundle)
             prepared.registryPaths shouldBe Vector(destination.resolve("article-media.json"))
             prepared.registryPaths.foreach(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) shouldBe true)
@@ -336,7 +288,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
         _with_fixture("cli") { fixture =>
           val before = _authorities(fixture)
           val evidence = CozyDocumentProjectExport.verifyBundle(fixture.bundle)
-          val binding = CozyDocumentProjectPublicationTarget.planCurrentRegistration(
+          val binding = CozyDocumentProjectPublicationTarget.planProjectRegistration(
             _config(fixture, fixture.taskroot.resolve("unused"), paired = true, target = Some("summary-en")).registration
           ).registration.siteBinding
           val names = Vector("--project", "--bundle", "--task-root", "--save", "--target", "--site-root", "--site-config")
@@ -386,25 +338,71 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
       }
     }
 
-    "refuse unauthorized output boundaries" which {
-      "preserve an existing destination without creating temporary output" in {
-        Given("genuine current authorities and an existing destination containing sentinel bytes and an empty directory")
-        _with_fixture("existing") { fixture =>
-          val destination = Files.createDirectory(fixture.taskroot.resolve("existing"))
-          _write(destination.resolve("sentinel"), "keep these bytes\n")
-          Files.createDirectory(destination.resolve("empty"))
+    "report direct output failures" which {
+      "propagate an I/O failure with partial generated output and intact authored inputs" in {
+        Given("valid inputs and a nonempty directory occupying the selected HTML output file")
+        _with_fixture("output-io") { fixture =>
+          val destination = Files.createDirectory(fixture.taskroot.resolve("prepared"))
+          _write(destination.resolve("export/work-products/article-review-html/article-review.html/sentinel"), "keep directory contents\n")
+          val before = _authorities(fixture)
+
+          When("preparation copies the selected export directly")
+          val failure = intercept[java.io.IOException] {
+            CozyDocumentProjectPublicationPreparation.prepare(_config(fixture, destination))
+          }
+
+          Then("the I/O failure escapes and earlier output remains without a success result")
+          failure.getMessage should not be empty
+          Files.readString(destination.resolve("export/manifest.yaml"), StandardCharsets.UTF_8) shouldBe
+            Files.readString(fixture.bundle.resolve("manifest.yaml"), StandardCharsets.UTF_8)
+          Files.readString(destination.resolve("export/work-products/article-review-html/article-review.html/sentinel"), StandardCharsets.UTF_8) shouldBe "keep directory contents\n"
+          _authorities(fixture) shouldBe before
+        }
+      }
+
+      "reject an aliased export directory before touching its target" in {
+        Given("valid inputs and an existing preparation destination whose export directory points at authored input")
+        _with_fixture("output-alias") { fixture =>
+          val destination = Files.createDirectory(fixture.taskroot.resolve("prepared"))
+          Files.createSymbolicLink(destination.resolve("export"), fixture.project)
           val before = _tree(fixture.root)
 
-          When("preparation is asked to install over the existing destination")
+          When("preparation resolves its selected generated output directories")
           val failure = intercept[RuntimeException] {
             CozyDocumentProjectPublicationPreparation.prepare(_config(fixture, destination))
           }
 
-          Then("DP-OP-001 refuses the request and preserves the complete preexisting tree")
+          Then("safe-path admission rejects the alias and preserves the authored target")
           failure.getMessage should include("DP-OP-001")
-          failure.getMessage should include("destination must be absent")
+          Files.readSymbolicLink(destination.resolve("export")) shouldBe fixture.project
           _tree(fixture.root) shouldBe before
-          _children(fixture.taskroot) shouldBe Vector(destination)
+        }
+      }
+    }
+
+    "refuse unauthorized output boundaries" which {
+      "overwrite selected generated outputs and preserve unselected destination files" in {
+        Given("valid producer inputs and an existing destination with old generated output and an unselected sentinel")
+        _with_fixture("existing") { fixture =>
+          val destination = Files.createDirectory(fixture.taskroot.resolve("existing"))
+          _write(destination.resolve("sentinel"), "keep these bytes\n")
+          Files.createDirectory(destination.resolve("empty"))
+          _write(destination.resolve("export/manifest.yaml"), "old generated manifest\n")
+          _write(destination.resolve("export/work-products/article-review-html/article-review.html"), "old generated HTML\n")
+          val before = _authorities(fixture)
+
+          When("preparation writes directly to the selected existing destination")
+          val prepared = CozyDocumentProjectPublicationPreparation.prepare(_config(fixture, destination))
+
+          Then("the declared export and native metadata are produced without touching unselected files or sources")
+          prepared.root shouldBe destination
+          CozyDocumentProjectExport.verifyBundle(prepared.exportRoot).target shouldBe "simplemodeling-org"
+          Files.readAllBytes(prepared.exportRoot.resolve("work-products/article-review-html/article-review.html")).toVector shouldBe
+            Files.readAllBytes(fixture.bundle.resolve("work-products/article-review-html/article-review.html")).toVector
+          prepared.registryPaths shouldBe Vector(destination.resolve("article-media.json"))
+          Files.readString(destination.resolve("sentinel"), StandardCharsets.UTF_8) shouldBe "keep these bytes\n"
+          Files.isDirectory(destination.resolve("empty")) shouldBe true
+          _authorities(fixture) shouldBe before
         }
       }
 
@@ -446,51 +444,9 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
       }
     }
 
-    "revalidate before final installation" which {
-      "propagate fresh producer failure and remove only owned temporary output after an authored source change" in {
-        Given("a real current export and a callback that changes authored source after native registry preparation")
-        _with_fixture("final") { fixture =>
-          val destination = fixture.taskroot.resolve("prepared")
-          val config = _config(fixture, destination, paired = true)
-          val original = CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
-          val source = fixture.project.resolve("index.dox")
-          val beforeproject = _tree(fixture.project)
-          val beforebundle = _tree(fixture.bundle)
-          val beforemedia = _tree(fixture.media)
-          var callbackran = false
-          var observedregistry = false
-          val callback = () => {
-            val temporary = _children(fixture.taskroot).head
-            observedregistry = CozyArticleMediaRegistry.load(temporary).bundleDigests.nonEmpty
-            callbackran = true
-            _write(source, "Changed source\n")
-          }
 
-          When("ordinary preparation invokes its callback immediately before the final original revalidator")
-          val failure = intercept[RuntimeException] {
-            CozyDocumentProjectPublicationPreparation.prepare(config, callback)
-          }
-          val producer = intercept[RuntimeException] {
-            CozyDocumentProjectPublicationTarget.revalidateCurrentRegistration(original)
-          }
-
-          Then("the exact fresh producer diagnostic escapes and only the controlled authored mutation remains")
-          callbackran shouldBe true
-          observedregistry shouldBe true
-          failure.getMessage shouldBe producer.getMessage
-          failure.getMessage should include("sourceauthority=stale")
-          Files.readString(source, StandardCharsets.UTF_8) shouldBe "Changed source\n"
-          _tree(fixture.project) shouldBe beforeproject.updated("index.dox", "Changed source\n".getBytes(StandardCharsets.UTF_8).toVector)
-          _tree(fixture.bundle) shouldBe beforebundle
-          _tree(fixture.media) shouldBe beforemedia
-          Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
-          _children(fixture.taskroot) shouldBe empty
-        }
-      }
-    }
   }
 
-  private final case class Fixture(root: Path, project: Path, bundle: Path, media: Path, descriptor: Path, site: Path, taskroot: Path)
 
   private def _config(
     fixture: Fixture,
@@ -499,7 +455,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
     target: Option[String] = None
   ): CozyDocumentProjectPublicationPreparation.Config =
     CozyDocumentProjectPublicationPreparation.Config(
-      CozyDocumentProjectPublicationTarget.CurrentRegistrationConfig(fixture.project,
+      CozyDocumentProjectPublicationTarget.ProjectRegistrationConfig(fixture.project,
         CozyDocumentProjectPublicationTarget.RegistrationConfig(fixture.bundle,
           CozyArticleMediaSiteBinding.Config(fixture.descriptor, target,
             if (paired) Some(fixture.site) else None,
@@ -510,7 +466,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
   private def _require_registry(root: Path, binding: CozyArticleMediaSiteBinding.Plan): Unit = {
     val snapshot = CozyArticleMediaRegistry.load(root)
     val expected = CozyArticleMediaPublication.produce(binding.articleIdentity, binding.candidates.map(_.variant))
-    snapshot.bundleDigests.keySet shouldBe Set("article-media")
+    snapshot.bundleNames.toSet shouldBe Set("article-media")
     snapshot.entries.map(_.path) shouldBe Vector(expected.entryPath)
     snapshot.entries.head.metadata shouldBe expected.metadata
     val strict = CozyArticleMediaRegistry.canonicalProjection(snapshot).strictPublications
@@ -583,7 +539,6 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
 
   private def _write_valid_presentation_semantics(project: Path, includeproblemstructure: Boolean = true): Unit = {
     val slug = project.getFileName.toString.stripSuffix(".dox")
-    val core = project.resolve("content/core-en.yaml")
     val composition = _fixed_presentation_composition()
     val problemstructure = _presentation_structure_yaml("problem-structure", "problem-step", "Problem", "The prior reader path was permissive.", "Show the reader-facing problem.")
     val solutionstructure = _presentation_structure_yaml("solution-structure", "solution-step", "Solution", "The typed path preserves declared content.", "Show the reader-facing solution.")
@@ -597,7 +552,6 @@ id: $slug-presentation-en
 contentCore:
   id: $slug:core:en
   language: en
-  identity: sha256:${_sha256(core)}
 composition: ${CozyExplanation.canonicalCompositionJson(composition)}
 storyFlow:
   id: $slug-story-flow-en
@@ -646,7 +600,7 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
     )
     CozyExplanation.Composition(
       "document-composition",
-      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity),
+      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("problem-solution", 1),
@@ -709,9 +663,6 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
 
   private def _indent(value: String, spaces: Int): String =
     value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _infographic_yaml(locale: String): String =
     s"""  - id: summary-$locale
@@ -816,4 +767,8 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
     try stream.iterator.asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.delete(_))
     finally stream.close()
   }
+}
+
+object CozyDocumentProjectPublicationPreparationSpec {
+  private[publication] final case class Fixture(root: Path, project: Path, bundle: Path, media: Path, descriptor: Path, site: Path, taskroot: Path)
 }

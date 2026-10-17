@@ -12,6 +12,10 @@ boot
 codex-test.d
 *.d
 
+# Python script bytecode is regenerated locally.
+__pycache__/
+*.py[cod]
+
 ### Metals (VS Code Scala extension) ###
 .metals/
 project/**/.metals/

@@ -21,7 +21,8 @@ import java.nio.file.{Files, Path, Paths}
  *  version Jun. 27, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -218,25 +219,16 @@ private[cozy] object CozySbtBridge {
       _required_value(args.toList, "mode"),
       _required_value(args.toList, "license")
     )
-    val evidence = _release_source_build_evidence(args.toList)
     val projectroot = _required_path(args.toList, "project-dir")
     val output = _required_path(args.toList, "save")
-    val mainsources = _json_paths(args.toList, "managed-main-sources")
-    val mainroots = _json_paths(args.toList, "managed-main-roots")
-    val testsources = _json_paths(args.toList, "managed-test-sources")
-    val testroots = _json_paths(args.toList, "managed-test-roots")
     if (_option(args.toList, "verify-existing").contains("true"))
-      ComponentReleaseSourceProjection.verify(
-        output,
-        projectroot,
-        policy,
-        mainsources,
-        mainroots,
-        testsources,
-        testroots,
-        evidence
-      )
-    else
+      ComponentReleaseSourceProjection.verify(output, projectroot, policy)
+    else {
+      val evidence = _release_source_build_evidence(args.toList)
+      val mainsources = _json_paths(args.toList, "managed-main-sources")
+      val mainroots = _json_paths(args.toList, "managed-main-roots")
+      val testsources = _json_paths(args.toList, "managed-test-sources")
+      val testroots = _json_paths(args.toList, "managed-test-roots")
       ComponentReleaseSourceProjection.stage(
         projectroot,
         output,
@@ -247,6 +239,7 @@ private[cozy] object CozySbtBridge {
         testroots,
         evidence
       )
+    }
   }
 
   private def _release_source_build_evidence(args: List[String]): ComponentReleaseSourceProjection.BuildEvidence = {
@@ -324,8 +317,7 @@ private[cozy] object CozySbtBridge {
       "generation.versions.cncf",
       "generation.versions.cozy",
       "generation.target",
-      "runtime.cncf.descriptor",
-      "runtime.cncf.descriptor.sha256"
+      "runtime.cncf.descriptor"
     ).foreach { key =>
       CncfRuntimeDescriptorContract.requireConsistentSourceValues(
         "sbt-bridge",
@@ -348,10 +340,7 @@ private[cozy] object CozySbtBridge {
       "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
     )
     config.value("runtime.cncf.descriptor").map { path =>
-      val descriptorargs = base ++ List("--cncf-runtime-descriptor", path)
-      config.value("runtime.cncf.descriptor.sha256").
-        map(digest => descriptorargs ++ List("--cncf-runtime-descriptor-sha256", digest)).
-        getOrElse(descriptorargs)
+      base ++ List("--cncf-runtime-descriptor", path)
     }.getOrElse(base)
   }
 
@@ -424,8 +413,7 @@ private[cozy] object CozySbtBridge {
     }
     Vector(
       "generation.versions.cncf",
-      "runtime.cncf.descriptor",
-      "runtime.cncf.descriptor.sha256"
+      "runtime.cncf.descriptor"
     ).find(config.values.contains).foreach { key =>
       RAISE.invalidArgumentFault(
         s"LIBRARY_GENERATION_RUNTIME_CONTRADICTION: $key is not permitted when generation.target=library."
@@ -450,8 +438,7 @@ private[cozy] object CozySbtBridge {
       Nil
     else {
       val selected =
-        _option(args, "cncf-runtime-descriptor").nonEmpty ||
-          _option(args, "cncf-runtime-descriptor-sha256").nonEmpty
+        _option(args, "cncf-runtime-descriptor").nonEmpty
       if (!selected)
         Nil
       else {

@@ -61,7 +61,7 @@ ordered dimensions `[status,category,status-secondary]` and `absence: null`.
 
 All new names are `共有`; qualified identities carry semantics. New source facts
 use authority `classification.example`, canonical relative path
-`src/main/cml/classification-handoff.cml`, 64 lowercase `a` digest characters and
+`src/main/cml/classification-handoff.cml` and
 lines 7–22. The added Term has the audited trait's components and source line 7,
 but remains a distinct TermId. These are caller-admitted synthetic source facts;
 they do not verify that a real CML file exists or is current. Core references

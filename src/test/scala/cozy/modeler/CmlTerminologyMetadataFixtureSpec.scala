@@ -12,7 +12,7 @@ import CmlTerminologyNavigation.{TermLink, LocalTarget, ExternalTarget}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Fixed Terminology handoff" should {
@@ -86,7 +86,7 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
       "TF-04 preserve ordered duplicate reverse links and exact gaps without descriptive aliases" in {
         Given("both raw modes and safe unknown pairs equivalent copies and a well-formed nonmember link")
         val literals = Vector(_literal(false), _literal(true))
-        val guesses = Vector("共有", _digest, "glossary/terminology.dox", "50", "unused")
+        val guesses = Vector("共有", "glossary/terminology.dox", "50", "unused")
         When("both actual resources are read and full qualified navigation membership and reverse questions are captured")
         val prefix = _prefix()
         val observed = literals.zipWithIndex.map { case (literal, index) =>
@@ -250,7 +250,6 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
   private final case class Failure(input: Input, typederrors: Vector[TerminologyDiagnostic], wireerrors: Vector[TerminologyDiagnostic])
   private final case class Mutation(path: Vector[String], update: JsValue => JsValue, coordinate: String,
     kind: TerminologyDiagnosticKind = InvalidShape, detail: String = "The Terminology value does not match the required v1 shape.", absent: Boolean = false)
-  private val _digest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
   private val _ta = TermId("terminology.a", "shared")
   private val _tb = TermId("terminology.b", "shared")
   private val _tu = TermId("terminology.a", "unused")
@@ -273,7 +272,7 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
   private val _missing_detail = "An admitted core record lacks its required Terminology projection occurrence."
   private val _duplicate_detail = "A core record has excess Terminology projection occurrences."
   private val _unknown_link_detail = "The Terminology link is not admitted by this graph."
-  private def _source(owner: String, line: Int): SourceAttribution = { SourceAttribution(owner, "src/main/cml/terminology-handoff.cml", _digest, Some(line)) }
+  private def _source(owner: String, line: Int): SourceAttribution = { SourceAttribution(owner, "src/main/cml/terminology-handoff.cml", Some(line)) }
   private def _reference(owner: String, line: Int, target: SemanticTarget, boundary: ReferenceBoundary, token: String): SemanticReference = {
     SemanticReference(target, boundary, Present(RelationId("relations.example", "synonym-candidate")),
       Present(ProfileId("profiles.example", "view:literal")), Present("Terminology " + token + "."),
@@ -300,9 +299,9 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
       _source(owners(index), if (index == 5) 54 else index + 50), references(index))).toVector
     val groups: Vector[Presence[Vector[SemanticReference]]] = if (absent) Vector.fill(6)(_group_gap) else Vector(
       Present(Vector(_model_ref, _ra, _ra)), Present(Vector.empty), Present(Vector(_event_ref)), Present(Vector.empty), _group_gap, _group_gap)
-    val terms = Vector(TermRecord(_ta, SourceAttribution("terminology.a", "glossary/terminology.dox", _digest, Some(60))),
-      TermRecord(_tb, SourceAttribution("terminology.b", "glossary/terminology.dox", _digest, Some(61))),
-      TermRecord(_tu, SourceAttribution("terminology.a", "glossary/terminology.dox", _digest, None)))
+    val terms = Vector(TermRecord(_ta, SourceAttribution("terminology.a", "glossary/terminology.dox", Some(60))),
+      TermRecord(_tb, SourceAttribution("terminology.b", "glossary/terminology.dox", Some(61))),
+      TermRecord(_tu, SourceAttribution("terminology.a", "glossary/terminology.dox", None)))
     val projections = if (absent) terms.zipWithIndex.map { case (term, index) => TermProjection(term, _fact_gaps(index),
       _fact_gaps((index + 1) % 4), _fact_gaps((index + 2) % 4), _fact_gaps((index + 3) % 4)) } else Vector(
       TermProjection(terms(0), Present("event-type"), Present(Koto), Present(Vector(LocalizedLabel("共有", Some("ja")),
@@ -422,7 +421,7 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
   private def _model_json(value: ModelElementId): JsObject = { Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId) }
   private def _term_id_json(value: TermId): JsObject = { Json.obj("vocabularyId" -> value.vocabularyId, "termId" -> value.termId) }
   private def _source_json(value: SourceAttribution): JsObject = { Json.obj("authorityId" -> value.authorityId, "path" -> value.path,
-    "sha256" -> value.sha256, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line))) }
+    "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line))) }
   private def _label_json(value: LocalizedLabel): JsObject = { Json.obj("text" -> value.text, "language" -> value.language.fold[JsValue](JsNull)(JsString)) }
   private def _reference_json(value: SemanticReference): JsObject = {
     val target = value.target match {

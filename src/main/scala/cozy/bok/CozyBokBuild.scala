@@ -15,13 +15,12 @@ import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
-import java.time.{Instant, LocalDate, LocalDateTime, YearMonth, ZoneOffset}
-import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.util.zip.{ZipEntry, ZipFile, ZipInputStream, ZipOutputStream}
+import java.util.zip.{ZipFile, ZipInputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 import scala.util.control.NonFatal
@@ -32,7 +31,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 23, 2026
+ *  version Aug. 23, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -90,11 +90,7 @@ private[cozy] trait CozyBokBuild {
     runner: Runner,
     bibliographyfetcher: BibliographyBibtexFetcher
   ): Unit = {
-    val bibliographycache = _stash_bibliography_cache(config)
-    val siehandoffs = _stash_sie_handoffs(config)
     _clear_build_target(config)
-    _restore_bibliography_cache(config, bibliographycache)
-    _restore_sie_handoffs(siehandoffs)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     _delete_directory(config.doxsitePath)
     _delete_directory(config.antoraPath)
@@ -116,7 +112,15 @@ private[cozy] trait CozyBokBuild {
     _write_component_reference_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
-      runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
+      val producerpath = config.project.resolve("arcadiasite.d").toAbsolutePath.normalize()
+      val destinationpath = config.arcadiaSitePath.toAbsolutePath.normalize()
+      if (producerpath != destinationpath)
+        _delete_directory(producerpath)
+      runner.run(Vector("arcadia", "site", config.arcadia.source, config.doxsite), config.project)
+      if (!Files.isDirectory(producerpath))
+        RAISE.invalidArgumentFault(s"Arcadia site completed without its required output directory: ${producerpath}; inputs: ${config.arcadia.source}, ${config.doxsite}")
+      if (producerpath != destinationpath)
+        _copy_directory(producerpath, destinationpath)
       _copy_directory(config.arcadiaSitePath, config.websitePath)
     }
     _write_bok_pages(config)
@@ -316,7 +320,6 @@ private[cozy] trait CozyBokBuild {
 
   def runWorkflow(config: WorkflowConfig, runner: Runner): Unit =
     if (_require_workflow(config)) {
-      config.backup.foreach(_backup_website)
       runner.run(config.command, config.project, config.env)
     }
 
@@ -334,114 +337,5 @@ private[cozy] trait CozyBokBuild {
     else
       true
 
-  private def _backup_website(config: WebsiteBackupConfig): Unit = {
-    _validate_website_backup_config(config)
-    if (!Files.isDirectory(config.source))
-      RAISE.invalidArgumentFault(s"Website backup source directory is missing: ${config.source}")
-    val now = LocalDateTime.now()
-    val snapshotdir = _website_backup_snapshot_dir(config.root, now)
-    Files.createDirectories(snapshotdir)
-    val sourcename = config.source.getFileName.toString
-    if (config.compressed)
-      _zip_directory(config.source, snapshotdir.resolve(s"${sourcename}.zip"), sourcename)
-    else
-      _copy_directory(config.source, snapshotdir.resolve(sourcename))
-    _rotate_website_backups(config.root, YearMonth.from(now))
-  }
-
-  private def _validate_website_backup_config(config: WebsiteBackupConfig): Unit =
-    if (config.root == config.source || config.root.startsWith(config.source))
-      RAISE.invalidArgumentFault(
-        s"Website backup directory must be outside the website source directory: backup=${config.root}, source=${config.source}"
-      )
-
-  private def _website_backup_snapshot_dir(root: Path, now: LocalDateTime): Path = {
-    val basedir = root.
-      resolve(f"${now.getYear}%04d").
-      resolve(f"${now.getMonthValue}%02d").
-      resolve(f"${now.getDayOfMonth}%02d")
-    val basename = now.format(DateTimeFormatter.ofPattern("HHmmss"))
-    Iterator.from(0).map { index =>
-      val name = if (index == 0) basename else f"${basename}-${index}%02d"
-      basedir.resolve(name)
-    }.find(path => !Files.exists(path)).get
-  }
-
-  private def _zip_directory(source: Path, zip: Path, rootname: String): Unit = {
-    Option(zip.getParent).foreach(Files.createDirectories(_))
-    val out = new ZipOutputStream(Files.newOutputStream(zip))
-    try {
-      val stream = Files.walk(source)
-      try {
-        stream.iterator.asScala.toVector.sortBy(_.toString).filter(Files.isRegularFile(_)).foreach { path =>
-          val rel = source.relativize(path).toString.replace(java.io.File.separatorChar, '/')
-          out.putNextEntry(new ZipEntry(s"${rootname}/${rel}"))
-          Files.copy(path, out)
-          out.closeEntry()
-        }
-      } finally {
-        stream.close()
-      }
-    } finally {
-      out.close()
-    }
-  }
-
-  private def _rotate_website_backups(root: Path, current: YearMonth): Unit = {
-    val snapshots = _website_backup_snapshots(root)
-    val first = snapshots.headOption.map(_.path).toSet
-    val monthlylast = snapshots.groupBy(_.yearmonth).collect {
-      case (yearmonth, xs) if yearmonth != current =>
-        xs.last.path
-    }.toSet
-    val currentmonth = snapshots.filter(_.yearmonth == current).map(_.path).toSet
-    val keep = first ++ monthlylast ++ currentmonth
-    snapshots.map(_.path).filterNot(keep.contains).foreach(_delete_directory)
-  }
-
-  private def _website_backup_snapshots(root: Path): Vector[WebsiteBackupSnapshot] =
-    if (!Files.isDirectory(root))
-      Vector.empty
-    else
-      _directory_children(root).flatMap { yearpath =>
-        val year = yearpath.getFileName.toString
-        if (!year.matches("\\d{4}"))
-          Vector.empty
-        else
-          _directory_children(yearpath).flatMap { monthpath =>
-            val month = monthpath.getFileName.toString
-            if (!month.matches("\\d{2}"))
-              Vector.empty
-            else
-              _directory_children(monthpath).flatMap { daypath =>
-                val day = daypath.getFileName.toString
-                if (!day.matches("\\d{2}"))
-                  Vector.empty
-                else
-                  _directory_children(daypath).filter(_is_website_backup_snapshot).map { snapshot =>
-                    val yearmonth = YearMonth.of(year.toInt, month.toInt)
-                    WebsiteBackupSnapshot(snapshot, yearmonth, s"${year}${month}${day}${snapshot.getFileName}")
-                  }
-              }
-          }
-      }.sortBy(_.order)
-
-  private def _directory_children(path: Path): Vector[Path] =
-    if (!Files.isDirectory(path))
-      Vector.empty
-    else {
-      val stream = Files.list(path)
-      try {
-        stream.iterator.asScala.toVector.filter(Files.isDirectory(_)).sortBy(_.toString)
-      } finally {
-        stream.close()
-      }
-    }
-
-  private def _is_website_backup_snapshot(path: Path): Boolean =
-    Files.isDirectory(path) && (
-      Files.exists(path.resolve("website.d")) ||
-      Files.exists(path.resolve("website.d.zip"))
-    )
 
 }

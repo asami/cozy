@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,12 +26,35 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- *  version Aug. 14, 2026
- * @version Sep. 16, 2026
+ *  version Sep. 16, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoRenderWorkspace {
+  import CozyVideoImplementation._
+
+  private[video] final case class CharacterDialogueAssets(characters: Json, visuals: Map[String, Json])
+
+  private[video] object CharacterDialogueAssets {
+    val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
+  }
+
+  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte])
+
+  private[video] final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
+    def resources: Vector[String] = Vector(dialogue.name, diagramlayout.name)
+  }
+}
+
 private[cozy] trait CozyVideoRenderWorkspace {
   self: CozyVideoTypes with CozyVideoRuntime with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private[video] type CharacterDialogueAssets = CozyVideoRenderWorkspace.CharacterDialogueAssets
+  private[video] lazy val CharacterDialogueAssets = CozyVideoRenderWorkspace.CharacterDialogueAssets
+  private[video] type CharacterDialogueTemplateResource = CozyVideoRenderWorkspace.CharacterDialogueTemplateResource
+  private[video] lazy val CharacterDialogueTemplateResource = CozyVideoRenderWorkspace.CharacterDialogueTemplateResource
+  private[video] type CharacterDialogueTemplate = CozyVideoRenderWorkspace.CharacterDialogueTemplate
+  private[video] lazy val CharacterDialogueTemplate = CozyVideoRenderWorkspace.CharacterDialogueTemplate
   private[video] def _render_remotion(
     config: RenderConfig,
     plan: VideoPlan,
@@ -48,7 +70,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       val audio = _load_audio_input(part.id, audiodir, script)
       val workdir = _remotion_work_dir(plan.projectRoot, part.id)
       val props = _write_remotion_workspace(plan, part, script, audio, workdir)
-      _run_remotion(plan.projectRoot, plan.execution, part, workdir, runner)
+      val invocation = _run_remotion(plan.projectRoot, plan.execution, part, workdir, runner)
       _write_part_manifest(
         plan,
         part,
@@ -57,13 +79,12 @@ private[cozy] trait CozyVideoRenderWorkspace {
         workdir,
         "remotionWorkDir",
         Vector(
+          "invocation" -> invocation,
           "profile" -> plan.project.profile.map(Json.fromString).getOrElse(Json.Null),
           "visualEffects" -> props.hcursor.downField("visualEffects").focus.getOrElse(Json.arr()),
           "assets" -> props.hcursor.downField("assets").focus.getOrElse(Json.arr()),
           "credits" -> props.hcursor.downField("credits").focus.getOrElse(Json.Null),
-          "creditDigest" -> plan.credits.profileId.map(_ => Json.fromString(plan.credits.digest)).getOrElse(Json.Null),
           "rendererTemplate" -> props.hcursor.downField("rendererTemplate").focus.getOrElse(Json.Null),
-          "rendererTemplateSha256" -> props.hcursor.downField("rendererTemplateSha256").focus.getOrElse(Json.Null),
           "rendererTemplateResources" -> props.hcursor.downField("rendererTemplateResources").focus.getOrElse(Json.arr()),
           "recordingPath" -> props.hcursor.downField("recordingPath").focus.getOrElse(Json.Null),
           "timing" -> props.hcursor.downField("timing").focus.getOrElse(Json.obj())
@@ -88,14 +109,13 @@ private[cozy] trait CozyVideoRenderWorkspace {
       val audio = _load_simple_java2d_input(part.id, audiodir, part, script)
       val workdir = _simple_java2d_work_dir(plan.projectRoot, part.id)
       val frame = workdir.resolve("frame.png")
-      val stagedoutput = _simple_java2d_staged_output(workdir)
       _write_simple_java2d_workspace(plan, part, script, audio, workdir)
       _run_simple_java2d_frame(plan.projectRoot, plan.execution, part, workdir, runner)
       if (!Files.isRegularFile(frame))
         RAISE.invalidArgumentFault(s"simple-java2d frame render did not create frame: $frame")
-      Files.deleteIfExists(stagedoutput)
-      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, stagedoutput, runner)
-      _replace_rendered_output(stagedoutput, part.outputPath, "simple-java2d")
+      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, part.outputPath, runner, plan.encoding)
+      if (!Files.isRegularFile(part.outputPath))
+        RAISE.invalidArgumentFault(s"simple-java2d render did not create output: ${part.outputPath}")
       _write_part_manifest(
         plan,
         part,
@@ -167,9 +187,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
   private[video] def _simple_java2d_work_dir(projectroot: Path, partid: String): Path =
     projectroot.resolve("target/cozy-video/simple-java2d").resolve(_file_segment_id(partid, "part id")).normalize()
 
-  private[video] def _simple_java2d_staged_output(workdir: Path): Path =
-    workdir.resolve("rendered.mp4")
-
   private[video] def _write_remotion_workspace(
     plan: VideoPlan,
     part: VideoPartPlan,
@@ -196,16 +213,11 @@ private[cozy] trait CozyVideoRenderWorkspace {
     Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
     val assets = _copy_remotion_assets(workdir, plan.assets)
     val dialogueassets = if (characterdialogue || characterwebdemo) _copy_character_dialogue_assets(plan.projectRoot, part, script, workdir, stagevisuals = characterdialogue) else CharacterDialogueAssets.empty
-    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue, templateid, template.map(_.dialogue.sha256), template.map(_.resources), dialogueassets, recording)
+    val propsjson = _remotion_props_json(plan, part, script, audio, assets, characterdialogue, templateid, template.map(_.resources), dialogueassets, recording)
     Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
     _copy_remotion_audio(workdir, audio)
     propsjson
-  }
-
-  private[video] final case class CharacterDialogueAssets(characters: Json, visuals: Map[String, Json])
-  private[video] object CharacterDialogueAssets {
-    val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
   }
 
   private[video] def _is_character_dialogue(part: VideoPartPlan, script: VideoScript, renderer: Option[VideoRenderer]): Boolean = {
@@ -222,31 +234,20 @@ private[cozy] trait CozyVideoRenderWorkspace {
       case field if field.startsWith(name + "=") => field.drop(name.length + 1).trim
     }.filter(_.nonEmpty)
 
-  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte], sha256: String)
-  private[video] final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
-    def resources: Vector[(String, String)] = Vector(dialogue, diagramlayout).map(x => x.name -> x.sha256)
-  }
-
   private[video] def _load_character_dialogue_template(): CharacterDialogueTemplate = {
-    val dialogue = _load_character_dialogue_template_resource("DialogueVideo.jsx", _character_dialogue_template_sha256)
-    val diagramlayout = _load_character_dialogue_template_resource("DiagramLayout.js", _character_dialogue_diagram_layout_sha256)
+    val dialogue = _load_character_dialogue_template_resource("DialogueVideo.jsx")
+    val diagramlayout = _load_character_dialogue_template_resource("DiagramLayout.js")
     CharacterDialogueTemplate(dialogue, diagramlayout)
   }
 
-  private[video] def _load_character_dialogue_template_resource(name: String, expectedsha256: String): CharacterDialogueTemplateResource = {
+  private[video] def _load_character_dialogue_template_resource(name: String): CharacterDialogueTemplateResource = {
     val resource = s"/cozy/video/remotion/$name"
     val stream = Option(getClass.getResourceAsStream(resource)).getOrElse(
       RAISE.invalidArgumentFault(s"Missing Cozy character-dialogue renderer resource: ${resource.drop(1)}")
     )
     val bytes = try stream.readAllBytes() finally stream.close()
-    val actualsha256 = _sha256_bytes(bytes)
-    if (actualsha256 != expectedsha256)
-      RAISE.invalidArgumentFault(s"Cozy character-dialogue renderer resource digest does not match the bundled template contract: $name")
-    CharacterDialogueTemplateResource(name, bytes, actualsha256)
+    CharacterDialogueTemplateResource(name, bytes)
   }
-
-  private[video] def _sha256_bytes(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
 
   private[video] def _validate_declarative_diagrams(script: VideoScript): Unit =
     script.expandedScenes.foreach { scene =>
@@ -346,6 +347,15 @@ private[cozy] trait CozyVideoRenderWorkspace {
   }
 
   private[video] def _stage_web_demo_recording(projectroot: Path, part: VideoPartPlan, workdir: Path): String = {
+    val source = _web_demo_recording_path(projectroot, part)
+    val targetdir = workdir.resolve("public/recording")
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve("recording" + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"recording/${target.getFileName}"
+  }
+
+  private[video] def _web_demo_recording_path(projectroot: Path, part: VideoPartPlan): Path = {
     val configured = part.recordDir.getOrElse(RAISE.invalidArgumentFault(s"Web-demo part ${part.id} has no record directory"))
     val directory = _project_contained_existing_path(projectroot, configured, s"Web-demo part ${part.id} recordDir")
     val candidates =
@@ -362,12 +372,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       } else Vector.empty
     if (candidates.size != 1)
       RAISE.invalidArgumentFault(s"Web-demo part ${part.id} requires exactly one readable .webm or .mp4 in $directory")
-    val source = candidates.head
-    val targetdir = workdir.resolve("public/recording")
-    Files.createDirectories(targetdir)
-    val target = targetdir.resolve("recording" + _asset_extension(source))
-    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-    s"recording/${target.getFileName}"
+    candidates.head
   }
 
   private[video] def _character_asset_bases(projectroot: Path, scriptpath: Path): Vector[Path] = {
@@ -377,13 +382,22 @@ private[cozy] trait CozyVideoRenderWorkspace {
   }
 
   private[video] def _stage_character_dialogue_asset(projectroot: Path, workdir: Path, bases: Vector[Path], authored: String, directory: String, owner: String, field: String): String = {
+    val source = _resolve_character_dialogue_asset(projectroot, bases, authored, owner, field)
+    val targetdir = workdir.resolve("public").resolve(directory)
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve(_file_segment_id(owner.replace(' ', '-'), "asset owner") + "-" + _file_segment_id(field.replace('.', '-'), "asset field") + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"$directory/${target.getFileName}"
+  }
+
+  private[video] def _resolve_character_dialogue_asset(projectroot: Path, bases: Vector[Path], authored: String, owner: String, field: String): Path = {
     val authoredpath = Try(Paths.get(authored)).getOrElse(RAISE.invalidArgumentFault(s"Invalid $field asset for $owner: $authored"))
     if (authoredpath.isAbsolute)
       RAISE.invalidArgumentFault(s"Absolute $field asset is not allowed for $owner: $authored")
     if (authoredpath.iterator().asScala.exists(_.toString == ".."))
       RAISE.invalidArgumentFault(s"Traversal outside admitted asset bases for $owner $field: $authored")
     val project = projectroot.toAbsolutePath.normalize()
-    val source = bases.iterator.flatMap { base =>
+    bases.iterator.flatMap { base =>
       val path = base.resolve(authoredpath).normalize()
       if (!path.startsWith(project))
         RAISE.invalidArgumentFault(s"Traversal outside project root for $owner $field: $authored")
@@ -392,11 +406,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
         if (Files.isRegularFile(contained) && Files.isReadable(contained)) Some(contained) else None
       } else None
     }.toVector.headOption.getOrElse(RAISE.invalidArgumentFault(s"Missing or unreadable $field asset for $owner: $authored"))
-    val targetdir = workdir.resolve("public").resolve(directory)
-    Files.createDirectories(targetdir)
-    val target = targetdir.resolve(_file_segment_id(owner.replace(' ', '-'), "asset owner") + "-" + _file_segment_id(field.replace('.', '-'), "asset field") + _asset_extension(source))
-    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-    s"$directory/${target.getFileName}"
   }
 
   private[video] def _resolve_project_relative_path(projectroot: Path, authored: String, owner: String): Path = {
@@ -479,26 +488,9 @@ private[cozy] trait CozyVideoRenderWorkspace {
     runner: VideoProcessRunner
   ): Unit = {
     val script = workdir.resolve("render_frame.py")
-    val args =
-      execution.toolMode match {
-        case VideoToolMode.Docker =>
-          Vector(
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            s"${projectroot}:/workspace",
-            "-w",
-            "/workspace",
-            execution.dockerImage,
-            "python3",
-            _docker_path(projectroot, script)
-          )
-        case VideoToolMode.Host =>
-          Vector("python3", script.toString)
-        case VideoToolMode.ExternalService =>
-          RAISE.invalidArgumentFault("simple-java2d render cannot use external-service tool mode")
-      }
+    val args = _execution_command(projectroot, execution, "python3",
+      Vector(_execution_path(projectroot, execution, script, "python-pillow")),
+      mounts = _selected_path_mounts(projectroot, Vector(script), Vector(workdir.resolve("frame.png"))))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"simple-java2d frame render failed for part ${part.id}: ${result.stderr.trim}")
@@ -511,59 +503,35 @@ private[cozy] trait CozyVideoRenderWorkspace {
     frame: Path,
     audiofile: Path,
     outputpath: Path,
-    runner: VideoProcessRunner
+    runner: VideoProcessRunner,
+    encoding: ResolvedEncodingSettings = ResolvedEncodingSettings.lightweight
   ): Unit = {
     Files.createDirectories(outputpath.getParent)
-    val baseargs = Vector(
+    val encoder = CozyVideoEncoder.resolve(execution, encoding, stillImage = true)
+    val inputargs = Vector(
       "-y",
       "-loop",
       "1",
       "-i",
-      frame.toString,
+      _execution_path(projectroot, execution, frame),
       "-i",
-      audiofile.toString,
-      "-c:v",
-      "libx264",
-      "-tune",
-      "stillimage",
+      _execution_path(projectroot, execution, audiofile)
+    )
+    val outputargs = Vector(
       "-c:a",
       "aac",
+      "-b:a", encoding.audioBitrate, "-cutoff", "18000", "-ar", "48000", "-ac", "2",
       "-shortest",
       "-pix_fmt",
       "yuv420p",
-      outputpath.toString
+      _execution_path(projectroot, execution, outputpath)
     )
-    val args =
-      execution.toolMode match {
-        case VideoToolMode.Docker =>
-          Vector(
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            s"${projectroot}:/workspace",
-            "-w",
-            "/workspace",
-            execution.dockerImage,
-            "ffmpeg"
-          ) ++ baseargs.map(x => if (x.startsWith(projectroot.toString)) _docker_path(projectroot, Path.of(x)) else x)
-        case VideoToolMode.Host =>
-          Vector("ffmpeg") ++ baseargs
-        case VideoToolMode.ExternalService =>
-          RAISE.invalidArgumentFault("simple-java2d ffmpeg encode cannot use external-service tool mode")
-      }
+    val effectiveargs = inputargs ++ encoder.arguments ++ outputargs
+    val args = _execution_command(projectroot, execution, "ffmpeg", effectiveargs,
+      mounts = _selected_path_mounts(projectroot, Vector(frame, audiofile), Vector(outputpath)))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
-      RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode failed for part ${part.id}: ${result.stderr.trim}")
-  }
-
-  private[video] def _replace_rendered_output(stagedoutput: Path, outputpath: Path, renderer: String): Unit = {
-    if (!Files.isRegularFile(stagedoutput))
-      RAISE.invalidArgumentFault(s"$renderer render did not create staged output: $stagedoutput")
-    Files.createDirectories(outputpath.getParent)
-    Files.move(stagedoutput, outputpath, StandardCopyOption.REPLACE_EXISTING)
-    if (!Files.isRegularFile(outputpath))
-      RAISE.invalidArgumentFault(s"$renderer render did not replace output: $outputpath")
+      RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode failed for part ${part.id}: exit=${result.exitCode} ${result.text}")
   }
 
   private[video] def _run_remotion(
@@ -572,37 +540,41 @@ private[cozy] trait CozyVideoRenderWorkspace {
     part: VideoPartPlan,
     workdir: Path,
     runner: VideoProcessRunner
-  ): Unit = {
+  ): Json = {
     Option(part.outputPath.getParent).foreach(Files.createDirectories(_))
     val script = workdir.resolve("src/render.mjs")
-    val stagedoutput = _remotion_staged_output(workdir)
-    Files.deleteIfExists(stagedoutput)
-    val args =
-      execution.toolMode match {
-        case VideoToolMode.Docker =>
-          Vector(
-            "docker",
-            "run",
-            "--rm",
-            "-v",
-            s"${projectroot}:/workspace",
-            "-w",
-            "/workspace",
-            execution.dockerImage,
-            "node",
-            _docker_path(projectroot, script)
-          )
-        case VideoToolMode.Host =>
-          Vector("node", script.toString)
-        case VideoToolMode.ExternalService =>
-          RAISE.invalidArgumentFault("Remotion render cannot use external-service tool mode")
-      }
+    val args = _execution_command(projectroot, execution, "node",
+      Vector(_execution_path(projectroot, execution, script, "remotion")) ++
+        (if (execution.externalFrameEncoding) Vector("--frame-audio") else Vector.empty),
+      mounts = _selected_path_mounts(projectroot, Vector(script), Vector(part.outputPath)))
+    if (execution.externalFrameEncoding)
+      Files.deleteIfExists(workdir.resolve("frame-audio.json"))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"Remotion render failed for part ${part.id}: ${result.stderr.trim}")
-    if (!Files.isRegularFile(stagedoutput))
-      RAISE.invalidArgumentFault(s"Remotion render did not create staged output for part ${part.id}: $stagedoutput")
-    Files.copy(stagedoutput, part.outputPath, StandardCopyOption.REPLACE_EXISTING)
+    val encoding = if (execution.externalFrameEncoding) {
+      val props = parser.parse(Files.readString(workdir.resolve("props.json"))).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid composition props: ${error.getMessage}"), identity)
+      val handoff = CozyVideoFrameEncoding.load(workdir, props)
+      val encoderargs = CozyVideoFrameEncoding.arguments(handoff, workdir, projectroot, execution, props, part.outputPath)
+      val encoded = runner.run(encoderargs, projectroot)
+      val evidence = Json.obj("argv" -> Json.fromValues(encoderargs.map(Json.fromString)),
+        "exitCode" -> Json.fromInt(encoded.exitCode), "stderr" -> Json.fromString(encoded.stderr),
+        "frameCount" -> Json.fromInt(handoff.frameCount), "audioPath" -> Json.fromString(handoff.audioPath.toString),
+        "outputPath" -> Json.fromString(part.outputPath.toString), "selection" -> execution.selected("ffmpeg").toJson,
+        "encoder" -> Json.fromString(execution.encoderName),
+        "effectiveEncoder" -> CozyVideoEncoder.fromProps(execution, props).toJson,
+        "qualityProfile" -> props.hcursor.downField("qualityProfile").focus.getOrElse(Json.Null),
+        "audioBitrate" -> Json.fromString(CozyVideoQuality.audioBitrateFromProps(props).fold(RAISE.invalidArgumentFault(_), identity)),
+        "encodingOrigins" -> props.hcursor.downField("encodingOrigins").focus.getOrElse(Json.obj()))
+      Files.writeString(workdir.resolve("encoding-result.json"), evidence.spaces2, StandardCharsets.UTF_8)
+      if (!encoded.isSuccess) RAISE.invalidArgumentFault(s"Selected FFmpeg frame encoding failed for ${part.id}: ${encoded.text}")
+      evidence
+    } else Json.Null
+    if (!Files.isRegularFile(part.outputPath))
+      RAISE.invalidArgumentFault(s"Remotion render did not create output for part ${part.id}: ${part.outputPath}")
+    Json.obj("rendererArgv" -> Json.fromValues(args.map(Json.fromString)), "rendererExitCode" -> Json.fromInt(result.exitCode),
+      "rendererSelection" -> execution.selected("remotion").toJson, "encoding" -> encoding)
   }
 
   private[video] def _write_part_manifest(
@@ -620,12 +592,13 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "renderer" -> Json.fromString(renderer),
       "scriptPath" -> Json.fromString(part.scriptPath.map(_.toString).getOrElse("")),
       "audioManifestPath" -> Json.fromString(audio.manifestPath.toString),
-      "audioManifestSha256" -> Json.fromString(_sha256(audio.manifestPath)),
       "outputPath" -> Json.fromString(part.outputPath.toString),
       "sceneCount" -> Json.fromInt(part.script.map(_.expandedScenes.size).getOrElse(0)),
       "estimatedDuration" -> Json.fromDoubleOrNull(part.estimatedDuration.getOrElse(0.0)),
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
+      "effectiveTools" -> plan.execution.effectiveToolsJson,
+      "encoding" -> CozyVideoQuality.encodingJson(plan.encoding),
       workdirfield -> Json.fromString(workdir.toString)
     ) ++ extra
     val json = Json.obj(fields: _*)

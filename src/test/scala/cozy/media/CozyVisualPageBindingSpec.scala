@@ -13,7 +13,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 27, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageBindingSpec
@@ -21,7 +22,7 @@ final class CozyVisualPageBindingSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Visual Page business binding" should {
-    "normalize complete pattern bindings and converge equivalent JSON ordering to one identity" in {
+    "normalize complete pattern bindings and converge equivalent JSON ordering to one complete value" in {
       _with_work("binding-canonical") { root =>
         Given("one resolved Visual Page document and a complete business binding for its catalog")
         val validated = _validated()
@@ -32,10 +33,12 @@ final class CozyVisualPageBindingSpec
         val firstloaded = CozyVisualPageBinding.load(first, validated)
         val secondloaded = CozyVisualPageBinding.load(second, validated)
 
-        Then("canonical JSON and the SHA-256 binding identity converge while pattern order is canonical")
+        Then("typed Bindings and canonical JSON objects converge with exactly the complete non-hash structure")
         firstloaded.canonicalJson shouldBe secondloaded.canonicalJson
-        firstloaded.bindingIdentity shouldBe secondloaded.bindingIdentity
-        firstloaded.bindingIdentity should startWith("sha256:")
+        firstloaded.binding shouldBe secondloaded.binding
+        firstloaded.binding.canonicalValue shouldBe secondloaded.binding.canonicalValue
+        firstloaded.binding.canonicalValue.asObject.map(_.keys.toVector) shouldBe Some(_root_fields)
+        firstloaded.binding.canonicalValue.hcursor.downField("patterns").downArray.downField("slots").downArray.get[String]("physicalSlot").toOption shouldBe Some("knowledge-slot")
         firstloaded.patterns.map(_.visualPattern) shouldBe Vector("flow-horizontal", "flow-vertical", "mapping-columns")
         firstloaded.canonicalJson should include_text("\"schema\":\"cozy.visual-page.binding.v1\",\"version\":1")
       }
@@ -57,11 +60,12 @@ final class CozyVisualPageBindingSpec
           val generated = _write(root.resolve("generated.json"), _binding_json(patternorder, shuffled = shuffledorder, rootorder = rootorder))
           val loaded = CozyVisualPageBinding.load(generated, validated)
           loaded.canonicalJson == referencebinding.canonicalJson &&
-            loaded.bindingIdentity == referencebinding.bindingIdentity &&
+            loaded.binding == referencebinding.binding &&
+            loaded.binding.canonicalValue == referencebinding.binding.canonicalValue &&
             loaded.patterns.map(_.visualPattern) == patternids.sorted
         })
 
-        Then("every generated binding converges to the canonical JSON and identity with lexically ordered pattern IDs")
+        Then("every generated binding converges to the typed Binding and canonical JSON value with lexically ordered pattern IDs")
         check.passed shouldBe true
         check.succeeded should be >= 30
       }
@@ -218,12 +222,7 @@ final class CozyVisualPageBindingSpec
     CozyVisualPage.ValidatedDocument(
       page,
       catalog,
-      canonical,
-      CozyVisualPage.catalogIdentity(catalog),
-      CozyVisualPage.logicalCatalogIdentity(catalog),
-      Vector(page.id -> CozyVisualPage.logicalIdentity(page, catalog)),
-      Vector(page.id -> CozyVisualPage.visualPageIdentity(page, catalog)),
-      CozyVisualPage.visualPageIdentity(page, catalog)
+      canonical
     )
   }
 

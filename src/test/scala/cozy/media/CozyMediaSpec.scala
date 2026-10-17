@@ -2,7 +2,7 @@ package cozy.media
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +13,8 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -403,8 +404,14 @@ final class CozyMediaSpec
 
           Then("planning reports delegation and receiptless verification and publication are rejected")
           plan should include_text("article-video-ja: delegate-video")
-          verificationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
-          publicationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
+          verificationerror.getMessage should include_text("Media receipt currentness failed for resource")
+          publicationerror.getMessage should include_text("Media receipt currentness failed for resource")
+          Vector(verificationerror, publicationerror).foreach { error =>
+            error.getMessage should include_text("article-video-ja")
+            error.getMessage should include_text("producer video-project")
+            error.getMessage should include_text(dir.resolve("target/cozy-media/manifest.json").toString)
+            error.getMessage should include_text(s"cozy media build $descriptor --target article-video-ja")
+          }
           dir.resolve("publication/example/ja/final.mp4") should not(be_regular_file)
         }
       }
@@ -855,9 +862,7 @@ final class CozyMediaSpec
   }
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
-    val dir = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/media-package").resolve(name)
-    _delete(dir)
-    Files.createDirectories(dir)
+    val dir = Files.createTempDirectory("cozy-media-package-" + name + "-").toRealPath()
     try body(dir)
     finally _delete(dir)
   }

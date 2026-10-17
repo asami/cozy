@@ -13,11 +13,11 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReviewState {
-  final case class Snapshot(inputSetSha256: String, reviewManifestSha256: String, artifactSetSha256: String, acceptedAt: String)
+  final case class Snapshot(acceptedAt: String)
   final case class State(current: Option[Snapshot], lastAligned: Option[Snapshot], selectedAuthority: Option[String], sync: String)
 
   private val _schema = "cozy.media.review-state.v1"
@@ -38,15 +38,15 @@ private[cozy] object CozyMediaReviewState {
     s"Cozy Media Review Align\nstatus: aligned\ntarget: $target\nauthority: $authority"
   }
 
-  def refresh(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
-    val path = _path(plan, resolved)
-    write(path, _refreshed_state(plan, resolved, load(path)))
-  }
-
   /** Validates and serializes a refreshed state without modifying its target. */
-  private[cozy] def prepareRefresh(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): CozyMediaReceipt.PreparedDocument = {
+  private[cozy] def prepareRefresh(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, rendered: Boolean): CozyMediaReceipt.PreparedDocument = {
     val path = _path(plan, resolved)
-    CozyMediaReceipt.PreparedDocument(path, (_json(_refreshed_state(plan, resolved, load(path))).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+    val previous = load(path)
+    val state = if (!rendered && previous.current.isDefined)
+      previous
+    else
+      State(Some(CozyMediaPresentation.reviewSnapshot(plan, resolved)), previous.lastAligned, previous.selectedAuthority, "stale")
+    CozyMediaReceipt.PreparedDocument(path, (_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
   }
 
   def align(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, authority: String): Unit = {
@@ -54,10 +54,7 @@ private[cozy] object CozyMediaReviewState {
       _invalid("Media review authority must be article or slide-ir")
     CozyMediaPresentation.requireCurrent(plan, resolved, requireReviewState = false)
     val path = _path(plan, resolved)
-    val current = load(path).current.getOrElse(_invalid("Media review state has no current deterministic evidence"))
-    val expected = CozyMediaPresentation.reviewSnapshot(plan, resolved, current.acceptedAt)
-    if (!_same_identity(current, expected))
-      _invalid("Media review state current identity is stale")
+    val current = load(path).current.getOrElse(_invalid("Media review state has no current evidence"))
     val accepted = current.copy(acceptedAt = Instant.now().toString)
     write(path, State(Some(current), Some(accepted), Some(authority), "aligned"))
   }
@@ -65,10 +62,9 @@ private[cozy] object CozyMediaReviewState {
   def requireAligned(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
     val path = _path(plan, resolved)
     val state = load(path)
-    val current = state.current.getOrElse(_invalid("Media review state has no current evidence"))
-    val aligned = state.lastAligned.getOrElse(_invalid("Media review state has no explicit alignment"))
-    val expected = CozyMediaPresentation.reviewSnapshot(plan, resolved, current.acceptedAt)
-    if (state.sync != "aligned" || state.selectedAuthority.isEmpty || !_same_identity(current, expected) || !_same_identity(aligned, current))
+    state.current.getOrElse(_invalid("Media review state has no current evidence"))
+    state.lastAligned.getOrElse(_invalid("Media review state has no explicit alignment"))
+    if (state.sync != "aligned" || state.selectedAuthority.isEmpty)
       _invalid("Media review state is stale or has not been explicitly aligned")
   }
 
@@ -101,12 +97,6 @@ private[cozy] object CozyMediaReviewState {
     path
   }
 
-  private def _refreshed_state(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, previous: State): State = {
-    val current = CozyMediaPresentation.reviewSnapshot(plan, resolved, Instant.now().toString)
-    val aligned = previous.lastAligned.exists(snapshot => _same_identity(snapshot, current))
-    State(Some(current), previous.lastAligned, previous.selectedAuthority, if (aligned) "aligned" else "stale")
-  }
-
   private def _state(value: Json): State = {
     val objectvalue = _object(value, "Media review state")
     _exact_keys(objectvalue, Set("schema", "current", "last_aligned", "selected_authority", "sync"), "Media review state")
@@ -120,21 +110,17 @@ private[cozy] object CozyMediaReviewState {
     }
     val sync = _string(objectvalue, "sync", "Media review state")
     if (!Set("aligned", "stale").contains(sync)) _invalid("Media review sync must be aligned or stale")
-    if (sync == "aligned" && (current.isEmpty || aligned.isEmpty || authority.isEmpty || !_same_identity(current.get, aligned.get)))
-      _invalid("Media review aligned state requires matching current, last_aligned, and selected_authority")
+    if (sync == "aligned" && (current.isEmpty || aligned.isEmpty || authority.isEmpty))
+      _invalid("Media review aligned state requires current, last_aligned, and selected_authority")
     State(current, aligned, authority, sync)
   }
 
   private def _snapshot(value: Json): Snapshot = {
-    val objectvalue = _object(value, "Media review snapshot")
-    _exact_keys(objectvalue, Set("inputSetSha256", "reviewManifestSha256", "artifactSetSha256", "acceptedAt"), "Media review snapshot")
-    val inputset = _sha256(_string(objectvalue, "inputSetSha256", "Media review snapshot"))
-    val review = _sha256(_string(objectvalue, "reviewManifestSha256", "Media review snapshot"))
-    val artifacts = _sha256(_string(objectvalue, "artifactSetSha256", "Media review snapshot"))
+    val objectvalue = _object(value, "Media review snapshot").filterKeys(Set("acceptedAt").contains)
     val accepted = _string(objectvalue, "acceptedAt", "Media review snapshot")
     try Instant.parse(accepted) catch { case NonFatal(_) => _invalid("Media review acceptedAt must be UTC ISO-8601") }
     if (!accepted.endsWith("Z")) _invalid("Media review acceptedAt must be UTC ISO-8601")
-    Snapshot(inputset, review, artifacts, accepted)
+    Snapshot(accepted)
   }
 
   private def _nullable_snapshot(value: JsonObject, field: String): Option[Snapshot] =
@@ -162,16 +148,8 @@ private[cozy] object CozyMediaReviewState {
 
   private def _snapshot_json(value: Snapshot): Json =
     Json.obj(
-      "inputSetSha256" -> Json.fromString(value.inputSetSha256),
-      "reviewManifestSha256" -> Json.fromString(value.reviewManifestSha256),
-      "artifactSetSha256" -> Json.fromString(value.artifactSetSha256),
       "acceptedAt" -> Json.fromString(value.acceptedAt)
     )
-
-  private def _same_identity(left: Snapshot, right: Snapshot): Boolean =
-    left.inputSetSha256 == right.inputSetSha256 &&
-      left.reviewManifestSha256 == right.reviewManifestSha256 &&
-      left.artifactSetSha256 == right.artifactSetSha256
 
   private def _object(value: Json, label: String): JsonObject = value.asObject.getOrElse(_invalid(s"$label must be an object"))
 
@@ -180,9 +158,6 @@ private[cozy] object CozyMediaReviewState {
 
   private def _string(value: JsonObject, field: String, label: String): String =
     value(field).flatMap(_.asString).filter(x => x.nonEmpty && x == x.trim).getOrElse(_invalid(s"$label.$field must be a non-empty exact string"))
-
-  private def _sha256(value: String): String =
-    if (value.matches("[0-9a-f]{64}")) value else _invalid("Media review hash must be 64 lowercase hexadecimal characters")
 
   private def _direct_regular_file(path: Path): Boolean =
     path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)

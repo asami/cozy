@@ -7,7 +7,8 @@ import play.api.libs.json.{JsObject, JsString, JsValue}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaIntegrity {
@@ -59,11 +60,10 @@ private[cozy] object CozyArticleMediaIntegrity {
     articleIdentity: String,
     locale: String,
     role: Role,
-    artifact: Artifact,
+    artifact: Option[Artifact],
     publicPath: URI,
     repositoryPath: String,
     mediaType: String,
-    sha256: String,
     provenance: Provenance,
     publicationState: PublicationState
   )
@@ -72,11 +72,10 @@ private[cozy] object CozyArticleMediaIntegrity {
     articleIdentity: String,
     locale: String,
     role: Role,
-    artifact: Artifact,
+    artifact: Option[Artifact],
     publicPath: URI,
     repositoryPath: String,
     mediaType: String,
-    sha256: String,
     provenance: Provenance,
     publicationState: PublicationState
   )
@@ -102,14 +101,13 @@ private[cozy] object CozyArticleMediaIntegrity {
     val identity = CozyArticleMediaNormalization.normalizeArticleIdentity(input.articleIdentity)
     val locale = CozyArticleMediaNormalization.normalizeLocale(input.locale)
     val role = _normalize_role(input.role)
-    val artifact = _normalize_artifact(input.artifact)
     CozyArticleMediaNormalization.validateSiteVisibleUri(input.publicPath, "Article-media integrity publicPath")
     val repositorypath = CozyArticleMediaNormalization.normalizeRelativePath(input.repositoryPath, "Article-media integrity repositoryPath")
     val mediatype = _normalize_media_type(input.mediaType, role)
-    val digest = _normalize_digest(input.sha256)
     val provenance = _normalize_provenance(input.provenance, role)
+    val artifact = _normalize_artifact(input.artifact, provenance)
     val state = _normalize_publication_state(input.publicationState)
-    Record(identity, locale, role, artifact, input.publicPath, repositorypath, mediatype, digest, provenance, state)
+    Record(identity, locale, role, artifact, input.publicPath, repositorypath, mediatype, provenance, state)
   }
 
   private def _normalize_role(role: Role): Role =
@@ -118,20 +116,23 @@ private[cozy] object CozyArticleMediaIntegrity {
       case _ => _invalid("Article-media integrity role must be infographic or video")
     }
 
-  private def _normalize_artifact(artifact: Artifact): Artifact = {
+  private def _normalize_artifact(artifact: Option[Artifact], provenance: Provenance): Option[Artifact] = {
     if (artifact == null)
       _invalid("Article-media integrity artifact must be defined")
-    Artifact(
-      identity = CozyArticleMediaNormalization.requireTrimmed(artifact.identity, "Article-media integrity artifact identity"),
-      version = CozyArticleMediaNormalization.requireTrimmed(artifact.version, "Article-media integrity artifact version")
-    )
-  }
-
-  private def _normalize_digest(sha256: String): String = {
-    val digest = Option(sha256).getOrElse("")
-    if (!digest.matches("[0-9a-f]{64}"))
-      _invalid(s"Article-media integrity sha256 must be 64 lowercase hexadecimal characters: $sha256")
-    digest
+    provenance match {
+      case _: WipSiteVideo =>
+        if (artifact.nonEmpty)
+          _invalid("Article-media WIP video must not declare an artifact version")
+        None
+      case _ =>
+        val declared = artifact.filter(_ != null).getOrElse(
+          _invalid("Article-media integrity declared artifact must be defined")
+        )
+        Some(Artifact(
+          identity = CozyArticleMediaNormalization.requireTrimmed(declared.identity, "Article-media integrity artifact identity"),
+          version = CozyArticleMediaNormalization.requireTrimmed(declared.version, "Article-media integrity artifact version")
+        ))
+    }
   }
 
   private def _normalize_media_type(mediatype: String, role: Role): String = {
@@ -181,20 +182,21 @@ private[cozy] object CozyArticleMediaIntegrity {
       case _ => _invalid("Article-media integrity publicationState is invalid")
     }
 
-  private def _record_json(record: Record): JsObject =
-    _json_object(
+  private def _record_json(record: Record): JsObject = {
+    val fields = Vector(
       "schema" -> JsString("cozy.article-media-integrity.v1"),
       "articleIdentity" -> JsString(record.articleIdentity),
       "locale" -> JsString(record.locale),
       "role" -> JsString(record.role.name),
-      "artifact" -> _artifact_json(record.artifact),
+    ) ++ record.artifact.toVector.map(artifact => "artifact" -> _artifact_json(artifact)) ++ Vector(
       "publicPath" -> JsString(record.publicPath.toString),
       "repositoryPath" -> JsString(record.repositoryPath),
       "mediaType" -> JsString(record.mediaType),
-      "sha256" -> JsString(record.sha256),
       "provenance" -> _provenance_json(record.provenance),
       "publicationState" -> JsString(record.publicationState.name)
     )
+    _json_object(fields: _*)
+  }
 
   private def _artifact_json(artifact: Artifact): JsObject =
     _json_object(

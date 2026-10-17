@@ -21,7 +21,7 @@
 - [ ] Diagnose missing feedback/action/navigation coverage.
 - [ ] Diagnose stale Policy/Plan/generated source.
 - [ ] Keep review projections read-only and non-authoritative.
-- [ ] Keep Phase 50 Progressive Static Web semantic review distinct from Flutter
+- [ ] Keep Phase 50.1 Progressive Static Web semantic review distinct from Flutter
   Web implementation review.
 
 ## Regeneration and ownership

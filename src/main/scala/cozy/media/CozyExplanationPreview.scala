@@ -1,14 +1,13 @@
 package cozy.media
 
-import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 30, 2026
- * @version Aug. 30, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanationPreview {
@@ -44,12 +43,11 @@ private[cozy] object CozyExplanationPreview {
 
   def execute(args: List[String]): String = {
     val config = _config(args)
-    _validate_output(config.save)
-    val validated = _validate(config)
+    val output = _validate_output(config.save)
+    val validated = _validate(config.copy(save = output))
     val html = _html(validated)
-    val htmlidentity = _sha256(html.getBytes(StandardCharsets.UTF_8))
-    val receipt = _receipt(validated, htmlidentity)
-    CozyExplanationProjection._atomic_write(config.save, html)
+    val receipt = _receipt(validated)
+    CozyExplanationProjection._write_output(output, html)
     receipt
   }
 
@@ -141,10 +139,9 @@ private[cozy] object CozyExplanationPreview {
       case value: CozyVisualPage.PageSet => value
       case _ => _stale("$command.visualPageSet", "named VisualPageSet must be cozy.visual-page-set.v1")
     }
-    if (visualpages.catalogIdentity != projectionmap.plan.presentationCatalog.catalogIdentity)
-      _stale("$command.visualPageSet", "named VisualPageSet full presentation catalog identity is not current")
-    if (visualpages.logicalCatalogIdentity != projectionmap.plan.plan.presentationCatalog.identity)
-      _stale("$command.visualPageSet", "named VisualPageSet logical presentation catalog identity is not current")
+    if (visualpages.catalog.id != projectionmap.plan.plan.presentationCatalog.id ||
+        visualpages.catalog.revision != projectionmap.plan.plan.presentationCatalog.revision)
+      _stale("$command.visualPageSet", "named VisualPageSet presentation catalog ID or revision does not agree with the Plan selector")
     _unique(pageset.pages.map(_.id), "$command.visualPageSet.pages", "page ID")
     val pageindex = pageset.pages.map(page => page.id -> page).toMap
     val visualpagesetpath = try config.visualpageset.toAbsolutePath.normalize() catch {
@@ -191,28 +188,22 @@ private[cozy] object CozyExplanationPreview {
     requiredassets.find(id => !pageassets.contains(id)).foreach { id =>
       _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing asset provenance: $id")
     }
-    val sourcedeclarations = composition.composition.sources.map(value => value.id -> value).toMap
+    val sourceids = composition.composition.sources.map(_.id).toSet
     val assetdeclarations = composition.composition.assets.map(value => value.id -> value).toMap
     val sourcepaths = requiredsources.map { id =>
-      val declaration = sourcedeclarations.getOrElse(id,
-        _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan source does not resolve in the current Composition: $id"))
+      if (!sourceids.contains(id))
+        _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan source does not resolve in the current Composition: $id")
       val pagesource = pagesources(id)
       val p36source = _descriptor_resource(
         visualpagesetpath,
         pagesource.path,
         s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id.path"
       )
-      val p37source = CozyExplanationProjection._projection_input(
+      CozyExplanationProjection._projection_input(
         bindings.sources.getOrElse(id,
           _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "Composition source binding is missing")),
         s"source.$id"
       )
-      val p36bytes = Files.readAllBytes(p36source)
-      val p37bytes = Files.readAllBytes(p37source)
-      if (!java.util.Arrays.equals(p36bytes, p37bytes))
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "P36 source bytes do not agree with the explicit P37 source binding")
-      if (CozyExplanationProjection._sha256_bytes(p37bytes) != declaration.sha256)
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "P37 source bytes do not agree with the current SourceDeclaration")
       p36source
     }
     val assetpaths = requiredassets.map { id =>
@@ -224,17 +215,13 @@ private[cozy] object CozyExplanationPreview {
         pageasset.path,
         s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.path"
       )
-      val p37asset = CozyExplanationProjection._projection_input(
+      CozyExplanationProjection._projection_input(
         bindings.assets.getOrElse(id,
           _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "Composition asset binding is missing")),
         s"asset.$id"
       )
       if (pageasset.mediaType != declaration.mediaType)
         _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.mediaType", "P36 asset mediaType does not agree with the current P37 AssetDeclaration")
-      if (pageasset.sha256 != declaration.sha256)
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.sha256", "P36 asset digest does not agree with the current P37 AssetDeclaration")
-      if (!java.util.Arrays.equals(Files.readAllBytes(p36asset), Files.readAllBytes(p37asset)))
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "P36 asset bytes do not agree with the explicit P37 asset binding")
       p36asset
     }
     val descriptorpaths = page.sources.map { value =>
@@ -305,19 +292,21 @@ private[cozy] object CozyExplanationPreview {
       "<head>",
       "<meta charset=\"utf-8\">",
       "<title>Cozy Explanation Preview</title>",
-      "<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#20252b}main{max-width:76rem;margin:auto}code{font-family:ui-monospace,monospace}.identity,section{border:1px solid #ccd5de;padding:1rem;margin:1rem 0}.identity{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1rem}.identity dt{font-weight:600}h1,h2,h3,h4{margin-top:1.25rem}ol,ul{padding-left:1.5rem}.relation{border-left:4px solid #526d82;padding-left:.7rem}.flow{width:100%;height:3rem;border:1px solid #ccd5de;background:#f4f7fa}.visual-schematic{display:block;width:100%;height:auto;border:1px solid #ccd5de;background:#f4f7fa}.visual-schematic .node rect{fill:#fff;stroke:#526d82}.visual-schematic text{fill:#20252b;font-size:12px;text-anchor:middle}.visual-schematic .emphasis rect{stroke:#a23b3b;stroke-width:3}.visual-schematic .column-titles text{font-weight:600}</style>",
+      "<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#20252b}main{max-width:76rem;margin:auto}code{font-family:ui-monospace,monospace}.provenance,section{border:1px solid #ccd5de;padding:1rem;margin:1rem 0}.provenance{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1rem}.provenance dt{font-weight:600}h1,h2,h3,h4{margin-top:1.25rem}ol,ul{padding-left:1.5rem}.relation{border-left:4px solid #526d82;padding-left:.7rem}.flow{width:100%;height:3rem;border:1px solid #ccd5de;background:#f4f7fa}.visual-schematic{display:block;width:100%;height:auto;border:1px solid #ccd5de;background:#f4f7fa}.visual-schematic .node rect{fill:#fff;stroke:#526d82}.visual-schematic text{fill:#20252b;font-size:12px;text-anchor:middle}.visual-schematic .emphasis rect{stroke:#a23b3b;stroke-width:3}.visual-schematic .column-titles text{font-weight:600}</style>",
       "</head>",
       "<body>",
       "<main>",
       "<h1>Cozy Explanation Preview</h1>",
-      "<dl class=\"identity\">",
-      s"<dt>Renderer profile</dt><dd><code>${_renderer_profile}</code></dd>",
-      s"<dt>Composition identity</dt><dd><code>${_escape(validated.composition.identity)}</code></dd>",
-      s"<dt>Plan identity</dt><dd><code>${_escape(plan.identity)}</code></dd>",
-      s"<dt>Projection Map identity</dt><dd><code>${_escape(validated.projectionmap.projectionMap.identity)}</code></dd>",
-      s"<dt>Explanation Catalog identity</dt><dd><code>${_escape(plan.explanationCatalog.identity)}</code></dd>",
-      s"<dt>Presentation Catalog identity</dt><dd><code>${_escape(validated.visualpages.catalogIdentity)}</code></dd>",
-      s"<dt>Visual Page Set identity</dt><dd><code>${_escape(validated.visualpages.documentIdentity)}</code></dd>",
+      "<dl class=\"provenance\">",
+      s"<dt>Renderer profile</dt><dd><code>${_escape(_renderer_profile)}</code></dd>",
+      s"<dt>Composition ID</dt><dd><code>${_escape(validated.composition.composition.id)}</code></dd>",
+      s"<dt>Explanation Catalog ID</dt><dd><code>${_escape(validated.composition.catalog.catalog.id)}</code></dd>",
+      s"<dt>Explanation Catalog revision</dt><dd><code>${validated.composition.catalog.catalog.revision}</code></dd>",
+      s"<dt>Presentation Catalog ID</dt><dd><code>${_escape(validated.visualpages.catalog.id)}</code></dd>",
+      s"<dt>Presentation Catalog revision</dt><dd><code>${validated.visualpages.catalog.revision}</code></dd>",
+      s"<dt>Visual Page Set ID</dt><dd><code>${_escape(validated.visualpages.document.id)}</code></dd>",
+      s"<dt>Step count</dt><dd><code>${plan.steps.size}</code></dd>",
+      s"<dt>Reviewed Page count</dt><dd><code>${validated.pages.size}</code></dd>",
       "</dl>",
       "<section>",
       "<h2>Static explanation flow</h2>",
@@ -368,7 +357,7 @@ private[cozy] object CozyExplanationPreview {
       s"<li><code>${_escape(source.id)}</code>: <code>${_escape(source.path)}</code></li>"
     }.mkString("\n")
     val assets = page.assets.map { asset =>
-      s"<li><code>${_escape(asset.id)}</code>: <code>${_escape(asset.mediaType)}</code>; <code>${_escape(asset.sha256)}</code>; <code>${_escape(asset.path)}</code></li>"
+      s"<li><code>${_escape(asset.id)}</code>: <code>${_escape(asset.mediaType)}</code>; <code>${_escape(asset.path)}</code></li>"
     }.mkString("\n")
     Vector(
       s"""<section class="page" data-step-id="${_escape(step.id)}" data-page-id="${_escape(page.id)}">""",
@@ -540,25 +529,27 @@ private[cozy] object CozyExplanationPreview {
       }
     }.getOrElse(_fail("EXPLANATION_PREVIEW_VISUAL_PARAMETER", s"$$.visual.parameters.$name", "required string parameter is missing"))
 
-  private def _receipt(validated: ValidatedPreview, htmlidentity: String): String = {
+  private def _receipt(validated: ValidatedPreview): String = {
     val plan = validated.projectionmap.plan.plan
-    val lines = Vector(
+    Vector(
       s"schema: ${_schema}",
       "version: 1",
       s"generator: ${_generator}",
       s"rendererProfile: ${_renderer_profile}",
-      s"compositionIdentity: ${validated.composition.identity}",
-      s"planIdentity: ${plan.identity}",
-      s"projectionMapIdentity: ${validated.projectionmap.projectionMap.identity}",
-      s"explanationCatalogIdentity: ${plan.explanationCatalog.identity}",
-      s"presentationCatalogIdentity: ${validated.visualpages.catalogIdentity}",
-      s"visualPageSetIdentity: ${validated.visualpages.documentIdentity}",
-      s"htmlIdentity: ${htmlidentity}"
-    )
-    (lines :+ s"identity: ${_sha256(lines.mkString("\n").getBytes(StandardCharsets.UTF_8))}").mkString("\n")
+      s"compositionId: ${validated.composition.composition.id}",
+      s"explanationCatalogId: ${validated.composition.catalog.catalog.id}",
+      s"explanationCatalogRevision: ${validated.composition.catalog.catalog.revision}",
+      s"presentationCatalogId: ${validated.visualpages.catalog.id}",
+      s"presentationCatalogRevision: ${validated.visualpages.catalog.revision}",
+      s"visualPageSetId: ${validated.visualpages.document.id}",
+      s"stepCount: ${plan.steps.size}",
+      s"pageCount: ${validated.pages.size}",
+      "html: generated",
+      "status: generated"
+    ).mkString("\n")
   }
 
-  private def _validate_output(path: Path): Unit = {
+  private def _validate_output(path: Path): Path = {
     val output = try path.toAbsolutePath.normalize() catch {
       case NonFatal(_) => _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output path is invalid")
     }
@@ -570,6 +561,7 @@ private[cozy] object CozyExplanationPreview {
       _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && (!Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(output)))
       _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output must be absent or a direct regular non-symlink file")
+    output
   }
 
   private def _codes(values: Vector[String]): String =
@@ -587,9 +579,6 @@ private[cozy] object CozyExplanationPreview {
     values.groupBy(identity).collectFirst { case (value, duplicates) if duplicates.size > 1 => value }.foreach { value =>
       _stale(path, s"duplicate $label: $value")
     }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _escape(value: String): String = Option(value).getOrElse("").flatMap {
     case '&' => "&amp;"

@@ -1,12 +1,10 @@
 package cozy.video
 
 import io.circe.Json
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoStoryboardParsing { self: CozyVideoStoryboard =>
@@ -85,9 +83,6 @@ private[cozy] trait CozyVideoStoryboardParsing { self: CozyVideoStoryboard =>
     val normalized = value.bigDecimal.stripTrailingZeros()
     if (normalized.scale() < 0) BigDecimal(normalized.setScale(0)) else BigDecimal(normalized)
   }
-
-  private[cozy] final def _canonical_sha256_hex(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
 
   private[cozy] final def _is_integer(value: BigDecimal): Boolean =
     value.bigDecimal.stripTrailingZeros().scale() <= 0

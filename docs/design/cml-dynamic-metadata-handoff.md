@@ -90,8 +90,7 @@ seventeen carriers: 42 records / three Terms, with arrays 1 Workflow / 5 Activit
 Operation, event and rule are supporting core records rather than new carrier families.
 
 All new names are `共有`. Qualified model authority is `dynamic.example`;
-source path is `src/main/cml/dynamic-handoff.cml`, digest is 64 lowercase `b`
-characters, and source lines 23–42 follow the exact twenty-record Catalog order.
+source path is `src/main/cml/dynamic-handoff.cml`, and source lines 23–42 follow the exact twenty-record Catalog order.
 The added Term is `TermId(dynamic.example, workflow:fulfillment)` at line 23.
 Core references are NotDeclared with `No semantic references are declared.`.
 These are synthetic caller-admitted source facts: they assert neither a real

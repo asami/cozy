@@ -1,8 +1,8 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, Path}
+import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
@@ -10,7 +10,7 @@ import GenerationProvenance.{Artifact, Diagnostic, DiagnosticCode, Inputs}
 
 /*
  * @since   Sep. 16, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object GenerationProvenanceAggregate {
@@ -21,7 +21,6 @@ private[cozy] object GenerationProvenanceAggregate {
 
   final case class AggregateInputs(
     cncfTargetVersion: String,
-    runtimeDescriptorSha256: String,
     cozyGeneratorVersion: String,
     simpleModelerBackendVersion: String,
     simpleModelingModelVersion: String
@@ -29,35 +28,24 @@ private[cozy] object GenerationProvenanceAggregate {
 
   final case class AggregateSource(
     identity: String,
-    sha256: String,
-    artifacts: Vector[Artifact],
-    generatedOutputDigest: String,
-    evidenceDigest: String
+    artifacts: Vector[Artifact]
   ) {
     def toJson: JsObject =
       Json.obj(
         "identity" -> identity,
-        "sha256" -> sha256,
-        "output" -> Json.obj(
-          "artifacts" -> JsArray(artifacts.map(_.toJson)),
-          "digest" -> generatedOutputDigest
-        ),
-        "evidenceDigest" -> evidenceDigest
+        "output" -> Json.obj("artifacts" -> JsArray(artifacts.map(_.toJson)))
       )
   }
 
   final case class AggregateManifest(
     inputs: AggregateInputs,
     sources: Vector[AggregateSource],
-    artifacts: Vector[Artifact],
-    generatedOutputDigest: String,
-    evidenceDigest: String
+    artifacts: Vector[Artifact]
   ) extends GenerationProvenance.ValidatedManifest {
     val schemaVersion = GenerationProvenance.AGGREGATE_SCHEMA_VERSION
 
     def toJson: JsObject =
-      _aggregate_payload_json(inputs, sources, artifacts, generatedOutputDigest) ++
-        Json.obj("evidenceDigest" -> evidenceDigest)
+      _aggregate_payload_json(inputs, sources, artifacts)
 
     def toJsonString: String =
       Json.prettyPrint(toJson) + "\n"
@@ -79,7 +67,14 @@ private[cozy] object GenerationProvenanceAggregate {
             Right(None)
         }
       } catch {
-        case NonFatal(_) => Right(None)
+        case NonFatal(exception) =>
+          Left(Vector(_diagnostic(
+            DiagnosticCode.ProvenanceMalformed, provenance.toString,
+            "a readable JSON provenance object",
+            Option(exception.getMessage).getOrElse(exception.getClass.getName),
+            "Generation provenance cannot be loaded.",
+            "Restore or regenerate the selected metadata."
+          )))
       }
   }
 
@@ -99,7 +94,7 @@ private[cozy] object GenerationProvenanceAggregate {
       Vector.empty
     ).fold(_raise, identity)
 
-  def validatePackagedEvidence(
+  def validatePackagedMetadata(
     provenancePath: Path,
     manifest: AggregateManifest,
     expectedCncfTargetVersion: String,
@@ -153,14 +148,7 @@ private[cozy] object GenerationProvenanceAggregate {
       )))
     val artifacts = _union_artifacts(sources).fold(_raise, identity)
     val inputs = inputvalues.head
-    val outputdigest = _artifact_digest(artifacts)
-    val manifest = AggregateManifest(
-      inputs,
-      sources,
-      artifacts,
-      outputdigest,
-      _aggregate_evidence_digest(inputs, sources, artifacts, outputdigest)
-    )
+    val manifest = AggregateManifest(inputs, sources, artifacts)
     _write_aggregate(
       projectroot,
       manifest,
@@ -196,14 +184,13 @@ private[cozy] object GenerationProvenanceAggregate {
       )))
     val parsed = GenerationProvenance._read_v1_for_aggregate(provenance).fold(_raise, identity)
     val source = projectroot.resolve(parsed.inputs.sourceIdentity).normalize()
-    GenerationProvenance.validate(provenance, outputroot, source, parsed.inputs).
+    GenerationProvenance._validate_v1_manifest(parsed, outputroot, source, parsed.inputs, provenance, Vector.empty).
       fold(_raise, identity)
   }
 
   private def _aggregate_inputs(inputs: Inputs): AggregateInputs =
     AggregateInputs(
       inputs.cncfTargetVersion,
-      inputs.runtimeDescriptorSha256,
       inputs.cozyGeneratorVersion,
       inputs.simpleModelerBackendVersion,
       inputs.simpleModelingModelVersion
@@ -212,79 +199,37 @@ private[cozy] object GenerationProvenanceAggregate {
   private def _aggregate_inputs_identity(inputs: AggregateInputs): String =
     Vector(
       inputs.cncfTargetVersion,
-      inputs.runtimeDescriptorSha256,
       inputs.cozyGeneratorVersion,
       inputs.simpleModelerBackendVersion,
       inputs.simpleModelingModelVersion
     ).mkString("\u0000")
 
   private def _aggregate_source(manifest: GenerationProvenance.Manifest): AggregateSource =
-    AggregateSource(
-      manifest.inputs.sourceIdentity,
-      manifest.inputs.sourceSha256,
-      manifest.artifacts,
-      manifest.generatedOutputDigest,
-      manifest.evidenceDigest
-    )
+    AggregateSource(manifest.inputs.sourceIdentity, manifest.artifacts)
 
   private def _union_artifacts(
     sources: Vector[AggregateSource]
-  ): Either[Vector[Diagnostic], Vector[Artifact]] = {
-    val claims = sources.flatMap(_.artifacts).groupBy(_.path)
-    val conflicts = claims.toVector.flatMap { case (path, artifacts) =>
-      val digests = artifacts.map(_.sha256).distinct.sorted
-      if (digests.size > 1)
-        Vector(path -> digests)
-      else
-        Vector.empty
-    }.sortBy(_._1)
-    if (conflicts.nonEmpty)
-      Left(conflicts.map { case (path, digests) =>
-        _diagnostic(
-          DiagnosticCode.OutputConflict,
-          path,
-          "one shared generated-artifact digest",
-          digests.mkString(","),
-          "Distinct delegated sources claim different generated bytes for one artifact path.",
-          "Regenerate the project so every shared generated artifact has one exact digest."
-        )
-      })
-    else
-      Right(claims.toVector.sortBy(_._1).map { case (path, artifacts) =>
-        Artifact(path, artifacts.head.sha256)
-      })
-  }
+  ): Either[Vector[Diagnostic], Vector[Artifact]] =
+    Right(sources.flatMap(_.artifacts).distinct.sortBy(_.path))
 
   private def _write_aggregate(
     projectroot: Path,
     manifest: AggregateManifest,
     excludedoutputroots: Vector[Path]
   ): AggregateManifest = {
+    val selected = _validate_aggregate(
+      manifest,
+      projectroot,
+      Some(manifest.inputs.cncfTargetVersion),
+      Some(manifest.inputs.cozyGeneratorVersion),
+      projectroot.resolve(GenerationProvenance.METADATA_PATH),
+      excludedoutputroots
+    ).fold(_raise, identity)
     val path = projectroot.resolve(GenerationProvenance.METADATA_PATH)
     val directory = path.getParent
     Files.createDirectories(directory)
-    val temporary = Files.createTempFile(directory, ".generation-provenance-", ".json")
-    try {
-      Files.writeString(temporary, manifest.toJsonString, StandardCharsets.UTF_8)
-      val serialized = _read_aggregate(temporary).fold(_raise, identity)
-      _validate_aggregate(
-        serialized,
-        projectroot,
-        Some(manifest.inputs.cncfTargetVersion),
-        Some(manifest.inputs.cozyGeneratorVersion),
-        temporary,
-        excludedoutputroots
-      ).fold(_raise, identity)
-      Files.move(
-        temporary,
-        path,
-        StandardCopyOption.ATOMIC_MOVE,
-        StandardCopyOption.REPLACE_EXISTING
-      )
-      serialized
-    } finally {
-      Files.deleteIfExists(temporary)
-    }
+    Files.writeString(path, selected.toJsonString, StandardCharsets.UTF_8)
+    selected
   }
 
   private def _validate_aggregate(
@@ -295,53 +240,29 @@ private[cozy] object GenerationProvenanceAggregate {
     provenancepath: Path,
     excludedoutputroots: Vector[Path]
   ): Either[Vector[Diagnostic], AggregateManifest] =
-    _validate_aggregate_snapshot(
+    _validate_aggregate_metadata(
       manifest,
       expectedcncftargetversion,
       expectedcozygeneratorversion,
       provenancepath
     ).flatMap { normalized =>
-      val sourcevalidations = normalized.sources.map { source =>
-        _source_sha256(
+      val sourcediagnostics = normalized.sources.flatMap { source =>
+        GenerationProvenance._source_readable(
           projectroot.resolve(source.identity).normalize(),
           source.identity
-        ).flatMap { actual =>
-          if (actual == source.sha256)
-            Right(Vector.empty[Diagnostic])
-          else
-            Left(Vector(_diagnostic(
-              DiagnosticCode.SourceTampered,
-              source.identity,
-              source.sha256,
-              actual,
-              "The CML source digest no longer matches aggregate generation provenance.",
-              "Restore the source or regenerate the complete project output."
-            )))
-        }
+        ).left.toOption.getOrElse(Vector.empty)
       }
-      val sourcediagnostics = sourcevalidations.foldLeft(Vector.empty[Diagnostic]) { (z, x) =>
-        z ++ x.fold(identity, identity)
-      }
-      val artifactresult = _claimed_scala_artifacts(
-        projectroot,
-        normalized.artifacts,
-        excludedoutputroots
-      )
-      val outputdiagnostics = artifactresult.fold(identity, { artifacts =>
-        val outputdigest = _artifact_digest(artifacts)
-        if (
-          normalized.artifacts == artifacts &&
-          normalized.generatedOutputDigest == outputdigest
-        )
+      val outputdiagnostics = _scala_artifacts(projectroot, normalized.artifacts, excludedoutputroots).fold(identity, { artifacts =>
+        if (normalized.artifacts == artifacts)
           Vector.empty
         else
           Vector(_diagnostic(
             DiagnosticCode.OutputTampered,
             projectroot.toString,
-            s"${normalized.generatedOutputDigest}:${_artifact_identity(normalized.artifacts)}",
-            s"$outputdigest:${_artifact_identity(artifacts)}",
-            "Generated Scala output no longer matches aggregate generation provenance.",
-            "Restore the generated output or regenerate every selected source."
+            _artifact_identity(normalized.artifacts),
+            _artifact_identity(artifacts),
+            "Installed Scala path inventory does not match aggregate generation provenance.",
+            "Restore the required paths or regenerate every selected source."
           ))
       })
       val diagnostics = sourcediagnostics ++ outputdiagnostics
@@ -351,46 +272,24 @@ private[cozy] object GenerationProvenanceAggregate {
         Left(diagnostics)
     }
 
-  private def _validate_aggregate_snapshot(
+  private def _validate_aggregate_metadata(
     manifest: AggregateManifest,
     expectedcncftargetversion: Option[String],
     expectedcozygeneratorversion: Option[String],
     provenancepath: Path
   ): Either[Vector[Diagnostic], AggregateManifest] =
     _normalize_aggregate_inputs(manifest.inputs).flatMap { normalizedinputs =>
-      val normalizedinputdiagnostics = _aggregate_input_diagnostics(
-        manifest.inputs,
-        normalizedinputs
-      )
-      val expecteddiagnostics =
-        expectedcncftargetversion.toVector.flatMap { expected =>
-          if (normalizedinputs.cncfTargetVersion == expected)
-            Vector.empty
-          else
-            Vector(_diagnostic(
-              DiagnosticCode.InputMismatch,
-              "target.cncfVersion",
-              expected,
-              normalizedinputs.cncfTargetVersion,
-              "Aggregate generation provenance contradicts the selected CNCF target.",
-              "Regenerate every source with the accepted project target."
-            ))
-        } ++
-          expectedcozygeneratorversion.toVector.flatMap { expected =>
-            if (normalizedinputs.cozyGeneratorVersion == expected)
-              Vector.empty
-            else
-              Vector(_diagnostic(
-                DiagnosticCode.InputMismatch,
-                "generator.cozyVersion",
-                expected,
-                normalizedinputs.cozyGeneratorVersion,
-                "Aggregate generation provenance contradicts the selected Cozy generator.",
-                "Regenerate every source with the accepted Cozy generator."
-              ))
-          }
-      val identities = manifest.sources.map { source =>
-        source -> GenerationProvenance.stableSourceIdentity(source.identity)
+      _normalize_aggregate_inputs(normalizedinputs.copy(
+        cncfTargetVersion = expectedcncftargetversion.getOrElse(normalizedinputs.cncfTargetVersion),
+        cozyGeneratorVersion = expectedcozygeneratorversion.getOrElse(normalizedinputs.cozyGeneratorVersion)
+      )).flatMap { expectedinputs =>
+        val normalizedinputdiagnostics = _aggregate_input_diagnostics(
+          manifest.inputs,
+          normalizedinputs
+        )
+        val expecteddiagnostics = _aggregate_input_diagnostics(normalizedinputs, expectedinputs)
+        val identities = manifest.sources.map { source =>
+          source -> GenerationProvenance.stableSourceIdentity(source.identity)
       }
       val identitydiagnostics = identities.flatMap { case (source, normalized) =>
         normalized match {
@@ -450,7 +349,7 @@ private[cozy] object GenerationProvenanceAggregate {
             "Regenerate from the explicit delegated source set."
           ))
       val sourcediagnostics = manifest.sources.flatMap { source =>
-        _aggregate_source_diagnostics(normalizedinputs, source, provenancepath)
+        _aggregate_source_diagnostics(source, provenancepath)
       }
       val unionresult = _union_artifacts(manifest.sources)
       val uniondiagnostics = unionresult.left.toOption.getOrElse(Vector.empty)
@@ -474,37 +373,6 @@ private[cozy] object GenerationProvenanceAggregate {
           ))
         else
           Vector.empty
-      val outputdigest = _artifact_digest(manifest.artifacts)
-      val outputdigestdiagnostics =
-        if (manifest.generatedOutputDigest == outputdigest)
-          Vector.empty
-        else
-          Vector(_diagnostic(
-            DiagnosticCode.OutputTampered,
-            provenancepath.toString,
-            manifest.generatedOutputDigest,
-            outputdigest,
-            "Aggregate generation provenance has a contradictory output digest.",
-            "Regenerate the aggregate evidence from validated generated output."
-          ))
-      val evidencedigest = _aggregate_evidence_digest(
-        normalizedinputs,
-        manifest.sources,
-        manifest.artifacts,
-        manifest.generatedOutputDigest
-      )
-      val evidencediagnostics =
-        if (manifest.evidenceDigest == evidencedigest)
-          Vector.empty
-        else
-          Vector(_diagnostic(
-            DiagnosticCode.EvidenceTampered,
-            provenancepath.toString,
-            manifest.evidenceDigest,
-            evidencedigest,
-            "Aggregate generation provenance fields contradict their evidence digest.",
-            "Regenerate aggregate provenance from trusted delegated evidence."
-          ))
       val diagnostics =
         normalizedinputdiagnostics ++
           expecteddiagnostics ++
@@ -515,13 +383,12 @@ private[cozy] object GenerationProvenanceAggregate {
           sourcediagnostics ++
           uniondiagnostics ++
           artifactdiagnostics ++
-          unionoutputdiagnostics ++
-          outputdigestdiagnostics ++
-          evidencediagnostics
+          unionoutputdiagnostics
       if (diagnostics.isEmpty)
         Right(manifest.copy(inputs = normalizedinputs))
       else
         Left(diagnostics)
+      }
     }
 
   private def _validate_packaged_aggregate(
@@ -530,7 +397,7 @@ private[cozy] object GenerationProvenanceAggregate {
     expectedcncftargetversion: String,
     expectedcozygeneratorversion: String
   ): Either[Vector[Diagnostic], AggregateManifest] =
-    _validate_aggregate_snapshot(
+    _validate_aggregate_metadata(
       manifest,
       Some(expectedcncftargetversion),
       Some(expectedcozygeneratorversion),
@@ -542,7 +409,6 @@ private[cozy] object GenerationProvenanceAggregate {
   ): Either[Vector[Diagnostic], AggregateInputs] = {
     val values = Vector(
       "cncfTargetVersion" -> inputs.cncfTargetVersion,
-      "runtimeDescriptorSha256" -> inputs.runtimeDescriptorSha256,
       "cozyGeneratorVersion" -> inputs.cozyGeneratorVersion,
       "simpleModelerBackendVersion" -> inputs.simpleModelerBackendVersion,
       "simpleModelingModelVersion" -> inputs.simpleModelingModelVersion
@@ -559,15 +425,6 @@ private[cozy] object GenerationProvenanceAggregate {
           s"Generation provenance input $name is required.",
           "Resolve the exact generation input before source generation."
         ))
-      else if (name == "runtimeDescriptorSha256" && !value.matches("[0-9a-f]{64}"))
-        Vector(_diagnostic(
-          DiagnosticCode.InputMismatch,
-          name,
-          "64 lowercase hexadecimal SHA-256 characters",
-          value,
-          s"Generation provenance input $name is not a valid SHA-256.",
-          "Pass the digest computed from the exact selected bytes."
-        ))
       else
         Vector.empty
     }
@@ -578,8 +435,7 @@ private[cozy] object GenerationProvenanceAggregate {
         values(0)._2,
         values(1)._2,
         values(2)._2,
-        values(3)._2,
-        values(4)._2
+        values(3)._2
       ))
   }
 
@@ -589,8 +445,6 @@ private[cozy] object GenerationProvenanceAggregate {
   ): Vector[Diagnostic] = {
     val fields = Vector(
       "target.cncfVersion" -> (expected.cncfTargetVersion -> actual.cncfTargetVersion),
-      "target.runtimeDescriptorSha256" ->
-        (expected.runtimeDescriptorSha256 -> actual.runtimeDescriptorSha256),
       "generator.cozyVersion" -> (expected.cozyGeneratorVersion -> actual.cozyGeneratorVersion),
       "generator.simpleModelerBackendVersion" ->
         (expected.simpleModelerBackendVersion -> actual.simpleModelerBackendVersion),
@@ -613,162 +467,21 @@ private[cozy] object GenerationProvenanceAggregate {
   }
 
   private def _aggregate_source_diagnostics(
-    inputs: AggregateInputs,
     source: AggregateSource,
     provenancepath: Path
-  ): Vector[Diagnostic] = {
-    val artifactdiagnostics = _aggregate_artifact_diagnostics(
+  ): Vector[Diagnostic] =
+    _aggregate_artifact_diagnostics(
       source.artifacts,
       s"${provenancepath.toString}:sources:${source.identity}",
       s"source ${source.identity} output"
     )
-    val outputdigest = _artifact_digest(source.artifacts)
-    val outputdiagnostics =
-      if (source.generatedOutputDigest == outputdigest)
-        Vector.empty
-      else
-        Vector(_diagnostic(
-          DiagnosticCode.OutputTampered,
-          source.identity,
-          source.generatedOutputDigest,
-          outputdigest,
-          "Delegated source output claims contradict their output digest.",
-          "Regenerate the delegated source before project aggregation."
-        ))
-    val sourcedigestdiagnostics =
-      if (source.sha256.matches("[0-9a-f]{64}"))
-        Vector.empty
-      else
-        Vector(_diagnostic(
-          DiagnosticCode.ProvenanceMalformed,
-          source.identity,
-          "64 lowercase hexadecimal SHA-256 characters",
-          source.sha256,
-          "Aggregate generation provenance source digest is malformed.",
-          "Regenerate aggregate provenance from validated delegated evidence."
-        ))
-    val evidenceexpected = _evidence_digest(
-      Inputs(
-        inputs.cncfTargetVersion,
-        inputs.runtimeDescriptorSha256,
-        inputs.cozyGeneratorVersion,
-        inputs.simpleModelerBackendVersion,
-        inputs.simpleModelingModelVersion,
-        source.identity,
-        source.sha256
-      ),
-      source.artifacts,
-      source.generatedOutputDigest
-    )
-    val evidencediagnostics =
-      if (source.evidenceDigest == evidenceexpected)
-        Vector.empty
-      else
-        Vector(_diagnostic(
-          DiagnosticCode.EvidenceTampered,
-          source.identity,
-          source.evidenceDigest,
-          evidenceexpected,
-          "Delegated source claims contradict their recorded V1 evidence digest.",
-          "Regenerate the delegated source before project aggregation."
-        ))
-    artifactdiagnostics ++ outputdiagnostics ++ sourcedigestdiagnostics ++ evidencediagnostics
-  }
 
   private def _aggregate_artifact_diagnostics(
     artifacts: Vector[Artifact],
     source: String,
     description: String
-  ): Vector[Diagnostic] = {
-    val invalid = artifacts.filter { artifact =>
-      val path = Option(artifact.path).map(_.trim.replace('\\', '/')).getOrElse("")
-      path.isEmpty ||
-        path != artifact.path ||
-        path.startsWith("/") ||
-        path.matches("^[A-Za-z]:.*") ||
-        path.split('/').contains("..") ||
-        !artifact.sha256.matches("[0-9a-f]{64}")
-    }
-    val duplicates = artifacts.groupBy(_.path).collect {
-      case (path, values) if values.size > 1 => path
-    }.toVector.sorted
-    val sorted = artifacts.map(_.path) == artifacts.map(_.path).sorted
-    val emptydiagnostics =
-      if (artifacts.nonEmpty)
-        Vector.empty
-      else
-        Vector(_diagnostic(
-          DiagnosticCode.OutputTampered,
-          source,
-          "at least one generated Scala artifact",
-          "none",
-          s"$description describes no generated output.",
-          "Regenerate the affected source before project aggregation."
-        ))
-    val sortdiagnostics =
-      if (sorted)
-        Vector.empty
-      else
-        Vector(_diagnostic(
-          DiagnosticCode.ProvenanceMalformed,
-          source,
-          "artifact claims sorted by project-output-relative path",
-          artifacts.map(_.path).mkString(","),
-          s"$description artifact claims are not deterministic.",
-          "Regenerate provenance from the validated generated output."
-        ))
-    emptydiagnostics ++
-      invalid.map { artifact =>
-        _diagnostic(
-          DiagnosticCode.OutputTampered,
-          source,
-          "safe canonical project-output-relative artifact paths with SHA-256 digests",
-          s"${artifact.path}:${artifact.sha256}",
-          s"$description contains an invalid artifact identity.",
-          "Regenerate provenance from validated generated output."
-        )
-      } ++
-      duplicates.map { path =>
-        _diagnostic(
-          DiagnosticCode.OutputTampered,
-          source,
-          "unique generated artifact paths",
-          path,
-          s"$description repeats an artifact path.",
-          "Regenerate provenance from validated generated output."
-        )
-      } ++ sortdiagnostics
-  }
-
-  private def _read_aggregate(
-    path: Path
-  ): Either[Vector[Diagnostic], AggregateManifest] = {
-    val provenance = path.toAbsolutePath.normalize()
-    if (!Files.isRegularFile(provenance) || !Files.isReadable(provenance))
-      Left(Vector(_diagnostic(
-        DiagnosticCode.ProvenanceMissing,
-        provenance.toString,
-        "a readable V2 generation provenance document",
-        "missing",
-        "Aggregate generation provenance does not exist.",
-        "Regenerate the aggregate output with the selected Cozy generator."
-      )))
-    else
-      try {
-        val json = Json.parse(Files.readString(provenance, StandardCharsets.UTF_8))
-        _parse_aggregate_manifest(json, provenance)
-      } catch {
-        case NonFatal(exception) =>
-          Left(Vector(_diagnostic(
-            DiagnosticCode.ProvenanceMalformed,
-            provenance.toString,
-            GenerationProvenance.AGGREGATE_SCHEMA_VERSION,
-            Option(exception.getMessage).getOrElse(exception.getClass.getName),
-            "Generation provenance cannot be parsed.",
-            "Restore or regenerate the aggregate provenance document."
-          )))
-      }
-  }
+  ): Vector[Diagnostic] =
+    GenerationProvenance._artifact_diagnostics(artifacts, s"$source:$description")
 
   private def _parse_aggregate_manifest(
     json: JsValue,
@@ -785,277 +498,103 @@ private[cozy] object GenerationProvenanceAggregate {
         "Regenerate provenance with the selected Cozy generator."
       )))
     else
-      _validate_aggregate_manifest_shape(json, path).flatMap { _ =>
-        try {
-          val target = json \ "target"
-          val generator = json \ "generator"
-          val inputs = AggregateInputs(
-            (target \ "cncfVersion").as[String],
-            (target \ "runtimeDescriptorSha256").as[String],
-            (generator \ "cozyVersion").as[String],
-            (generator \ "simpleModelerBackendVersion").as[String],
-            (generator \ "simpleModelingModelVersion").as[String]
-          )
-          val sources = (json \ "sources").as[Vector[JsObject]].map { source =>
-            val output = source \ "output"
-            AggregateSource(
-              (source \ "identity").as[String],
-              (source \ "sha256").as[String],
-              (output \ "artifacts").as[Vector[JsObject]].map { artifact =>
-                Artifact(
-                  (artifact \ "path").as[String],
-                  (artifact \ "sha256").as[String]
-                )
-              },
-              (output \ "digest").as[String],
-              (source \ "evidenceDigest").as[String]
-            )
-          }
-          val output = json \ "output"
-          Right(AggregateManifest(
-            inputs,
-            sources,
+      try {
+        val document = json.as[JsObject]
+        val target = (document \ "target").as[JsObject]
+        val generator = (document \ "generator").as[JsObject]
+        val inputs = AggregateInputs(
+          (target \ "cncfVersion").as[String],
+          (generator \ "cozyVersion").as[String],
+          (generator \ "simpleModelerBackendVersion").as[String],
+          (generator \ "simpleModelingModelVersion").as[String]
+        )
+        val sources = (document \ "sources").as[Vector[JsObject]].map { source =>
+          val output = (source \ "output").as[JsObject]
+          AggregateSource(
+            (source \ "identity").as[String],
             (output \ "artifacts").as[Vector[JsObject]].map { artifact =>
-              Artifact(
-                (artifact \ "path").as[String],
-                (artifact \ "sha256").as[String]
-              )
-            },
-            (output \ "digest").as[String],
-            (json \ "evidenceDigest").as[String]
-          ))
-        } catch {
-          case NonFatal(exception) =>
-            Left(Vector(_diagnostic(
-              DiagnosticCode.ProvenanceMalformed,
-              path.toString,
-              "all required aggregate provenance fields",
-              Option(exception.getMessage).getOrElse(exception.getClass.getName),
-              "Aggregate generation provenance is missing or has malformed fields.",
-              "Restore or regenerate the provenance document."
-            )))
-        }
-      }
-  }
-
-  private def _validate_aggregate_manifest_shape(
-    json: JsValue,
-    path: Path
-  ): Either[Vector[Diagnostic], Unit] = {
-    val root = json.asOpt[JsObject]
-    val diagnostics = root.toVector.flatMap { rootobject =>
-      val rootdiagnostics = _unexpected_field_diagnostics(
-        rootobject,
-        Set("schemaVersion", "target", "generator", "sources", "output", "evidenceDigest"),
-        path.toString
-      )
-      val targetdiagnostics = (rootobject \ "target").asOpt[JsObject].toVector.flatMap(
-        _unexpected_field_diagnostics(
-          _,
-          Set("cncfVersion", "runtimeDescriptorSha256"),
-          s"${path.toString}:target"
-        )
-      )
-      val generatordiagnostics = (rootobject \ "generator").asOpt[JsObject].toVector.flatMap(
-        _unexpected_field_diagnostics(
-          _,
-          Set("cozyVersion", "simpleModelerBackendVersion", "simpleModelingModelVersion"),
-          s"${path.toString}:generator"
-        )
-      )
-      val sourcediagnostics = (rootobject \ "sources").asOpt[Vector[JsObject]].toVector.flatten.
-        zipWithIndex.flatMap { case (source, index) =>
-          val sourcepath = s"${path.toString}:sources[$index]"
-          val fields = _unexpected_field_diagnostics(
-            source,
-            Set("identity", "sha256", "output", "evidenceDigest"),
-            sourcepath
+              Artifact((artifact \ "path").as[String])
+            }
           )
-          val outputdiagnostics = (source \ "output").asOpt[JsObject].toVector.flatMap { output =>
-            _unexpected_field_diagnostics(
-              output,
-              Set("artifacts", "digest"),
-              s"$sourcepath:output"
-            ) ++
-              (output \ "artifacts").asOpt[Vector[JsObject]].toVector.flatten.zipWithIndex.flatMap {
-                case (artifact, artifactindex) =>
-                  _unexpected_field_diagnostics(
-                    artifact,
-                    Set("path", "sha256"),
-                    s"$sourcepath:output.artifacts[$artifactindex]"
-                  )
-              }
-          }
-          fields ++ outputdiagnostics
         }
-      val outputdiagnostics = (rootobject \ "output").asOpt[JsObject].toVector.flatMap { output =>
-        _unexpected_field_diagnostics(
-          output,
-          Set("artifacts", "digest"),
-          s"${path.toString}:output"
-        ) ++
-          (output \ "artifacts").asOpt[Vector[JsObject]].toVector.flatten.zipWithIndex.flatMap {
-            case (artifact, index) =>
-              _unexpected_field_diagnostics(
-                artifact,
-                Set("path", "sha256"),
-                s"${path.toString}:output.artifacts[$index]"
-              )
+        val output = (document \ "output").as[JsObject]
+        val manifest = AggregateManifest(
+          inputs,
+          sources,
+          (output \ "artifacts").as[Vector[JsObject]].map { artifact =>
+            Artifact((artifact \ "path").as[String])
           }
+        )
+        _validate_aggregate_metadata(manifest, None, None, path)
+      } catch {
+        case NonFatal(exception) =>
+          Left(Vector(_diagnostic(
+            DiagnosticCode.ProvenanceMalformed, path.toString,
+            "all required aggregate fields with their declared types",
+            Option(exception.getMessage).getOrElse(exception.getClass.getName),
+            "Aggregate generation provenance is missing or has malformed fields.",
+            "Restore or regenerate the selected metadata."
+          )))
       }
-      rootdiagnostics ++ targetdiagnostics ++ generatordiagnostics ++ sourcediagnostics ++
-        outputdiagnostics
-    }
-    if (diagnostics.isEmpty) Right(()) else Left(diagnostics)
   }
 
-  private def _unexpected_field_diagnostics(
-    json: JsObject,
-    expected: Set[String],
-    source: String
-  ): Vector[Diagnostic] = {
-    val unexpected = json.keys.diff(expected).toVector.sorted
-    if (unexpected.isEmpty)
-      Vector.empty
-    else
-      Vector(_diagnostic(
-        DiagnosticCode.ProvenanceMalformed,
-        source,
-        expected.toVector.sorted.mkString(","),
-        json.keys.toVector.sorted.mkString(","),
-        s"Generation provenance contains unsupported fields: ${unexpected.mkString(",")}.",
-        "Remove unsupported fields or regenerate the provenance document."
-      ))
-  }
-
-  private def _source_sha256(
-    source: Path,
-    sourceidentity: String
-  ): Either[Vector[Diagnostic], String] =
-    try {
-      if (Files.isRegularFile(source))
-        Right(_sha256_bytes(Files.readAllBytes(source)))
-      else
-        Left(Vector(_diagnostic(
-          DiagnosticCode.SourceTampered,
-          sourceidentity,
-          "a readable CML source matching the recorded digest",
-          "missing",
-          "The recorded CML source no longer exists.",
-          "Restore the source or regenerate the output and provenance together."
-        )))
-    } catch {
-      case NonFatal(exception) =>
-        Left(Vector(_diagnostic(
-          DiagnosticCode.SourceTampered,
-          sourceidentity,
-          "a readable CML source matching the recorded digest",
-          Option(exception.getMessage).getOrElse(exception.getClass.getName),
-          "The recorded CML source cannot be read.",
-          "Restore source readability or regenerate the output and provenance together."
-        )))
-    }
-
-  private def _claimed_scala_artifacts(
+  private def _scala_artifacts(
     root: Path,
-    claims: Vector[Artifact],
+    declared: Vector[Artifact],
     excludedroots: Vector[Path]
   ): Either[Vector[Diagnostic], Vector[Artifact]] = {
+    val target = root.resolve("target")
     val excluded = excludedroots.map(_.toAbsolutePath.normalize())
-    try {
-      Right(claims.
-        map(claim => claim -> root.resolve(claim.path).normalize()).
-        filter { case (_, path) =>
-          Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala")
-        }.
-        filterNot { case (_, path) =>
-          excluded.exists(excludedroot => path.startsWith(excludedroot))
-        }.
-        map { case (claim, path) =>
-          Artifact(claim.path, _sha256(path))
-        }.
-        sortBy(_.path))
-    } catch {
-      case NonFatal(exception) =>
-        Left(Vector(_diagnostic(
-          DiagnosticCode.OutputTampered,
-          root.toString,
-          "readable recorded Scala output",
-          Option(exception.getMessage).getOrElse(exception.getClass.getName),
-          "Recorded Scala output cannot be read.",
-          "Restore output readability or regenerate the output and provenance together."
-        )))
+    if (!Files.isDirectory(target))
+      Right(Vector.empty)
+    else {
+      try {
+        // Aggregate provenance owns the selected delegated artifact union, not
+        // every Scala file produced by tests or other tasks under target.
+          Right(declared.iterator.map(artifact => root.resolve(artifact.path).normalize()).
+            filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala")).
+            filterNot(path =>
+              excluded.exists(excludedroot =>
+                path.toAbsolutePath.normalize().startsWith(excludedroot)
+              )
+            ).
+            map { path =>
+              val relative = root.relativize(path.toAbsolutePath.normalize()).toString.
+                replace(java.io.File.separatorChar, '/')
+              if (!Files.isReadable(path))
+                throw new java.io.IOException(s"Generated Scala file is unreadable: $relative")
+              val input = Files.newInputStream(path)
+              input.close()
+              Artifact(relative)
+            }.
+            toVector.
+            sortBy(_.path))
+      } catch {
+        case NonFatal(exception) =>
+          Left(Vector(_diagnostic(
+            DiagnosticCode.OutputTampered,
+            root.toString,
+            "readable generated Scala output",
+            Option(exception.getMessage).getOrElse(exception.getClass.getName),
+            "Generated Scala output cannot be enumerated or read.",
+            "Restore output readability or regenerate the output and provenance together."
+          )))
+      }
     }
   }
 
-  private def _artifact_digest(artifacts: Vector[Artifact]): String =
-    _sha256_bytes(
-      artifacts.map(artifact => s"${artifact.path}\u0000${artifact.sha256}\n").
-        mkString.
-        getBytes(StandardCharsets.UTF_8)
-    )
-
   private def _artifact_identity(artifacts: Vector[Artifact]): String =
-    artifacts.map(artifact => s"${artifact.path}:${artifact.sha256}").mkString(",")
-
-  private def _evidence_digest(
-    inputs: Inputs,
-    artifacts: Vector[Artifact],
-    outputdigest: String
-  ): String =
-    _sha256_bytes(
-      Json.stringify(_payload_json(inputs, artifacts, outputdigest)).
-        getBytes(StandardCharsets.UTF_8)
-    )
-
-  private def _payload_json(
-    inputs: Inputs,
-    artifacts: Vector[Artifact],
-    outputdigest: String
-  ): JsObject =
-    Json.obj(
-      "schemaVersion" -> GenerationProvenance.SCHEMA_VERSION,
-      "target" -> Json.obj(
-        "cncfVersion" -> inputs.cncfTargetVersion,
-        "runtimeDescriptorSha256" -> inputs.runtimeDescriptorSha256
-      ),
-      "generator" -> Json.obj(
-        "cozyVersion" -> inputs.cozyGeneratorVersion,
-        "simpleModelerBackendVersion" -> inputs.simpleModelerBackendVersion,
-        "simpleModelingModelVersion" -> inputs.simpleModelingModelVersion
-      ),
-      "source" -> Json.obj(
-        "identity" -> inputs.sourceIdentity,
-        "sha256" -> inputs.sourceSha256
-      ),
-      "output" -> Json.obj(
-        "artifacts" -> JsArray(artifacts.map(_.toJson)),
-        "digest" -> outputdigest
-      )
-    )
-
-  private def _aggregate_evidence_digest(
-    inputs: AggregateInputs,
-    sources: Vector[AggregateSource],
-    artifacts: Vector[Artifact],
-    outputdigest: String
-  ): String =
-    _sha256_bytes(
-      Json.stringify(_aggregate_payload_json(inputs, sources, artifacts, outputdigest)).
-        getBytes(StandardCharsets.UTF_8)
-    )
+    artifacts.map(_.path).mkString(",")
 
   private def _aggregate_payload_json(
     inputs: AggregateInputs,
     sources: Vector[AggregateSource],
-    artifacts: Vector[Artifact],
-    outputdigest: String
+    artifacts: Vector[Artifact]
   ): JsObject =
     Json.obj(
       "schemaVersion" -> GenerationProvenance.AGGREGATE_SCHEMA_VERSION,
       "target" -> Json.obj(
-        "cncfVersion" -> inputs.cncfTargetVersion,
-        "runtimeDescriptorSha256" -> inputs.runtimeDescriptorSha256
+        "cncfVersion" -> inputs.cncfTargetVersion
       ),
       "generator" -> Json.obj(
         "cozyVersion" -> inputs.cozyGeneratorVersion,
@@ -1064,19 +603,9 @@ private[cozy] object GenerationProvenanceAggregate {
       ),
       "sources" -> JsArray(sources.map(_.toJson)),
       "output" -> Json.obj(
-        "artifacts" -> JsArray(artifacts.map(_.toJson)),
-        "digest" -> outputdigest
+        "artifacts" -> JsArray(artifacts.map(_.toJson))
       )
     )
-
-  private def _sha256(path: Path): String =
-    _sha256_bytes(Files.readAllBytes(path))
-
-  private def _sha256_bytes(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").
-      digest(bytes).
-      map(byte => f"${byte & 0xff}%02x").
-      mkString
 
   private def _diagnostic(
     code: DiagnosticCode,

@@ -34,7 +34,7 @@ import org.goldenport.parser.LogicalSection
 import scala.collection.mutable
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  5, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] object ModelerRelationshipCml {
@@ -311,6 +311,33 @@ private[modeler] object ModelerRelationshipCml {
         case x if x.equalsIgnoreCase("QUERY") => OperationModel.OperationKind.Query
         case x => RAISE.syntaxErrorFault(s"Operation '${operation.nameForModel}' TYPE must be COMMAND or QUERY: $x")
       }
+
+    def serviceOperationLeafContractsForService(
+      model: KaleidoxModel,
+      serviceName: String,
+      operationNames: Set[String]
+    ): Map[String, ServiceOperationLeafContract] = {
+      val operations = model.divisions.toVector.flatMap { division =>
+        _logical_section(division).filter { section =>
+          division.name.equalsIgnoreCase("SERVICE") || _same_section_key(section, "SERVICE")
+        }
+      }.flatMap { section =>
+        section.blocks.sections.toVector.filter(_.nameForModel == serviceName).flatMap { serviceclass =>
+          _child_sections(serviceclass, "OPERATION").flatMap(_.blocks.sections.toVector).
+            filter(operation => operationNames(operation.nameForModel))
+        }
+      }
+      operations.groupBy(_.nameForModel).toVector.sortBy(_._1).collectFirst {
+        case (name, entries) if entries.size > 1 => name
+      }.foreach(name => RAISE.syntaxErrorFault(s"Service '$serviceName' has duplicate selected operation '$name'."))
+      operations.map { operation =>
+        operation.nameForModel -> ServiceOperationLeafContract(
+          kind = _operation_kind_property(operation).orElse(_operation_kind_direct_property(operation)),
+          inputType = _operation_direct_property(operation, "input").orElse(_child_property(operation, "INPUT", "type")),
+          outputType = _operation_direct_property(operation, "output").orElse(_operation_direct_property(operation, "result")).orElse(_child_property(operation, "OUTPUT", "type"))
+        )
+      }.filter(_._2.nonEmpty).toMap
+    }
 
     private def _operation_kind_direct_property(
       operation: LogicalSection

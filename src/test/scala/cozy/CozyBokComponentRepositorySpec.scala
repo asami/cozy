@@ -1,7 +1,6 @@
 package cozy.bok
 
 import cozy.CozySpecVocabulary
-import cozy.archive.RepositoryArtifactPublisher
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -12,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokComponentRepositorySpec
@@ -27,7 +27,6 @@ class CozyBokComponentRepositorySpec
           val warehouse = dir.resolve("warehouse")
           val archivepath = warehouse.resolve("repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car")
           _write_car_archive(archivepath)
-          val archivedigest = RepositoryArtifactPublisher.sha256(archivepath)
           _write(
             dir.resolve("src/main/doxsite/site.conf"),
             "site { output { locale_mode = \"single_locale_root\" } }\n"
@@ -46,9 +45,6 @@ class CozyBokComponentRepositorySpec
               |    channel: stable
               |    component: org.example.textus.Sie
               |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
-              |    checksum:
-              |      sha256: $archivedigest
-              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:$archivedigest
               |""".stripMargin
           )
           _write(
@@ -145,20 +141,18 @@ class CozyBokComponentRepositorySpec
         }
       }
 
-      "publish a version-scoped Component knowledge carrier and byte-identical consumer contract" in {
+      "publish a version-scoped Component knowledge carrier and consumer contract" in {
         _with_temp_dir("cozy-bok-repository-component-knowledge") { dir =>
-          Given("one exact CAR archive declaration and its version-scoped repository sidecar")
+          Given("a CAR declaration and its coordinate-selected repository sidecar")
           val warehouse = dir.resolve("warehouse")
           val contract =
             """{"schema":"cncf.component-knowledge-consumer.v1","componentId":"org.example.textus.Sie","logicalRelease":"0.1.0","resources":[]}"""
           val sidecar = warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie/0.1.0/component-knowledge.json")
           _write(sidecar, contract)
-          val digest = RepositoryArtifactPublisher.sha256(sidecar)
           val descriptor =
-            s"""{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sie","version":"0.1.0"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+            """{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sie","version":"0.1.0"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json"}}"""
           val archivepath = warehouse.resolve("repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car")
           _write_car_archive_entries(archivepath, Some(descriptor), None, Vector("component-knowledge.json" -> contract))
-          val archivedigest = RepositoryArtifactPublisher.sha256(archivepath)
           _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
           _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
           _write(
@@ -174,9 +168,6 @@ class CozyBokComponentRepositorySpec
               |    channel: stable
               |    component: org.example.textus.Sie
               |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
-              |    checksum:
-              |      sha256: $archivedigest
-              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:$archivedigest
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service", "--warehouse", warehouse.toString))
@@ -184,15 +175,16 @@ class CozyBokComponentRepositorySpec
           When("Cozy publishes BOK repository metadata and public repository assets")
           CozyBok.build(config, new RepositoryCarBuildRunner)
 
-          Then("metadata declares only the canonical carrier and the public contract retains the declared digest")
+          Then("metadata declares the independently expected carrier schemas and path and publishes the full consumer contract")
           val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
           metadata should include("\"component_knowledge\" : {")
           metadata should include("\"consumer_contract\" : \"repository/car/textus-sie/0.1.0/component-knowledge.json\"")
-          metadata should include("\"sha256\" : \"" + digest + "\"")
+          metadata should include("\"carrierSchema\" : \"cncf.component-knowledge-carrier.v1\"")
+          metadata should include("\"consumerContractSchema\" : \"cncf.component-knowledge-consumer.v1\"")
+          metadata should include("\"logicalPath\" : \"component-knowledge.json\"")
           val publiccontract = dir.resolve("website.d/repository/car/textus-sie/0.1.0/component-knowledge.json")
           publiccontract should be_regular_file
           _read(publiccontract) shouldBe contract
-          RepositoryArtifactPublisher.sha256(publiccontract) shouldBe digest
         }
       }
 
@@ -427,27 +419,15 @@ class CozyBokComponentRepositorySpec
               |  - version: 0.1.0
               |    component: org.example.sample.Car
               |    file: repository/car/org/example/sample/sample-car/0.1.0/sample-car-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.sample:sample-car:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |  - version: 0.2.0
               |    component: org.example.sample.Car
               |    file: repository/car/org/example/sample/sample-car/0.2.0/sample-car-0.2.0.car
-              |    checksum:
-              |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-              |    integrityKey: org.example.sample:sample-car:0.2.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
               |  - version: 0.3.0
               |    component: org.example.sample.Car
               |    file: repository/car/org/example/sample/sample-car/0.3.0/sample-car-0.3.0.car
-              |    checksum:
-              |      sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-              |    integrityKey: org.example.sample:sample-car:0.3.0@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
               |  - version: 0.4.0
               |    component: org.example.sample.Car
               |    file: repository/car/org/example/sample/sample-car/0.4.0/sample-car-0.4.0.car
-              |    checksum:
-              |      sha256: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-              |    integrityKey: org.example.sample:sample-car:0.4.0@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
               |""".stripMargin
           )
           _write_car_archive_entries(
@@ -470,10 +450,6 @@ class CozyBokComponentRepositorySpec
             Some("""{"schemaVersion":3,"component":{"namespace":"org.example.sample","id":"Car","version":"0.4.0"}}"""),
             Some("""{"format":"cozy.car.abi-manifest.v2","component":{"namespace":"org.example.sample","id":"Car","version":"0.4.0"},"abi":{"version":1,"exports":{"components":[]}}}""")
           )
-          val archivechecksums = Vector("0.1.0", "0.2.0", "0.3.0", "0.4.0").map { version =>
-            val path = dir.resolve(s"repository/car/org/example/sample/sample-car/$version/sample-car-$version.car")
-            version -> RepositoryArtifactPublisher.sha256(path)
-          }.toMap
           _write(
             dir.resolve("repository/catalog/car/org/example/sample/sample-car.yaml"),
             _repository_catalog(
@@ -488,8 +464,7 @@ class CozyBokComponentRepositorySpec
               ),
               Some("0.2.0"),
               None,
-              None,
-              archivechecksums
+              None
             )
           )
           val config = CozyBok.BuildConfig.create(
@@ -533,41 +508,6 @@ class CozyBokComponentRepositorySpec
         }
       }
 
-      "reject a substituted CAR archive before descriptor metadata is extracted" in {
-        _with_temp_dir("cozy-bok-repository-car-integrity") { dir =>
-          Given("a canonical CAR catalog whose available archive bytes do not match its catalog digest")
-          _write(dir.resolve("src/main/doxsite/site.conf"), "site { output { locale_mode = \"single_locale_root\" } }\n")
-          _write(dir.resolve("src/main/doxsite/index.dox"), "Home\n====\n")
-          val archive = dir.resolve("repository/car/org/example/sample/sample-car/1.0.0/sample-car-1.0.0.car")
-          _write_car_archive_entries(
-            archive,
-            Some("""{"schemaVersion":3,"component":{"namespace":"org.example.sample","id":"Car","version":"1.0.0"}}"""),
-            None
-          )
-          _write(
-            dir.resolve("repository/catalog/car/org/example/sample/sample-car.yaml"),
-            _repository_catalog(
-              "car",
-              "sample-car",
-              "active",
-              Vector(("1.0.0", "stable", "active")),
-              Some("1.0.0"),
-              Some("1.0.0"),
-              None
-            )
-          )
-          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview", "--no-bib-service"))
-
-          When("Cozy reads repository CAR archive metadata")
-          val error = intercept[IllegalArgumentException] {
-            CozyBok.build(config, new RepositoryCarBuildRunner)
-          }
-
-          Then("the archive is rejected at checksum admission before descriptor or ABI diagnostics are accepted")
-          error.getMessage should include("component.repository.integrity.mismatch source=archive field=checksum.sha256")
-          error.getMessage should not include "component-descriptor-coordinate-mismatch"
-        }
-      }
     }
   }
 
@@ -620,12 +560,12 @@ class CozyBokComponentRepositorySpec
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
 
-  private def _metadata_entries(content: String, identity_field: String): Map[String, io.circe.Json] = {
+  private def _metadata_entries(content: String, identityfield: String): Map[String, io.circe.Json] = {
     val metadata = parser.parse(content).fold(throw _, identity)
     val entries = metadata.hcursor.downField("entries").as[Vector[io.circe.Json]].fold(throw _, identity).map { entry =>
-      entry.hcursor.get[String](identity_field).fold(throw _, identity) -> entry
+      entry.hcursor.get[String](identityfield).fold(throw _, identity) -> entry
     }
-    withClue(s"metadata entries must have unique $identity_field values: ") {
+    withClue(s"metadata entries must have unique $identityfield values: ") {
       entries.map(_._1).distinct should have size entries.size
     }
     entries.toMap
@@ -633,13 +573,12 @@ class CozyBokComponentRepositorySpec
 
   private def _repository_catalog(
     kind: String,
-    artifact_id: String,
+    artifactid: String,
     status: String,
     versions: Vector[(String, String, String)],
     recommended: Option[String],
-    latest_stable: Option[String],
-    latest_snapshot: Option[String],
-    checksums: Map[String, String] = Map.empty
+    lateststable: Option[String],
+    latestsnapshot: Option[String]
   ): String = {
     val caridentity = Map(
       "indexed-car" -> ("org.example.indexed" -> "Car"),
@@ -647,51 +586,46 @@ class CozyBokComponentRepositorySpec
       "mismatched-car" -> ("org.example.mismatched" -> "Car"),
       "unindexed-car" -> ("org.example.unindexed" -> "Car"),
       "sample-car" -> ("org.example.sample" -> "Car")
-    ).get(artifact_id)
+    ).get(artifactid)
     val namespace = caridentity.map(_._1)
     val id = caridentity.map(_._2)
     val selectors = Vector(
       recommended.map(value => s"recommended: $value"),
-      latest_stable.map(value => s"latestStable: $value"),
-      latest_snapshot.map(value => s"latestSnapshot: $value")
+      lateststable.map(value => s"latestStable: $value"),
+      latestsnapshot.map(value => s"latestSnapshot: $value")
     ).flatten.mkString("\n")
-    val version_entries = versions.map { case (version, channel, version_status) =>
-      if (kind == "car") {
-        val checksum = checksums.getOrElse(version, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    val versionentries = versions.map { case (version, channel, versionstatus) =>
+      if (kind == "car")
         s"""  - version: $version
            |    channel: $channel
-           |    status: $version_status
+           |    status: $versionstatus
            |    component: ${namespace.get}.${id.get}
-           |    file: repository/car/${namespace.get.replace('.', '/')}/$artifact_id/$version/$artifact_id-$version.car
-           |    checksum:
-           |      sha256: $checksum
-           |    integrityKey: ${namespace.get}:$artifact_id:$version@sha256:$checksum""".stripMargin
-      }
+           |    file: repository/car/${namespace.get.replace('.', '/')}/$artifactid/$version/$artifactid-$version.car""".stripMargin
       else
         s"""  - version: $version
            |    channel: $channel
-           |    status: $version_status
-           |    file: repository/$kind/$artifact_id/$version/$artifact_id-$version.$kind""".stripMargin
+           |    status: $versionstatus
+           |    file: repository/$kind/$artifactid/$version/$artifactid-$version.$kind""".stripMargin
     }.mkString("\n")
     if (kind == "car")
       s"""schemaVersion: 2
          |kind: car
          |namespace: ${namespace.get}
          |id: ${id.get}
-         |artifactId: $artifact_id
+         |artifactId: $artifactid
          |$selectors
          |status: $status
          |versions:
-         |$version_entries
+         |$versionentries
          |""".stripMargin
     else
       s"""schemaVersion: 1
          |kind: $kind
-         |artifactId: $artifact_id
+         |artifactId: $artifactid
          |$selectors
          |status: $status
          |versions:
-         |$version_entries
+         |$versionentries
          |""".stripMargin
   }
 

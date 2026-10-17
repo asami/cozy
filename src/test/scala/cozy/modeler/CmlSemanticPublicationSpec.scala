@@ -12,7 +12,7 @@ import CmlSemanticPublication._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Semantic publication admission" should {
@@ -22,8 +22,7 @@ final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with Gi
           Given("an accepted full Causal resource filename and literal source and family-count expectations")
           val filename = "causal-metadata-v1-" + mode + ".json"
           val firstrecord = ElementRecord(Present(ModelElementId("structure.example", "entity:order")),
-            "entity", "共有", SourceAttribution("structure.example", "src/main/cml/structure-handoff.cml",
-              "a" * 64, Some(1)), Absent(NotDeclared, "No semantic references are declared."))
+            "entity", "共有", SourceAttribution("structure.example", "src/main/cml/structure-handoff.cml", Some(1)), Absent(NotDeclared, "No semantic references are declared."))
           When("the actual UTF-8 publication is parsed and all accepted supplier readers independently supply expected facts")
           val raw = _resource(filename)
           val expected = _oracle(raw)

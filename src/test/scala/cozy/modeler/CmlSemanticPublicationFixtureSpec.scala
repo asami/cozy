@@ -13,7 +13,7 @@ import CmlCausalTraversal.{TraversalLink, Cause, Reaction, AffectedSubject, Rule
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "A JSON-only semantic publication consumer" should {
@@ -813,7 +813,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
   private def _id_json(value: ModelElementId): JsObject = Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId)
   private def _term_id_json(value: TermId): JsObject = Json.obj("vocabularyId" -> value.vocabularyId, "termId" -> value.termId)
   private def _source_json(value: SourceAttribution): JsObject = Json.obj("authorityId" -> value.authorityId,
-    "path" -> value.path, "sha256" -> value.sha256, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line)))
+    "path" -> value.path, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line)))
   private def _origin_json(value: ReferenceOrigin): JsObject = value match {
     case Declared => Json.obj("kind" -> "declared")
     case Derived(ruleid, sources) => Json.obj("kind" -> "derived", "ruleId" -> ruleid, "sources" -> JsArray(sources.map(_source_json)))

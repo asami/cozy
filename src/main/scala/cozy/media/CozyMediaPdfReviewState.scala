@@ -4,13 +4,13 @@ import org.goldenport.RAISE
 import io.circe.Json
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 30, 2026
- *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdfReviewState {
@@ -20,10 +20,7 @@ private[cozy] object CozyMediaPdfReviewState {
     language: String,
     publicPath: String,
     mediaType: String,
-    output: String,
-    sha256: String,
-    inputSetSha256: String,
-    rendererManifestSha256: Option[String]
+    output: String
   )
 
   final case class State(knowledge: String, resources: Vector[Resource])
@@ -49,48 +46,29 @@ private[cozy] object CozyMediaPdfReviewState {
 
   def current(plan: CozyMedia.Plan): Boolean =
     try {
-      val candidate = CozyMediaReceipt.manifest(_manifest_path(plan)).getOrElse(return false)
-      _state(plan, candidate, Set.empty, None).exists { state =>
-        val path = _state_path(plan)
-        _direct_regular_file(path) &&
-          Files.readAllBytes(path).sameElements((_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+      val selected = plan.resources.filter(_qualifying)
+      if (selected.isEmpty) false
+      else { requireCurrent(plan, selected); true }
+    } catch { case NonFatal(_) => false }
+
+  def requireCurrent(plan: CozyMedia.Plan, resources: Vector[CozyMedia.ResolvedResource]): Unit =
+    resources.filter(_qualifying).sortBy(_.resource.id).foreach { resolved =>
+      try {
+        CozyMediaReceipt.requireCurrent(plan, resolved)
+        val state = _load(_state_path(plan))
+        if (state.knowledge != plan.descriptor.knowledge.id) _invalid("state knowledge differs from declaration")
+        val candidate = CozyMediaReceipt.manifest(_manifest_path(plan)).getOrElse(_invalid("receipt manifest is missing"))
+        val entry = candidate.resources.find(_.id == resolved.resource.id).getOrElse(_invalid("accepted entry is missing"))
+        val expected = _resource(plan, resolved, entry)
+        val accepted = state.resources.find(_.id == resolved.resource.id).getOrElse(_invalid("selected resource metadata is missing"))
+        if (accepted != expected) _invalid("selected role/language/publicPath/mediaType/output metadata differs from declaration")
+        _require_summary_current(plan, resolved)
+      } catch { case NonFatal(error) =>
+        val output = resolved.output.orElse(resolved.source).map(_.toString).getOrElse("undeclared")
+        _invalid(s"PDF review currentness failed for resource ${resolved.resource.id}, producer ${resolved.resource.build}, " +
+          s"state ${_state_path(plan)}, output $output: ${error.getMessage}; next operation: cozy media build ${plan.descriptorFile} --target ${resolved.resource.id}")
       }
-    } catch {
-      case NonFatal(_) => false
     }
-
-  def requireCurrent(plan: CozyMedia.Plan, resources: Vector[CozyMedia.ResolvedResource]): Unit = {
-    val selected = resources.filter(_qualifying)
-    if (selected.nonEmpty && !current(plan))
-      _invalid("Selected public PDF resources lack current cozy.media.pdf-review-state.v1 evidence: " + selected.map(_.resource.id).sorted.mkString(", "))
-  }
-
-  /**
-   * Currentness for register-site only.  An accepted retained PDF state is
-   * valid only when its bytes exactly equal the state reconstructed from the
-   * accepted manifest and site-registration receipt currentness.
-   */
-  private[cozy] def siteRegistrationCurrent(plan: CozyMedia.Plan): Boolean =
-    if (current(plan)) true
-    else try {
-      _site_registration_state(plan).exists { state =>
-        val path = _state_path(plan)
-        _direct_regular_file(path) &&
-          Files.readAllBytes(path).sameElements((_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
-      }
-    } catch {
-      case NonFatal(_) => false
-    }
-
-  private[cozy] def requireSiteRegistrationCurrent(plan: CozyMedia.Plan, resources: Vector[CozyMedia.ResolvedResource]): Unit = {
-    val selected = resources.filter(_qualifying)
-    if (selected.nonEmpty && !siteRegistrationCurrent(plan))
-      _invalid(
-        "Site-registration PDF review-state preflight failed for resource " + selected.map(_.resource.id).sorted.mkString(", ") +
-          ": retained-state conditions are unsatisfied (requires an exact unaltered review state reconstructed from accepted manifest entries, " +
-          "site-registration receipt currentness, and current generated-summary structural evidence); rebuild the reviewed PDF or restore retained inputs"
-      )
-  }
 
   private def _state(
     plan: CozyMedia.Plan,
@@ -114,32 +92,6 @@ private[cozy] object CozyMediaPdfReviewState {
     if (entries.isEmpty) None else Some(State(candidate.knowledge, entries))
   }
 
-  private def _site_registration_state(plan: CozyMedia.Plan): Option[State] = {
-    val candidate = CozyMediaReceipt.manifest(_manifest_path(plan)).getOrElse(return None)
-    if (candidate.knowledge != plan.descriptor.knowledge.id)
-      _invalid("Media PDF review-state candidate knowledge does not match descriptor")
-    val resources = plan.resources.map(value => value.resource.id -> value).toMap
-    val qualifying = candidate.resources.flatMap { entry =>
-      resources.get(entry.id).filter(_qualifying).map(resolved => resolved -> entry)
-    }
-    if (qualifying.isEmpty) None
-    else if (!qualifying.forall { case (resolved, _) => _site_registration_resource_current(plan, resolved) }) None
-    else Some(State(candidate.knowledge, qualifying.map { case (resolved, entry) =>
-      _resource(plan, resolved, entry)
-    }.sortBy(value => (value.role, value.id))))
-  }
-
-  private def _site_registration_resource_current(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Boolean =
-    try {
-      if (!CozyMediaReceipt.siteRegistrationCurrent(plan, resolved)) false
-      else {
-        _require_summary_current(plan, resolved)
-        true
-      }
-    } catch {
-      case NonFatal(_) => false
-    }
-
   private def _candidate_current(
     plan: CozyMedia.Plan,
     candidate: CozyMediaReceipt.Manifest,
@@ -156,11 +108,9 @@ private[cozy] object CozyMediaPdfReviewState {
 
   private def _current(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Boolean =
     try {
-      if (!CozyMediaReceipt.current(plan, resolved)) false
-      else {
-        _require_summary_current(plan, resolved)
-        true
-      }
+      CozyMediaReceipt.requireCurrent(plan, resolved)
+      _require_summary_current(plan, resolved)
+      true
     } catch {
       case NonFatal(_) => false
     }
@@ -190,7 +140,7 @@ private[cozy] object CozyMediaPdfReviewState {
           if (selectedids.contains(dependency.resource.id))
             candidate.resources.find(_.id == dependency.resource.id).exists(entry => CozyMediaReceipt.candidateCurrent(plan, dependency, entry, captured))
           else
-            CozyMediaReceipt.current(plan, dependency)
+            CozyMediaReceipt.currentnessFailure(plan, dependency).isEmpty
         if (!current)
           _invalid(s"Summary-slides PDF target requires current dependency evidence: ${dependency.resource.id}")
       }
@@ -214,13 +164,10 @@ private[cozy] object CozyMediaPdfReviewState {
       _invalid(s"Media PDF review-state output is missing: ${resolved.resource.id}")
     )
     val relative = _relative(plan, output, s"Media PDF review-state output ${resolved.resource.id}")
-    if (entry.path != relative || entry.sha256 != _sha256(output))
+    if (entry.path != relative)
       _invalid(s"Media PDF review-state candidate output differs: ${resolved.resource.id}")
     val receipt = entry.receipt.getOrElse(_invalid(s"Media PDF review-state receipt is missing: ${resolved.resource.id}"))
-    val renderer =
-      if (_direct_summary_slides_pdf(resolved)) Some(_renderer_manifest_sha256(plan, resolved))
-      else None
-    Resource(entry.id, role, language, publicpath, mediatype, relative, entry.sha256, receipt.inputSetSha256, renderer)
+    Resource(entry.id, role, language, _public_path(publicpath), mediatype, relative)
   }
 
   private def _direct_summary_slides_pdf(resolved: CozyMedia.ResolvedResource): Boolean =
@@ -231,16 +178,6 @@ private[cozy] object CozyMediaPdfReviewState {
       _invalid(s"Media PDF review-state role is invalid: ${resolved.resource.id}")
     )
 
-  private def _renderer_manifest_sha256(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): String = {
-    val configuration = resolved.resource.summarySlidesPdf.getOrElse(
-      _invalid(s"Summary-slides PDF review-state configuration is missing: ${resolved.resource.id}")
-    )
-    val path = plan.descriptorRoot.resolve(configuration.rendererManifest).normalize()
-    if (!path.startsWith(plan.descriptorRoot) || !_direct_regular_file(path))
-      _invalid(s"Summary-slides PDF review-state renderer manifest must be a direct regular file: ${resolved.resource.id}")
-    _sha256(path)
-  }
-
   private def _json(state: State): Json =
     Json.obj(
       "schema" -> Json.fromString(_schema),
@@ -248,17 +185,51 @@ private[cozy] object CozyMediaPdfReviewState {
       "resources" -> Json.fromValues(state.resources.map(_resource_json))
     )
 
+  private def _load(path: Path): State = {
+    if (!_direct_regular_file(path)) _invalid("state must be a direct regular file")
+    val json = io.circe.parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      error => _invalid(s"state must contain valid JSON: ${error.getMessage}"), identity)
+    val root = json.hcursor
+    def _string_(cursor: io.circe.HCursor, key: String): String =
+      cursor.get[String](key).fold(_ => _invalid(s"state $key must be a string"), value => _identity(value, s"state $key"))
+    if (_string_(root, "schema") != _schema) _invalid(s"state schema must be ${_schema}")
+    val knowledge = _string_(root, "knowledge")
+    val entries = root.get[Vector[Json]]("resources").fold(_ => _invalid("state resources must be an array"), identity).map { value =>
+      val cursor = value.hcursor
+      val role = _string_(cursor, "role")
+      if (!_roles.contains(role)) _invalid("state role must be article_pdf or summary_slides_pdf")
+      val language = _string_(cursor, "language")
+      if (!Set("ja", "en").contains(language)) _invalid("state language must be ja or en")
+      val mediatype = _string_(cursor, "mediaType")
+      if (mediatype != "application/pdf") _invalid("state mediaType must be application/pdf")
+      val output = _string_(cursor, "output")
+      val relative = Path.of(output)
+      if (relative.isAbsolute || output.contains("\\") || output.matches("[A-Za-z]:.*") ||
+          relative.iterator().asScala.exists(_.toString == "..") || relative.normalize().toString.replace('\\', '/') != output)
+        _invalid("state output must be a safe normalized relative path")
+      Resource(_string_(cursor, "id"), role, language, _public_path(_string_(cursor, "publicPath")), mediatype, output)
+    }
+    if (entries.map(_.id).distinct.size != entries.size) _invalid("state resource IDs must be unique")
+    State(knowledge, entries)
+  }
+
+  private def _public_path(value: String): String = {
+    val uri = new java.net.URI(value)
+    if (!value.startsWith("/") || value.startsWith("//") || uri.isAbsolute || uri.getRawQuery != null ||
+        uri.getRawFragment != null || uri.getRawPath != value || value.split("/").exists(x => x == ".." || x == "."))
+      _invalid("state publicPath must be a safe site-public path")
+    value
+  }
+
   private def _resource_json(value: Resource): Json =
-    Json.fromFields(Vector(
+    Json.obj(
       "id" -> Json.fromString(value.id),
       "role" -> Json.fromString(value.role),
       "language" -> Json.fromString(value.language),
       "publicPath" -> Json.fromString(value.publicPath),
       "mediaType" -> Json.fromString(value.mediaType),
-      "output" -> Json.fromString(value.output),
-      "sha256" -> Json.fromString(value.sha256),
-      "inputSetSha256" -> Json.fromString(value.inputSetSha256)
-    ) ++ value.rendererManifestSha256.map(hash => "rendererManifestSha256" -> Json.fromString(hash)).toVector)
+      "output" -> Json.fromString(value.output)
+    )
 
   private def _state_path(plan: CozyMedia.Plan): Path =
     plan.descriptorRoot.resolve(_path).toAbsolutePath.normalize()
@@ -279,9 +250,6 @@ private[cozy] object CozyMediaPdfReviewState {
 
   private def _direct_regular_file(path: Path): Boolean =
     path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }

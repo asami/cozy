@@ -33,7 +33,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -161,7 +161,6 @@ private[cozy] trait CozyBokRepositoryPages {
       runtimecncfminimum = version.runtime.flatMap(_.minimum),
       runtimecncfmaximum = version.runtime.flatMap(_.maximum),
       runtimecncftested = version.runtime.map(_.tested).getOrElse(Vector.empty),
-      checksumsha256 = version.checksumSha256,
       componentdescriptor = archive.componentdescriptor,
       abimanifest = archive.abimanifest,
       componentknowledge = _repository_car_component_knowledge(repositoryroot, catalog, version, archive),
@@ -186,9 +185,8 @@ private[cozy] trait CozyBokRepositoryPages {
     }
 
   /**
-   * Keep a catalog consumer-contract transport version-scoped.  The BOK
-   * builder copies only the sidecar that Cozy published for this exact CAR
-   * release, after verifying it against the archive descriptor declaration.
+   * Copy the coordinate-selected consumer-contract sidecar after validating
+   * the archive declaration's carrier schemas and logical path.
    */
   private def _repository_car_component_knowledge(
     repositoryroot: Path,
@@ -215,7 +213,6 @@ private[cozy] trait CozyBokRepositoryPages {
         )
       _require_component_knowledge_transport(
         carrier,
-        Files.readAllBytes(source),
         s"repository CAR ${catalog.artifactId} ${version.version}"
       )
       RepositoryCarComponentKnowledge(
@@ -227,30 +224,24 @@ private[cozy] trait CozyBokRepositoryPages {
 
   private def _require_component_knowledge_transport(
     carrier: Json,
-    bytes: Array[Byte],
     label: String
   ): Unit = {
     val fields = carrier.asObject.getOrElse(
       RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must be an object.")
     )
-    val expected = Set("carrierSchema", "consumerContractSchema", "logicalPath", "sha256")
+    val expected = Set("carrierSchema", "consumerContractSchema", "logicalPath")
     if (fields.keys.toSet != expected)
       RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must contain exactly the canonical carrier fields.")
-    def _string(name: String): String =
+    def _string_(name: String): String =
       fields(name).flatMap(_.asString).getOrElse(
         RAISE.invalidArgumentFault(s"$label componentKnowledge.$name must be a string.")
       )
-    if (_string("carrierSchema") != CozyComponentKnowledgeCarrier.CARRIER_SCHEMA)
+    if (_string_("carrierSchema") != CozyComponentKnowledgeCarrier.CARRIER_SCHEMA)
       RAISE.invalidArgumentFault(s"$label componentKnowledge carrier schema is unsupported.")
-    if (_string("consumerContractSchema") != CozyComponentKnowledgeCarrier.CONSUMER_CONTRACT_SCHEMA)
+    if (_string_("consumerContractSchema") != CozyComponentKnowledgeCarrier.CONSUMER_CONTRACT_SCHEMA)
       RAISE.invalidArgumentFault(s"$label componentKnowledge consumer-contract schema is unsupported.")
-    if (_string("logicalPath") != CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)
+    if (_string_("logicalPath") != CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)
       RAISE.invalidArgumentFault(s"$label componentKnowledge logical path is unsupported.")
-    val expectedsha = _string("sha256")
-    val actualsha = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
-      .map(byte => f"${byte & 0xff}%02x").mkString
-    if (!expectedsha.matches("[0-9a-f]{64}") || expectedsha != actualsha)
-      RAISE.invalidArgumentFault(s"$label componentKnowledge transport digest does not match its archive declaration.")
   }
 
   private def _repository_car_archive_metadata(
@@ -259,23 +250,12 @@ private[cozy] trait CozyBokRepositoryPages {
     version: _root_.cozy.archive.RepositoryArtifactCatalogVersion
   ): RepositoryCarArchiveMetadata =
     version.file.map(_repository_catalog_artifact_path(repositoryroot, _)).filter(Files.isRegularFile(_)).map { path =>
-      val actualdigest = _root_.cozy.archive.RepositoryArtifactPublisher.sha256(path)
-      val expecteddigest = version.checksumSha256.getOrElse("missing")
-      if (actualdigest != expecteddigest)
-        throw new IllegalArgumentException(
-          s"component.repository.integrity.mismatch source=archive field=checksum.sha256 expected=${expecteddigest} actual=${actualdigest}"
-        )
-      val expectedkey = _root_.cozy.archive.CozyComponentReleaseCoordinateCodec.admit(
+      _root_.cozy.archive.CozyComponentReleaseCoordinateCodec.admit(
         catalog.namespace.getOrElse(""),
         catalog.id.getOrElse(""),
         version.version,
         "archive"
-      ).integrityKey(actualdigest)
-      val actualkey = version.integrityKey.getOrElse("missing")
-      if (actualkey != expectedkey)
-        throw new IllegalArgumentException(
-          s"component.repository.integrity.mismatch source=archive field=integrityKey expected=${expectedkey} actual=${actualkey}"
-        )
+      )
       val zip = new ZipFile(path.toFile)
       try {
         def _json_entry_(name: String): Option[Json] =
@@ -505,7 +485,6 @@ private[cozy] trait CozyBokRepositoryPages {
               _repository_car_published_at_label(locale) -> _html_escape(version.publishedat.getOrElse("-")),
               _repository_car_file_label(locale) -> s"<code>${_html_escape(version.file.getOrElse("-"))}</code>",
               _repository_car_runtime_label(locale) -> (if (runtime.isEmpty) "-" else runtime),
-              _repository_car_checksum_label(locale) -> _html_escape(version.checksumsha256.getOrElse("-")),
               _repository_car_tags_label(locale) -> _repository_car_tag_links(target, page, entry.tags, category),
               _repository_car_terms_label(locale) -> _repository_car_term_links(config, target, page, entry.terms),
               _repository_car_sidecars_label(locale) -> _repository_car_sidecar_links(target, page, locale, entry.sidecars)
@@ -703,12 +682,6 @@ private[cozy] trait CozyBokRepositoryPages {
     locale match {
       case "ja" => "Runtime"
       case _ => "Runtime"
-    }
-
-  private def _repository_car_checksum_label(locale: String): String =
-    locale match {
-      case "ja" => "Checksum"
-      case _ => "Checksum"
     }
 
   private def _repository_car_sidecars_label(locale: String): String =

@@ -6,8 +6,7 @@ import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser =
 import io.circe.{Json, JsonObject}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path}
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import scala.collection.JavaConverters._
@@ -15,7 +14,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaCrossReview {
@@ -45,14 +45,13 @@ private[cozy] object CozyMediaCrossReview {
     }
   }
 
-  private final case class Expected(value: Json, descriptorroot: Path, presentationreview: Path)
-  private final case class Slide(id: String, sha256: String)
+  private final case class Expected(value: Json, descriptorroot: Path, protectedpaths: Set[Path])
+  private final case class Slide(id: String)
   private final case class VisualPage(
     sceneid: String,
     pageid: String,
-    logicalidentity: String,
-    visualpageidentity: String,
-    assets: Vector[CozyMediaPresentation.VisualPageAssetEvidence]
+    assets: Vector[CozyMediaPresentation.VisualPageAssetEvidence],
+    inputs: Set[Path]
   )
 
   private val _schema = "cozy.media.cross-review.v1"
@@ -69,12 +68,9 @@ private[cozy] object CozyMediaCrossReview {
   def build(config: BuildConfig): String = {
     val expected = _expected(config.mediaFile, config.target, config.videoProject)
     val output = _safe_output(expected.descriptorroot, config.save, "--save", createparents = true)
-    if (output == expected.presentationreview)
-      _invalid("Cross-media Review output must not replace the presentation review manifest")
-    val rechecked = _expected(config.mediaFile, config.target, config.videoProject)
-    if (expected.value != rechecked.value)
-      _invalid("Cross-media Review inputs changed while reconstructing current evidence")
-    _write_atomic(output, expected.value)
+    if (expected.protectedpaths.contains(output))
+      _invalid("Cross-media Review output must not replace an input or evidence file")
+    _write(output, expected.value)
     s"Cozy Media Cross Review Build\nstatus: valid\noutput: ${_relative(expected.descriptorroot, output)}"
   }
 
@@ -82,8 +78,7 @@ private[cozy] object CozyMediaCrossReview {
     val expected = _expected(config.mediaFile, config.target, config.videoProject)
     val input = _safe_output(expected.descriptorroot, config.crossReview, "--cross-review", createparents = false)
     val actual = _read_json(input, "Cross-media Review")
-    if (actual != expected.value)
-      _invalid("Cross-media Review differs from exact current reconstruction")
+    _validate_record(actual, expected.value)
     s"Cozy Media Cross Review Verify\nstatus: valid\ninput: ${_relative(expected.descriptorroot, input)}"
   }
 
@@ -98,12 +93,12 @@ private[cozy] object CozyMediaCrossReview {
     CozyMediaPresentation.requireCurrent(plan, presentation, requireReviewState = false)
     val evidence = CozyMediaPresentation.visualPageEvidence(plan, presentation)
     val review = _read_json(evidence.reviewPath, "Presentation VisualPage review manifest")
-    val slides = _presentation_slides(review, evidence)
+    val slides = _presentation_slides(review)
     val current = CozyVideo.storyboardReviewCurrent(videoproject)
     val storyboard = _read_json(current.evidencePath, "Storyboard v2 review evidence")
     val handoff = _read_json(current.handoffPath, "Storyboard v2 review handoff")
-    val visualpages = _storyboard_visual_pages(storyboard, current, evidence)
-    _validate_handoff(handoff, current)
+    val visualpages = _storyboard_visual_pages(storyboard, current)
+    _validate_handoff(handoff)
     if (slides.map(_.id) != evidence.pages.map(_.id))
       _invalid("Presentation review slide order does not equal the VisualPageSet page order")
     if (slides.map(_.id).distinct.size != slides.size)
@@ -115,22 +110,13 @@ private[cozy] object CozyMediaCrossReview {
     val pages = evidence.pages.map(page => page.id -> page).toMap
     visualpages.foreach { visual =>
       val presentationpage = pages.getOrElse(visual.pageid, _invalid(s"Storyboard VisualPage is absent from presentation: ${visual.pageid}"))
-      if (visual.logicalidentity != presentationpage.logicalIdentity || visual.visualpageidentity != presentationpage.visualPageIdentity)
-        _invalid(s"Storyboard VisualPage identity differs from presentation: ${visual.pageid}")
-      if (visual.assets != presentationpage.assets)
+      if (visual.assets.map(asset => asset.id -> asset.mediaType) != presentationpage.assets.map(asset => asset.id -> asset.mediaType))
         _invalid(s"Storyboard VisualPage assets differ from presentation: ${visual.pageid}")
     }
     val value = Json.obj(
       "schema" -> Json.fromString(_schema),
       "target" -> Json.fromString(target),
-      "presentationReviewIdentity" -> Json.fromString(_file_identity(evidence.reviewPath)),
-      "storyboardEvidenceIdentity" -> Json.fromString(current.evidenceIdentity),
-      "storyboardHandoffIdentity" -> Json.fromString(current.handoffIdentity),
-      "storyboardIdentity" -> Json.fromString(current.storyboardIdentity),
-      "visualPageSetIdentity" -> Json.fromString(evidence.visualPageSetIdentity),
-      "catalogIdentity" -> Json.fromString(evidence.catalogIdentity),
-      "bindingIdentity" -> Json.fromString(evidence.bindingIdentity),
-      "slides" -> Json.fromValues(slides.map(slide => Json.obj("id" -> Json.fromString(slide.id), "sha256" -> Json.fromString(slide.sha256)))),
+      "slides" -> Json.fromValues(slides.map(slide => Json.obj("id" -> Json.fromString(slide.id)))),
       "visualPages" -> Json.fromValues(visualpages.map(_visual_page_json)),
       "verification" -> Json.obj(
         "status" -> Json.fromString("valid"),
@@ -139,93 +125,138 @@ private[cozy] object CozyMediaCrossReview {
         "audiovisualApproval" -> Json.fromString("not-recorded")
       )
     )
-    Expected(value, plan.descriptorRoot.toRealPath(), evidence.reviewPath)
+    val root = plan.descriptorRoot.toRealPath()
+    val configuration = presentation.resource.presentation.get
+    val storyroot = current.projectFile.toAbsolutePath.normalize().getParent
+    val visualinputs = storyboard.hcursor.downField("visualInputs").focus.flatMap(_.asArray).toVector.flatten.flatMap { input =>
+      Vector(
+        _material_path(storyroot, input.hcursor.get[String]("source").toOption.getOrElse(_invalid("Storyboard visual input source is missing")), "Storyboard visual input source"),
+        _material_path(current.evidencePath.getParent, input.hcursor.get[String]("path").toOption.getOrElse(_invalid("Storyboard visual input path is missing")), "Storyboard visual input copy")
+      )
+    }
+    val reviewpaths = Vector("visualPageSet", "catalog", "binding", "template", "pptx", "montage").map { name =>
+      root.resolve(review.hcursor.downField(name).get[String]("path").toOption.getOrElse(_invalid(s"Presentation review $name path is missing"))).normalize()
+    } ++ review.hcursor.downField("slides").focus.flatMap(_.asArray).toVector.flatten.map { slide =>
+      root.resolve(slide.hcursor.get[String]("path").toOption.getOrElse(_invalid("Presentation slide path is missing"))).normalize()
+    }
+    val protectedpaths = Set(plan.descriptorFile.toAbsolutePath.normalize(), plan.knowledgeSource.toAbsolutePath.normalize(), current.projectFile.toAbsolutePath.normalize(), evidence.reviewPath, current.evidencePath, current.handoffPath) ++
+      plan.resources.flatMap(resource => resource.source.toVector ++ resource.output.toVector ++ resource.project.toVector).map(_.toAbsolutePath.normalize()) ++
+      plan.descriptor.receipt.toVector.flatMap(_.inputs).map(input => root.resolve(input.path).normalize()) ++
+      evidence.pages.flatMap(_.assets.map(_.path)) ++ visualpages.flatMap(_.inputs) ++ visualinputs ++ reviewpaths ++
+      Vector(configuration.rendererManifest, configuration.reviewState).map(path => root.resolve(path).normalize())
+    Expected(value, root, protectedpaths)
   }
 
-  private def _presentation_slides(value: Json, evidence: CozyMediaPresentation.VisualPageEvidence): Vector[Slide] = {
+  private def _presentation_slides(value: Json): Vector[Slide] = {
     val objectvalue = _object(value, "Presentation VisualPage review manifest")
-    _exact_ordered_keys(objectvalue, Vector("schema", "target", "knowledge", "language", "inputSetSha256", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
+    _known_ordered_keys(objectvalue, Vector("schema", "target", "knowledge", "language", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
     if (_string(objectvalue, "schema", "Presentation VisualPage review manifest") != _presentation_review_schema)
       _invalid("Cross-media Review requires a presentation-review.v2 manifest")
-    _semantic_identity(objectvalue("visualPageSet").getOrElse(_invalid("Presentation review VisualPageSet is missing")), evidence.visualPageSetIdentity, "visualPageSet")
-    _semantic_identity(objectvalue("catalog").getOrElse(_invalid("Presentation review catalog is missing")), evidence.catalogIdentity, "catalog")
-    _semantic_identity(objectvalue("binding").getOrElse(_invalid("Presentation review binding is missing")), evidence.bindingIdentity, "binding")
+    Vector("visualPageSet", "catalog", "binding").foreach { name =>
+      val wrapper = _object(objectvalue(name).getOrElse(_invalid(s"Presentation review $name is missing")), s"Presentation review $name")
+      _known_ordered_keys(wrapper, Vector("path"), s"Presentation review $name")
+      _string(wrapper, "path", s"Presentation review $name")
+    }
     objectvalue("slides").flatMap(_.asArray).getOrElse(_invalid("Presentation review slides must be an array")).toVector.map { value =>
       val slide = _object(value, "Presentation review slide")
-      _exact_ordered_keys(slide, Vector("id", "path", "sha256"), "Presentation review slide")
-      Slide(_string(slide, "id", "Presentation review slide"), _sha256_value(slide, "sha256", "Presentation review slide"))
+      _known_ordered_keys(slide, Vector("id", "path"), "Presentation review slide")
+      Slide(_string(slide, "id", "Presentation review slide"))
     }
   }
 
   private def _storyboard_visual_pages(
     value: Json,
-    current: CozyVideo.StoryboardReviewCurrent,
-    evidence: CozyMediaPresentation.VisualPageEvidence
+    current: CozyVideo.StoryboardReviewCurrent
   ): Vector[VisualPage] = {
     val objectvalue = _object(value, "Storyboard v2 review evidence")
-    _exact_ordered_keys(objectvalue, Vector("schema", "status", "source", "storyboardIdentity", "scenes", "visualInputs", "visualPages", "effectiveRenderers", "identity"), "Storyboard v2 review evidence")
-    if (_string(objectvalue, "schema", "Storyboard v2 review evidence") != _storyboard_evidence_schema || _string(objectvalue, "storyboardIdentity", "Storyboard v2 review evidence") != current.storyboardIdentity || _identity_field(objectvalue, "Storyboard v2 review evidence") != current.evidenceIdentity)
-      _invalid("Storyboard v2 review evidence identity differs from current project")
+    _known_ordered_keys(objectvalue, Vector("schema", "status", "source", "scenes", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review evidence")
+    if (_string(objectvalue, "schema", "Storyboard v2 review evidence") != _storyboard_evidence_schema)
+      _invalid("Cross-media Review requires Storyboard v2 review evidence")
+    val root = current.projectFile.toAbsolutePath.normalize().getParent
+    val source = _material_path(root, _string(objectvalue, "source", "Storyboard v2 review evidence"), "Storyboard source")
     objectvalue("visualPages").flatMap(_.asArray).getOrElse(_invalid("Storyboard v2 visualPages must be an array")).toVector.map { value =>
       val page = _object(value, "Storyboard v2 visual page")
-      _exact_ordered_keys(page, Vector("sceneId", "kind", "source", "catalog", "pageId", "visualPageSetIdentity", "catalogIdentity", "logicalIdentity", "visualPageIdentity", "assets", "bindingIdentity"), "Storyboard v2 visual page")
+      _known_ordered_keys(page, Vector("sceneId", "kind", "source", "catalog", "pageId", "assets"), "Storyboard v2 visual page")
       if (_string(page, "kind", "Storyboard v2 visual page") != "visual-page")
         _invalid("Storyboard v2 Cross-media Review only accepts visual-page screens")
-      _identity_matches(page, "visualPageSetIdentity", evidence.visualPageSetIdentity, "Storyboard VisualPageSet")
-      _identity_matches(page, "catalogIdentity", evidence.catalogIdentity, "Storyboard catalog")
-      _identity_matches(page, "bindingIdentity", evidence.bindingIdentity, "Storyboard binding")
-      val assets = page("assets").flatMap(_.asArray).getOrElse(_invalid("Storyboard v2 visual page assets must be an array")).toVector.map { value =>
-        val asset = _object(value, "Storyboard v2 visual page asset")
-        _exact_ordered_keys(asset, Vector("id", "path", "mediaType", "sha256"), "Storyboard v2 visual page asset")
-        CozyMediaPresentation.VisualPageAssetEvidence(_string(asset, "id", "Storyboard v2 visual page asset"), _sha256_value(asset, "sha256", "Storyboard v2 visual page asset"))
+      val pageset = _material_path(source.getParent, _string(page, "source", "Storyboard v2 visual page"), "Storyboard VisualPageSet source")
+      val catalog = _material_path(source.getParent, _string(page, "catalog", "Storyboard v2 visual page"), "Storyboard VisualPage catalog")
+      val document = CozyVisualPage.load(pageset, catalog).document match {
+        case document: CozyVisualPage.PageSet => document
+        case _ => _invalid("Storyboard VisualPage source must be a PageSet")
       }
+      val selected = document.pages.filter(_.id == _string(page, "pageId", "Storyboard v2 visual page")) match {
+        case Vector(selected) => selected
+        case _ => _invalid("Storyboard VisualPage pageId must resolve exactly once")
+      }
+      page("assets").flatMap(_.asArray).getOrElse(_invalid("Storyboard v2 visual page assets must be an array"))
+      val assets = selected.assets.map(asset => CozyMediaPresentation.VisualPageAssetEvidence(asset.id, _material_path(pageset.getParent, asset.path, "Storyboard VisualPage asset"), asset.mediaType))
       if (assets.map(_.id).distinct.size != assets.size)
         _invalid("Storyboard v2 visual page asset identifiers must be unique")
       VisualPage(
         _string(page, "sceneId", "Storyboard v2 visual page"),
         _string(page, "pageId", "Storyboard v2 visual page"),
-        _sha256_identity(page, "logicalIdentity", "Storyboard v2 visual page"),
-        _sha256_identity(page, "visualPageIdentity", "Storyboard v2 visual page"),
-        assets
+        assets,
+        Set(source, pageset, catalog) ++ assets.map(_.path) ++ selected.sources.map(binding => _material_path(pageset.getParent, binding.path, "Storyboard VisualPage source binding"))
       )
     }
   }
 
-  private def _validate_handoff(value: Json, current: CozyVideo.StoryboardReviewCurrent): Unit = {
+  private def _validate_handoff(value: Json): Unit = {
     val objectvalue = _object(value, "Storyboard v2 review handoff")
-    _exact_ordered_keys(objectvalue, Vector("schema", "status", "evidencePath", "evidenceIdentity", "storyboardIdentity", "visualInputs", "visualPages", "effectiveRenderers", "identity"), "Storyboard v2 review handoff")
-    if (_string(objectvalue, "schema", "Storyboard v2 review handoff") != _storyboard_handoff_schema || _string(objectvalue, "evidenceIdentity", "Storyboard v2 review handoff") != current.evidenceIdentity || _string(objectvalue, "storyboardIdentity", "Storyboard v2 review handoff") != current.storyboardIdentity || _identity_field(objectvalue, "Storyboard v2 review handoff") != current.handoffIdentity)
-      _invalid("Storyboard v2 handoff identity differs from current project")
+    _known_ordered_keys(objectvalue, Vector("schema", "status", "evidencePath", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review handoff")
+    if (_string(objectvalue, "schema", "Storyboard v2 review handoff") != _storyboard_handoff_schema)
+      _invalid("Cross-media Review requires Storyboard v2 review handoff")
   }
 
   private def _visual_page_json(value: VisualPage): Json =
     Json.obj(
       "sceneId" -> Json.fromString(value.sceneid),
       "pageId" -> Json.fromString(value.pageid),
-      "logicalIdentity" -> Json.fromString(value.logicalidentity),
-      "visualPageIdentity" -> Json.fromString(value.visualpageidentity),
-      "assets" -> Json.fromValues(value.assets.map(asset => Json.obj("id" -> Json.fromString(asset.id), "sha256" -> Json.fromString(asset.sha256))))
+      "assets" -> Json.fromValues(value.assets.map(asset => Json.obj("id" -> Json.fromString(asset.id), "mediaType" -> Json.fromString(asset.mediaType))))
     )
 
-  private def _semantic_identity(value: Json, expected: String, label: String): Unit = {
-    val objectvalue = _object(value, s"Presentation review $label")
-    _exact_ordered_keys(objectvalue, Vector("path", "sha256"), s"Presentation review $label")
-    if (_sha256_value(objectvalue, "sha256", s"Presentation review $label") != expected.stripPrefix("sha256:"))
-      _invalid(s"Presentation review $label identity differs from current VisualPage evidence")
+  private def _material_path(root: Path, reference: String, label: String): Path =
+    try CozyVisualPage._safe_direct_file(root, reference, label) catch {
+      case fault: CozyVisualPage.VisualPageFault => _invalid(s"$label is invalid: ${fault.reason}")
+    }
+
+  private def _validate_record(value: Json, current: Json): Unit = {
+    val record = _object(value, "Cross-media Review")
+    _known_ordered_keys(record, Vector("schema", "target", "slides", "visualPages", "verification"), "Cross-media Review")
+    if (_string(record, "schema", "Cross-media Review") != _schema || record("target") != current.hcursor.downField("target").focus)
+      _invalid("Cross-media Review schema or target is invalid")
+    val slides = record("slides").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review slides must be an array")).map { value =>
+      val slide = _object(value, "Cross-media Review slide")
+      _known_ordered_keys(slide, Vector("id"), "Cross-media Review slide")
+      _string(slide, "id", "Cross-media Review slide")
+    }
+    val currentids = current.hcursor.downField("slides").focus.flatMap(_.asArray).get.map(_.hcursor.get[String]("id").toOption.get).toSet
+    if (slides.distinct.size != slides.size || slides.exists(id => !currentids.contains(id)))
+      _invalid("Cross-media Review slide references must be unique and resolve")
+    val scenes = record("visualPages").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review visualPages must be an array")).map { value =>
+      val page = _object(value, "Cross-media Review visual page")
+      _known_ordered_keys(page, Vector("sceneId", "pageId", "assets"), "Cross-media Review visual page")
+      val pageid = _string(page, "pageId", "Cross-media Review visual page")
+      if (!currentids.contains(pageid)) _invalid("Cross-media Review pageId does not resolve")
+      val currentassets = current.hcursor.downField("visualPages").focus.flatMap(_.asArray).get.filter(_.hcursor.get[String]("pageId").toOption.contains(pageid)).flatMap(_.hcursor.downField("assets").focus.flatMap(_.asArray).toVector.flatten).flatMap(_.hcursor.get[String]("id").toOption).toSet
+      val assets = page("assets").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review assets must be an array")).map { value =>
+        val asset = _object(value, "Cross-media Review asset")
+        _known_ordered_keys(asset, Vector("id", "mediaType"), "Cross-media Review asset")
+        _string(asset, "mediaType", "Cross-media Review asset")
+        _string(asset, "id", "Cross-media Review asset")
+      }
+      if (assets.distinct.size != assets.size || assets.exists(id => !currentassets.contains(id))) _invalid("Cross-media Review asset IDs must be unique and resolve")
+      _string(page, "sceneId", "Cross-media Review visual page")
+    }
+    val currentsequences = current.hcursor.downField("visualPages").focus.flatMap(_.asArray).get.map(_.hcursor.get[String]("sceneId").toOption.get).toSet
+    if (scenes.isEmpty || scenes.distinct.size != scenes.size || scenes.exists(id => !currentsequences.contains(id)))
+      _invalid("Cross-media Review scene references must be unique and resolve")
+    val verification = _object(record("verification").getOrElse(_invalid("Cross-media Review verification is missing")), "Cross-media Review verification")
+    _known_ordered_keys(verification, Vector("status", "semanticApproval", "visualApproval", "audiovisualApproval"), "Cross-media Review verification")
+    if (_string(verification, "status", "Cross-media Review verification") != "valid" || Vector("semanticApproval", "visualApproval", "audiovisualApproval").exists(name => _string(verification, name, "Cross-media Review verification") != "not-recorded"))
+      _invalid("Cross-media Review verification values are invalid")
   }
-
-  private def _identity_matches(value: JsonObject, field: String, expected: String, label: String): Unit =
-    if (_sha256_identity(value, field, label) != expected)
-      _invalid(s"$label identity differs from current VisualPage evidence")
-
-  private def _sha256_identity(value: JsonObject, field: String, label: String): String = {
-    val identity = _string(value, field, label)
-    if (!identity.matches("sha256:[0-9a-f]{64}")) _invalid(s"$label.$field must be a SHA-256 identity")
-    identity
-  }
-
-  private def _identity_field(value: JsonObject, label: String): String =
-    _sha256_identity(value, "identity", label)
 
   private def _safe_output(root: Path, raw: String, label: String, createparents: Boolean): Path = {
     if (raw == null || raw.isEmpty || raw != raw.trim || raw.contains('\\') || !raw.endsWith(".json"))
@@ -240,9 +271,6 @@ private[cozy] object CozyMediaCrossReview {
     _assert_no_symlink_components(canonicalroot, path.getParent, label)
     if (createparents) {
       try Files.createDirectories(path.getParent) catch { case NonFatal(error) => _invalid(s"$label parent cannot be created: ${error.getMessage}") }
-      _assert_no_symlink_components(canonicalroot, path.getParent, label)
-      if (Files.exists(path, LinkOption.NOFOLLOW_LINKS))
-        _invalid(s"$label must designate an absent normalized descriptor-relative .json output")
     }
     if (!createparents && (!Files.exists(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)))
       _invalid(s"$label must be an existing direct regular non-symlink file")
@@ -262,21 +290,12 @@ private[cozy] object CozyMediaCrossReview {
     }
   }
 
-  private def _write_atomic(path: Path, value: Json): Unit = {
-    val parent = path.getParent
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid("Cross-media Review output must designate an absent direct regular file")
-    val temporary = Files.createTempFile(parent, ".cozy-cross-review-", ".json")
+  private def _write(path: Path, value: Json): Unit = {
     try {
-      Files.writeString(temporary, value.noSpaces + "\n", StandardCharsets.UTF_8)
-      Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE)
+      Files.writeString(path, value.noSpaces + "\n", StandardCharsets.UTF_8)
     } catch {
       case NonFatal(error) => _invalid(s"Cross-media Review cannot be written: ${error.getMessage}")
-    } finally {
-      Files.deleteIfExists(temporary)
     }
-    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid("Cross-media Review output is not a direct regular file")
   }
 
   private def _read_json(path: Path, label: String): Json = {
@@ -300,14 +319,11 @@ private[cozy] object CozyMediaCrossReview {
     } finally input.close()
   }
 
-  private def _file_identity(path: Path): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-
   private def _relative(root: Path, path: Path): String = root.relativize(path).toString.replace('\\', '/')
   private def _object(value: Json, label: String): JsonObject = value.asObject.getOrElse(_invalid(s"$label must be an object"))
-  private def _exact_ordered_keys(value: JsonObject, expected: Vector[String], label: String): Unit = if (value.keys.toVector != expected) _invalid(s"$label requires exactly ordered fields: ${expected.mkString(", ")}")
+  // Only known semantic names participate; unspecified metadata cannot alter their relative order.
+  private def _known_ordered_keys(value: JsonObject, expected: Vector[String], label: String): Unit = if (value.keys.filter(expected.contains).toVector != expected) _invalid(s"$label requires ordered fields: ${expected.mkString(", ")}")
   private def _string(value: JsonObject, field: String, label: String): String = value(field).flatMap(_.asString).filter(value => value.nonEmpty && value == value.trim).getOrElse(_invalid(s"$label.$field must be a non-empty exact string"))
-  private def _sha256_value(value: JsonObject, field: String, label: String): String = { val hash = _string(value, field, label); if (hash.matches("[0-9a-f]{64}")) hash else _invalid(s"$label.$field must be SHA-256") }
   private def _identity(value: String, label: String): Unit = if (value == null || value.isEmpty || value != value.trim) _invalid(s"$label must be a non-empty exact string")
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 

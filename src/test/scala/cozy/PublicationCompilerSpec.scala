@@ -15,7 +15,8 @@ import play.api.libs.json.Json
  *  version May. 16, 2026
  *  version Jun. 10, 2026
  *  version Jul. 15, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -103,10 +104,33 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     Files.createDirectories(out1.resolve("repository/artifacts"))
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.json"), """{"artifact":{"status":"placeholder"}}""", StandardCharsets.UTF_8)
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.yaml"), "artifact:\n  status: placeholder\n", StandardCharsets.UTF_8)
+    var staged = Vector.empty[play.api.libs.json.JsValue]
+    var stagingpaths = Vector.empty[Path]
+    def _observe_staging_(staging: Path): Unit = {
+      val jsonpath = staging.resolve("metadata/source-manifest/sample-publication.json")
+      val yamlpath = staging.resolve("metadata/source-manifest/sample-publication.yaml")
+      val json = Json.parse(Files.readString(jsonpath, StandardCharsets.UTF_8))
+      val yaml = Json.parse(cozy.config.CozyProjectYamlConfig.load(yamlpath).json.get.noSpaces)
+
+      Then("actual staged JSON and YAML describe identical ordered source paths and sizes without local SHA fields")
+      (yaml \ "files") shouldBe (json \ "files")
+      (yaml \ "project" \ "organization").as[String] shouldBe "org.example"
+      (yaml \ "project" \ "version").as[String] shouldBe "0.1.0"
+      val sourcefiles = (json \ "files").as[Vector[play.api.libs.json.JsObject]]
+      sourcefiles.map(x => (x \ "path").as[String]) shouldBe Vector("build.sbt", "project/build.properties", "src/main/scala/Main.scala")
+      sourcefiles.foreach { file =>
+        file.keys shouldBe Set("path", "size")
+        (file \ "size").as[Long] shouldBe Files.size(project.resolve((file \ "path").as[String]))
+      }
+      (json \ "project" \ "organization").as[String] shouldBe "org.example"
+      (json \ "project" \ "version").as[String] shouldBe "0.1.0"
+      staged = staged :+ json
+      stagingpaths = stagingpaths :+ staging
+    }
 
       When("publish-project compiles the project publication twice")
-    Cozy.main(Array("publish-project", project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
-    Cozy.main(Array("publish-project", project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
+    cozy.publication.CozyPublicationCompiler.publishBeforeRegistry(List(project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"), _observe_staging_)
+    cozy.publication.CozyPublicationCompiler.publishBeforeRegistry(List(project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"), _observe_staging_)
 
     val expected = Vector(
       "metadata/catalog/projects/sample-publication.json",
@@ -149,10 +173,18 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     (projectjson \ "project" \ "sbtVersion").as[String] shouldBe "1.11.7"
 
     val manifestjson = _entry(out1, "metadata/source-manifest/sample-publication.json")
-    val paths = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    paths.contains("build.sbt") shouldBe true
-    paths.contains("project/build.properties") shouldBe true
-    paths.contains("src/main/scala/Main.scala") shouldBe true
+    staged shouldBe Vector(manifestjson, manifestjson)
+    stagingpaths.size shouldBe 2
+    stagingpaths.foreach(path => Files.exists(path) shouldBe false)
+    val files = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]]
+    val paths = files.map(x => (x \ "path").as[String])
+    paths shouldBe Vector("build.sbt", "project/build.properties", "src/main/scala/Main.scala")
+    files.foreach { file =>
+      file.keys shouldBe Set("path", "size")
+      (file \ "size").as[Long] shouldBe Files.size(project.resolve((file \ "path").as[String]))
+    }
+    (manifestjson \ "project" \ "organization").as[String] shouldBe "org.example"
+    (manifestjson \ "project" \ "version").as[String] shouldBe "0.1.0"
     paths.exists(_.startsWith("target/")) shouldBe false
   }
     "publish-project rejects colliding sample slugs" in {
@@ -636,8 +668,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     val snapshot = repository.resolve("maven/org/example/textus-tutorial_3/0.2.0-SNAPSHOT/textus-tutorial_3-0.2.0-SNAPSHOT.jar")
     Files.createDirectories(artifact.getParent)
     Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".sha1"), "abc123  textus-tutorial_3-0.1.0.jar\n", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".md5"), "def456\n", StandardCharsets.UTF_8)
     Files.writeString(sources, "sources-010", StandardCharsets.UTF_8)
     Files.createDirectories(snapshot.getParent)
     Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
@@ -670,9 +700,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     paths.exists(_.contains("0.2.0-SNAPSHOT")) shouldBe true
     val mainjar = files.find(x => (x \ "name").as[String] == "textus-tutorial_3-0.1.0.jar").get
     (mainjar \ "publicPath").as[String] shouldBe "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"
-    (mainjar \ "sha1").as[String] shouldBe "abc123"
-    (mainjar \ "md5").as[String] shouldBe "def456"
-    (mainjar \ "sha256").as[String].nonEmpty shouldBe true
     val releasejson = _entry(out, "metadata/releases/maven-repository.json")
     (releasejson \ "release" \ "latest").as[String] shouldBe "0.1.0"
     val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
@@ -783,7 +810,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     } finally {
       zip.close()
     }
-    val firstsha = _sha256(collectionzippath)
     Given("the generated sample archives before a repeated distribution")
       When("distribute-samples repeats the archive operation")
     Cozy.main(Array(
@@ -793,8 +819,9 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
       "--name", "textus-tutorial",
       "--version", "0.1.0"
     ))
-      Then("the repeated distribution preserves the archive bytes")
-    _sha256(collectionzippath) shouldBe firstsha
+      Then("the sample and collection archives are available after repeated distribution")
+    Files.isRegularFile(zippath) shouldBe true
+    Files.isRegularFile(collectionzippath) shouldBe true
   }
     "distribute-samples dry-run prints planned archives without writing files" in {
       Given("a sample collection fixture for a dry-run distribution")
@@ -887,8 +914,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     val unrelatedzip = warehouse.resolve("download/samples/other-publication/01-hello/9.9.9/01-hello-9.9.9.zip")
     Files.createDirectories(artifact.getParent)
     Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".sha1"), "abc123  textus-tutorial_3-0.1.0.jar\n", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".md5"), "def456\n", StandardCharsets.UTF_8)
     Files.writeString(sources, "sources-010", StandardCharsets.UTF_8)
     Files.createDirectories(snapshot.getParent)
     Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
@@ -1124,17 +1149,4 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-  private def _sha256(path: Path): String = {
-    val md = java.security.MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      Iterator.continually(in.read(buffer)).takeWhile(_ != -1).foreach { n =>
-        md.update(buffer, 0, n)
-      }
-    } finally {
-      in.close()
-    }
-    md.digest().map("%02x".format(_)).mkString
-  }
 }

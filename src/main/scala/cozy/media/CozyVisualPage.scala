@@ -1,13 +1,11 @@
 package cozy.media
 
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
-import scala.collection.mutable
-import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -19,7 +17,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
 
   final case class CatalogReference(id: String, revision: Int)
   final case class SourceBinding(id: String, path: String)
-  final case class Asset(id: String, path: String, mediaType: String, sha256: String)
+  final case class Asset(id: String, path: String, mediaType: String)
   final case class Node(id: String, role: String, label: String, sourceRefs: Vector[String])
   final case class Relation(id: String, relationType: String, from: String, to: String, sourceRefs: Vector[String])
   final case class Logical(pattern: String, nodes: Vector[Node], relations: Vector[Relation])
@@ -73,12 +71,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
   final case class ValidatedDocument(
     document: Document,
     catalog: Catalog,
-    canonicalJson: String,
-    catalogIdentity: String,
-    logicalCatalogIdentity: String,
-    logicalIdentities: Vector[(String, String)],
-    visualPageIdentities: Vector[(String, String)],
-    documentIdentity: String
+    canonicalJson: String
   ) {
     def count: Int = document.pages.size
   }
@@ -95,13 +88,10 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
   private[cozy] final case class VNumber(value: Long) extends Value
   private[cozy] final case class VBoolean(value: Boolean) extends Value
   private[cozy] case object VNull extends Value
-  private final case class YamlLine(indent: Int, value: String, line: Int)
 
   private val _page_schema = "cozy.visual-page.v1"
   private val _set_schema = "cozy.visual-page-set.v1"
   private val _catalog_schema = "cozy.presentation-semantics.catalog.v1"
-  private val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
-  private val _sha256_pattern = "[0-9a-f]{64}".r
   private val _supported_extensions = Set(".json", ".yaml", ".yml", ".md")
   private val _catalog_extensions = Set(".json", ".yaml", ".yml")
   private val _relations = Vector(
@@ -176,7 +166,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
   def parseYaml(text: String): Document = _parse_document(_parse_yaml(text, "$"), "$")
   def parseMarkdown(text: String): Document = {
     val document = _parse_document(_parse_markdown(text, "$"), "$")
-    if (_normalize_newlines(text) != canonicalMarkdown(document))
+    if (_material_markdown(text) != canonicalMarkdown(document))
       _fail("VISUAL_PAGE_MARKDOWN_LOSSY", "$", "restricted Markdown must use the canonical grammar")
     document
   }
@@ -190,7 +180,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       catalog,
       Option(inputpath.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
     )
-    if (_extension(inputpath) == ".md" && _normalize_newlines(inputtext) != canonicalMarkdown(validated.document))
+    if (_extension(inputpath) == ".md" && _material_markdown(inputtext) != canonicalMarkdown(validated.document))
       _fail("VISUAL_PAGE_MARKDOWN_LOSSY", "$", "restricted Markdown must use the canonical grammar")
     validated
   }
@@ -230,15 +220,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
     _validate_catalog(parsedcatalog, "$catalog")
     val normalized = _validate_document(document, parsedcatalog, root)
     val canonical = canonicalJson(normalized)
-    val fullcatalogidentity = catalogIdentity(parsedcatalog)
-    val logicalcatalogidentity = logicalCatalogIdentity(parsedcatalog)
-    val logicalidentities = normalized.pages.map(page => page.id -> logicalIdentity(page, parsedcatalog))
-    val visualidentities = normalized.pages.map(page => page.id -> visualPageIdentity(page, parsedcatalog))
-    val documentidentity = normalized match {
-      case _: Page => visualidentities.head._2
-      case set: PageSet => visualPageSetIdentity(set, parsedcatalog)
-    }
-    ValidatedDocument(normalized, parsedcatalog, canonical, fullcatalogidentity, logicalcatalogidentity, logicalidentities, visualidentities, documentidentity)
+    ValidatedDocument(normalized, parsedcatalog, canonical)
   }
 
   def canonicalJson(document: Document): String = _canonical(_document_value(document))
@@ -287,27 +269,6 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
 
   def canonicalCatalogJson(catalog: Catalog): String = _canonical(_catalog_value(catalog))
 
-  def catalogIdentity(catalog: Catalog): String = _identity(_catalog_value(catalog))
-
-  def logicalCatalogIdentity(catalog: Catalog): String =
-    _identity(VObject(_catalog_value(catalog).asInstanceOf[VObject].fields.take(6)))
-
-  def logicalIdentity(page: Page, catalog: Catalog): String =
-    _identity(VObject(Vector(
-      "id" -> VString(page.id),
-      "knowledge" -> VString(page.knowledge),
-      "language" -> VString(page.language),
-      "logicalCatalogIdentity" -> VString(logicalCatalogIdentity(catalog)),
-      "logical" -> _logical_value(page.logical),
-      "sources" -> VArray(page.sources.map(_source_value))
-    )))
-
-  def visualPageIdentity(page: Page, catalog: Catalog): String =
-    _identity(VObject(Vector("catalogIdentity" -> VString(catalogIdentity(catalog)), "page" -> _page_value(page))))
-
-  def visualPageSetIdentity(set: PageSet, catalog: Catalog): String =
-    _identity(VObject(Vector("catalogIdentity" -> VString(catalogIdentity(catalog)), "set" -> _set_value(set))))
-
   def execute(args: List[String]): String = args match {
     case "validate" :: rest => validate(CommandConfig.create(rest, allowSave = false))
     case "inspect" :: rest => inspect(CommandConfig.create(rest, allowSave = false))
@@ -325,20 +286,16 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       s"schema: ${validated.document.schema}",
       "version: 1",
       s"count: ${validated.count}",
-      s"catalogIdentity: ${validated.catalogIdentity}",
-      s"logicalCatalogIdentity: ${validated.logicalCatalogIdentity}"
+      s"catalogId: ${validated.catalog.id}",
+      s"catalogRevision: ${validated.catalog.revision}"
     )
     val pages = validated.document.pages.flatMap { page =>
       Vector(s"page: ${page.id}", s"  logicalPattern: ${page.logical.pattern}", s"  visualPattern: ${page.visual.pattern}") ++
         page.logical.nodes.map(node => s"  node: ${node.id} role=${node.role} label=${node.label} sources=${node.sourceRefs.mkString(",")}") ++
         page.logical.relations.map(relation => s"  relation: ${relation.id} type=${relation.relationType} from=${relation.from} to=${relation.to} sources=${relation.sourceRefs.mkString(",")}") ++
-        page.visual.parameters.sortBy(_.name).map(parameter => s"  parameter: ${parameter.name}=${_parameter_text(parameter.value)}") ++
-        Vector(
-          s"  logicalIdentity: ${validated.logicalIdentities.toMap.apply(page.id)}",
-          s"  visualPageIdentity: ${validated.visualPageIdentities.toMap.apply(page.id)}"
-        )
+        page.visual.parameters.sortBy(_.name).map(parameter => s"  parameter: ${parameter.name}=${_parameter_text(parameter.value)}")
     }
-    (header ++ pages ++ Vector(s"documentIdentity: ${validated.documentIdentity}")).mkString("\n")
+    (header ++ pages).mkString("\n")
   }
 
   def convert(config: CommandConfig): String = {
@@ -352,7 +309,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       case ".yaml" | ".yml" => canonicalYaml(validated.document)
       case ".md" => canonicalMarkdown(validated.document)
     }
-    _atomic_write(output, text)
+    _write_output(output, text)
     _summary(validated) + s"\nformat: ${extension.drop(1)}"
   }
 
@@ -400,19 +357,22 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
   }
 
   private def _summary(validated: ValidatedDocument): String = {
-    val identities = validated.document.pages.flatMap { page =>
+    val pages = validated.document.pages.flatMap { page =>
       Vector(
-        s"logicalIdentity.${page.id}: ${validated.logicalIdentities.toMap.apply(page.id)}",
-        s"visualPageIdentity.${page.id}: ${validated.visualPageIdentities.toMap.apply(page.id)}"
+        s"page: ${page.id}",
+        s"  knowledge: ${page.knowledge}",
+        s"  language: ${page.language}",
+        s"  logicalPattern: ${page.logical.pattern}",
+        s"  visualPattern: ${page.visual.pattern}"
       )
     }
     (Vector(
       s"schema: ${validated.document.schema}",
       "version: 1",
       s"count: ${validated.count}",
-      s"catalogIdentity: ${validated.catalogIdentity}",
-      s"logicalCatalogIdentity: ${validated.logicalCatalogIdentity}"
-    ) ++ identities ++ Vector(s"documentIdentity: ${validated.documentIdentity}")).mkString("\n")
+      s"catalogId: ${validated.catalog.id}",
+      s"catalogRevision: ${validated.catalog.revision}"
+    ) ++ pages).mkString("\n")
   }
 
   private def _parse_source(path: Path, text: String, source: String): Value = _extension(path) match {
@@ -505,15 +465,11 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
 
   private def _parse_asset(value: Value, path: String): Asset = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "path", "mediaType", "sha256"), path)
-    val sha256 = _string(_field(fields, "sha256", path), s"$path.sha256")
-    if (!_sha256_pattern.pattern.matcher(sha256).matches)
-      _fail("VISUAL_PAGE_ASSET_SHA256", s"$path.sha256", "must be 64 lowercase hexadecimal characters")
+    _unique(fields.map(_._1), path, "field")
     Asset(
       _stable_id(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
       _required_text(_string(_field(fields, "path", path), s"$path.path"), s"$path.path"),
-      _required_text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType"),
-      sha256
+      _required_text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType")
     )
   }
 
@@ -644,12 +600,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
     _unique(page.sources.map(_.id), s"$path.sources", "source id")
     _unique(page.assets.map(_.id), s"$path.assets", "asset id")
     page.sources.foreach(source => _safe_direct_file(root, source.path, s"$path.sources.${source.id}.path"))
-    page.assets.foreach { asset =>
-      val resolved = _safe_direct_file(root, asset.path, s"$path.assets.${asset.id}.path")
-      val digest = _sha256(resolved)
-      if (digest != asset.sha256)
-        _fail("VISUAL_PAGE_ASSET_DIGEST", s"$path.assets.${asset.id}.sha256", s"declared digest does not match direct file bytes")
-    }
+    page.assets.foreach(asset => _safe_direct_file(root, asset.path, s"$path.assets.${asset.id}.path"))
     val sourceids = page.sources.map(_.id).toSet
     val nodes = page.logical.nodes.map(node => node.id -> node).toMap
     page.logical.nodes.foreach { node =>
@@ -774,223 +725,17 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
     Visual(page.visual.pattern, resolved)
   }
 
-  private def _parse_json(text: String, source: String): Value = {
-    val parser = new JsonFactory().createParser(text)
-    try {
-      val token = parser.nextToken()
-      if (token == null) _fail("VISUAL_PAGE_JSON", source, "empty JSON input")
-      val value = _json_value(parser, source)
-      if (parser.nextToken() != null) _fail("VISUAL_PAGE_JSON", source, "trailing JSON tokens are not admitted")
-      value
-    } catch {
-      case fault: VisualPageFault => throw fault
-      case NonFatal(e) => _fail("VISUAL_PAGE_JSON", source, Option(e.getMessage).getOrElse("invalid JSON"))
-    } finally parser.close()
-  }
+  private def _parse_json(text: String, source: String): Value =
+    CozyVisualPageSyntax.parseJson(text, source)
 
-  private def _json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): Value = parser.getCurrentToken match {
-    case JsonToken.START_OBJECT =>
-      var fields = Vector.empty[(String, Value)]
-      var seen = Set.empty[String]
-      while (parser.nextToken() != JsonToken.END_OBJECT) {
-        if (parser.getCurrentToken != JsonToken.FIELD_NAME) _fail("VISUAL_PAGE_JSON", source, "object member name is required")
-        val name = parser.getCurrentName
-        if (seen.contains(name)) _fail("VISUAL_PAGE_DUPLICATE_FIELD", source, s"duplicate JSON field: $name")
-        seen += name
-        if (parser.nextToken() == null) _fail("VISUAL_PAGE_JSON", source, s"missing JSON value for field: $name")
-        fields :+= name -> _json_value(parser, source)
-      }
-      VObject(fields)
-    case JsonToken.START_ARRAY =>
-      var values = Vector.empty[Value]
-      while (parser.nextToken() != JsonToken.END_ARRAY) values :+= _json_value(parser, source)
-      VArray(values)
-    case JsonToken.VALUE_STRING => VString(parser.getText)
-    case JsonToken.VALUE_NUMBER_INT =>
-      try VNumber(parser.getLongValue) catch { case NonFatal(_) => _fail("VISUAL_PAGE_JSON", source, "integer is outside supported range") }
-    case JsonToken.VALUE_TRUE => VBoolean(true)
-    case JsonToken.VALUE_FALSE => VBoolean(false)
-    case JsonToken.VALUE_NULL => VNull
-    case JsonToken.VALUE_NUMBER_FLOAT => _fail("VISUAL_PAGE_JSON", source, "floating-point values are not admitted")
-    case _ => _fail("VISUAL_PAGE_JSON", source, s"unsupported JSON token: ${parser.getCurrentToken}")
-  }
+  private def _parse_yaml(text: String, source: String): Value =
+    CozyVisualPageSyntax.parseYaml(text, source)
 
-  private def _parse_yaml(text: String, source: String): Value = {
-    val lines = _yaml_lines(text, source)
-    if (lines.isEmpty) _fail("VISUAL_PAGE_YAML", source, "empty YAML input")
-    var index = 0
-    def _parse_block_(indent: Int): Value = {
-      if (index >= lines.size || lines(index).indent != indent) _fail("VISUAL_PAGE_YAML", source, s"expected indentation $indent")
-      if (lines(index).value.startsWith("-")) _parse_array_(indent) else _parse_object_(indent)
-    }
-    def _parse_object_(indent: Int): VObject = {
-      var fields = Vector.empty[(String, Value)]
-      var seen = Set.empty[String]
-      while (index < lines.size && lines(index).indent == indent && !lines(index).value.startsWith("-")) {
-        val line = lines(index)
-        val pair = _yaml_pair(line.value, source, line.line)
-        if (seen.contains(pair._1)) _fail("VISUAL_PAGE_DUPLICATE_FIELD", s"$source:${line.line}", s"duplicate YAML field: ${pair._1}")
-        seen += pair._1
-        index += 1
-        val value =
-          if (pair._2.nonEmpty) _yaml_scalar(pair._2, s"$source:${line.line}")
-          else if (index < lines.size && lines(index).indent > indent) {
-            if (lines(index).indent != indent + 2) _fail("VISUAL_PAGE_YAML", s"$source:${lines(index).line}", "nested YAML indentation must advance by two spaces")
-            _parse_block_(indent + 2)
-          } else VNull
-        fields :+= pair._1 -> value
-      }
-      VObject(fields)
-    }
-    def _parse_array_(indent: Int): VArray = {
-      var values = Vector.empty[Value]
-      while (index < lines.size && lines(index).indent == indent && lines(index).value.startsWith("-")) {
-        val line = lines(index)
-        val rest = line.value.drop(1).trim
-        index += 1
-        val value =
-          if (rest.isEmpty) {
-            if (index >= lines.size || lines(index).indent != indent + 2) _fail("VISUAL_PAGE_YAML", s"$source:${line.line}", "array item requires an indented value")
-            _parse_block_(indent + 2)
-          } else if (_has_yaml_pair(rest)) {
-            val pair = _yaml_pair(rest, source, line.line)
-            val first = if (pair._2.nonEmpty) _yaml_scalar(pair._2, s"$source:${line.line}") else VNull
-            val following =
-              if (index < lines.size && lines(index).indent > indent) {
-                if (lines(index).indent != indent + 2) _fail("VISUAL_PAGE_YAML", s"$source:${lines(index).line}", "array object indentation must advance by two spaces")
-                _parse_object_(indent + 2)
-              } else VObject(Vector.empty)
-            if (following.fields.exists(_._1 == pair._1)) _fail("VISUAL_PAGE_DUPLICATE_FIELD", s"$source:${line.line}", s"duplicate YAML field: ${pair._1}")
-            VObject((pair._1 -> first) +: following.fields)
-          } else {
-            if (index < lines.size && lines(index).indent > indent) _fail("VISUAL_PAGE_YAML", s"$source:${line.line}", "scalar array items cannot have nested values")
-            _yaml_scalar(rest, s"$source:${line.line}")
-          }
-        values :+= value
-      }
-      VArray(values)
-    }
-    val value = _parse_block_(lines.head.indent)
-    if (index != lines.size) _fail("VISUAL_PAGE_YAML", s"$source:${lines(index).line}", "unexpected YAML indentation or sequence form")
-    value
-  }
+  private def _material_markdown(text: String): String =
+    CozyVisualPageSyntax.materialMarkdown(text)
 
-  private def _yaml_lines(text: String, source: String): Vector[YamlLine] =
-    _normalize_newlines(text).split("\n", -1).toVector.zipWithIndex.flatMap { case (raw, index) =>
-      val trimmed = raw.trim
-      if (trimmed.isEmpty) None
-      else if (trimmed.startsWith("#")) {
-        val comment = trimmed.drop(1).trim
-        if (_has_yaml_pair(comment))
-          _fail("VISUAL_PAGE_YAML_COMMENT", s"$source:${index + 1}", "comments must not carry semantic YAML mapping fields")
-        None
-      }
-      else {
-        if (raw.contains("\t")) _fail("VISUAL_PAGE_YAML", s"$source:${index + 1}", "tabs are not admitted")
-        if (_has_yaml_anchor_or_alias(trimmed) || trimmed.startsWith("<<:")) _fail("VISUAL_PAGE_YAML_ALIAS", s"$source:${index + 1}", "anchors, aliases, and merge keys are not admitted")
-        val indent = raw.takeWhile(_ == ' ').length
-        if (indent % 2 != 0) _fail("VISUAL_PAGE_YAML", s"$source:${index + 1}", "indentation must use two-space steps")
-        Some(YamlLine(indent, raw.drop(indent), index + 1))
-      }
-    }
-
-  private def _has_yaml_anchor_or_alias(value: String): Boolean = {
-    var index = 0
-    var quoted = false
-    var escaped = false
-    while (index < value.length) {
-      val char = value.charAt(index)
-      if (quoted) {
-        if (escaped) escaped = false
-        else if (char == '\\') escaped = true
-        else if (char == '"') quoted = false
-      } else if (char == '"' && {
-        var prior = index - 1
-        while (prior >= 0 && value.charAt(prior) == ' ') prior -= 1
-        prior < 0 ||
-          value.charAt(prior) == ':' ||
-          (prior == 0 && value.charAt(prior) == '-')
-      }) quoted = true
-      else if (char == '&' || char == '*') return true
-      index += 1
-    }
-    false
-  }
-
-  private def _yaml_pair(value: String, source: String, line: Int): (String, String) = {
-    val index = value.indexOf(':')
-    if (index <= 0) _fail("VISUAL_PAGE_YAML", s"$source:$line", "mapping entry requires key: value")
-    val key = value.take(index).trim
-    if (!_token_pattern.pattern.matcher(key).matches) _fail("VISUAL_PAGE_YAML", s"$source:$line", s"invalid YAML key: $key")
-    key -> value.drop(index + 1).trim
-  }
-
-  private def _has_yaml_pair(value: String): Boolean = {
-    val index = value.indexOf(':')
-    index > 0 && _token_pattern.pattern.matcher(value.take(index).trim).matches
-  }
-
-  private def _yaml_scalar(value: String, source: String): Value = value match {
-    case "true" => VBoolean(true)
-    case "false" => VBoolean(false)
-    case "null" | "~" => VNull
-    case item if item.startsWith("\"") || item.startsWith("[") || item.startsWith("{") => _parse_json(item, source)
-    case item if item.matches("-?[0-9]+") =>
-      try VNumber(item.toLong) catch { case NonFatal(_) => _fail("VISUAL_PAGE_YAML", source, "integer is outside supported range") }
-    case item if item.nonEmpty && !item.contains(":") && !item.contains("#") => VString(item)
-    case _ => _fail("VISUAL_PAGE_YAML", source, "unsupported or lossy YAML scalar")
-  }
-
-  private def _parse_markdown(text: String, source: String): Value = {
-    val lines = _normalize_newlines(text).split("\n", -1).toVector match {
-      case values if values.nonEmpty && values.last.isEmpty => values.dropRight(1)
-      case values => values
-    }
-    if (lines.headOption.contains("# Cozy Visual Page")) _parse_page_markdown(lines, source)
-    else if (lines.headOption.contains("# Cozy Visual Page Set")) _parse_set_markdown(lines, source)
-    else _fail("VISUAL_PAGE_MARKDOWN", source, "restricted Markdown requires a Cozy Visual Page or Cozy Visual Page Set heading")
-  }
-
-  private def _parse_page_markdown(lines: Vector[String], source: String): Value = {
-    val expected = Vector(
-      "# Cozy Visual Page", "schema", "version", "id", "knowledge", "language", "## Catalog", "id", "revision",
-      "## Logical", "pattern", "nodes", "relations", "## Visual", "pattern", "parameters", "## Assets", "assets", "## Sources", "sources"
-    )
-    if (lines.size != expected.size) _fail("VISUAL_PAGE_MARKDOWN", source, "restricted Markdown has an unexpected line count")
-    val values = mutable.Map.empty[String, Vector[Value]].withDefaultValue(Vector.empty)
-    expected.zipWithIndex.foreach { case (expectedline, index) =>
-      val actual = lines(index)
-      if (expectedline.startsWith("#")) {
-        if (actual != expectedline) _fail("VISUAL_PAGE_MARKDOWN", s"$source:${index + 1}", s"expected heading: $expectedline")
-      } else {
-        val prefix = expectedline + ": "
-        if (!actual.startsWith(prefix)) _fail("VISUAL_PAGE_MARKDOWN", s"$source:${index + 1}", s"expected canonical field: $expectedline")
-        values.update(expectedline, values(expectedline) :+ _parse_json(actual.drop(prefix.length), s"$source:${index + 1}"))
-      }
-    }
-    def _value_(name: String, occurrence: Int): Value = values(name)(occurrence)
-    VObject(Vector(
-      "schema" -> _value_("schema", 0), "version" -> _value_("version", 0), "id" -> _value_("id", 0),
-      "knowledge" -> _value_("knowledge", 0), "language" -> _value_("language", 0),
-      "catalog" -> VObject(Vector("id" -> _value_("id", 1), "revision" -> _value_("revision", 0))),
-      "logical" -> VObject(Vector("pattern" -> _value_("pattern", 0), "nodes" -> _value_("nodes", 0), "relations" -> _value_("relations", 0))),
-      "visual" -> VObject(Vector("pattern" -> _value_("pattern", 1), "parameters" -> _value_("parameters", 0))),
-      "assets" -> _value_("assets", 0), "sources" -> _value_("sources", 0)
-    ))
-  }
-
-  private def _parse_set_markdown(lines: Vector[String], source: String): Value = {
-    val expected = Vector("# Cozy Visual Page Set", "schema", "version", "id", "## Pages", "pages")
-    if (lines.size != expected.size) _fail("VISUAL_PAGE_MARKDOWN", source, "restricted Markdown set has an unexpected line count")
-    val values = expected.zipWithIndex.collect {
-      case (name, index) if !name.startsWith("#") =>
-        val prefix = name + ": "
-        if (!lines(index).startsWith(prefix)) _fail("VISUAL_PAGE_MARKDOWN", s"$source:${index + 1}", s"expected canonical field: $name")
-        name -> _parse_json(lines(index).drop(prefix.length), s"$source:${index + 1}")
-    }.toMap
-    if (lines(0) != expected(0) || lines(4) != expected(4)) _fail("VISUAL_PAGE_MARKDOWN", source, "restricted Markdown set headings are out of order")
-    VObject(Vector("schema" -> values("schema"), "version" -> values("version"), "id" -> values("id"), "pages" -> values("pages")))
-  }
+  private def _parse_markdown(text: String, source: String): Value =
+    CozyVisualPageSyntax.parseMarkdown(text, source)
 
   private[cozy] def _fail(code: String, path: String, reason: String): Nothing = throw VisualPageFault(code, path, reason)
 }

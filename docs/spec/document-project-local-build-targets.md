@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This is the normative P600 specification for the implemented Document Project local-build operation. It is linked from the [Document Project Specification](document-project.md). It defines public command admission, target selection, target configuration, inputs, output/result reporting, prerequisite ordering, timestamp reuse, and failure preservation.
+This is the normative P600 specification for the implemented Document Project local-build operation. It is linked from the [Document Project Specification](document-project.md). It defines public command admission, target selection, target configuration, inputs, output/result reporting, prerequisite ordering, timestamp reuse, and ordinary failure reporting.
 
 The public grammar is exactly:
 
@@ -66,7 +66,7 @@ Build versus reuse MUST use ordinary file modification times with this exact pri
 
 Equal input/output timestamps MUST reuse the output. This is ordinary make-style strict `>` comparison and inherits filesystem timestamp resolution, future-time inputs, same-time replacement, and restored historical timestamp limitations. Freshness MUST NOT be described as prose equivalence, latest-Document reflection, human acceptance, or publication approval.
 
-If a target fails to render or install, it MUST report failure without claiming a new result. Its prior successful `index.html` and modification time MUST remain unchanged.
+Rendering MUST complete before output writing. A renderer failure therefore leaves the prior output untouched. The command MUST create missing admitted output directories and directly write rendered UTF-8 HTML to the selected target. An ordinary directory/write failure MUST report failure without claiming a new result; partial output may remain. No staging, atomic install, post-create race check, cleanup, rollback, or prior-output preservation on I/O failure is promised. Recovery is regeneration.
 
 ## Preserved contracts and exclusions
 

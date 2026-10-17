@@ -2,7 +2,6 @@ package cozy.modeler
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import org.smartdox.{Body, Dl, Document, Dox, Fragment, Section => DoxSection}
@@ -17,7 +16,8 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -66,9 +66,8 @@ private[cozy] object CmlModelMetadata {
       s"""schema: ${_schema}
          |source:
          |  path: ${_yaml_scalar(source.path)}
-         |  sha256: ${source.sha256}
          |  compiler: ${_yaml_scalar(source.compiler)}
-         |  cozyVersion: ${_yaml_scalar(source.cozyversion)}
+         |  cozyVersion: ${_yaml_scalar(source.cozyVersion)}
          |surface:
          |${surface.toYaml("  ")}
          |modelElements:
@@ -78,16 +77,14 @@ private[cozy] object CmlModelMetadata {
 
   final case class Source(
     path: String,
-    sha256: String,
     compiler: String,
-    cozyversion: String
+    cozyVersion: String
   ) {
     def toJson: JsObject =
       Json.obj(
         "path" -> path,
-        "sha256" -> sha256,
         "compiler" -> compiler,
-        "cozyVersion" -> cozyversion
+        "cozyVersion" -> cozyVersion
       )
   }
 
@@ -451,13 +448,13 @@ private[cozy] object CmlModelMetadata {
     componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY
   ): ModelMetadata = {
     val normalized = source.toAbsolutePath.normalize()
+    _require_readable_source(normalized)
     val model = KaleidoxModel.load(KaleidoxConfig.default, normalized.toFile)
     ModelMetadata(
       Source(
         path = sourcePath,
-        sha256 = sha256(normalized),
         compiler = "cozy-modeler",
-        cozyversion = org.simplemodeling.cozy.BuildInfo.version
+        cozyVersion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = _surface(normalized, glossaryCategory, model),
       modelElements = _with_ast_contracts(_model_elements(normalized, glossaryCategory), model),
@@ -480,12 +477,12 @@ private[cozy] object CmlModelMetadata {
 
   def fromKaleidox(model: KaleidoxModel, source: Path, sourcePath: String, glossaryCategory: String): ModelMetadata = {
     val normalized = source.toAbsolutePath.normalize()
+    _require_readable_source(normalized)
     ModelMetadata(
       Source(
         path = sourcePath,
-        sha256 = sha256(normalized),
         compiler = "cozy-modeler",
-        cozyversion = org.simplemodeling.cozy.BuildInfo.version
+        cozyVersion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = Surface(None),
       modelElements = _with_ast_contracts(_model_elements(model, glossaryCategory), model)
@@ -512,21 +509,13 @@ private[cozy] object CmlModelMetadata {
     _write(yaml, metadata.toYamlString)
   }
 
-  def sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
+  private def _require_readable_source(path: Path): Unit = {
+    if (!Files.isRegularFile(path) || !Files.isReadable(path))
+      RAISE.invalidArgumentFault(
+        s"CML_MODEL_SOURCE_UNREADABLE: ${path}; provide a readable regular CML source file."
+      )
     val in = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => "%02x".format(b & 0xff)).mkString
+    in.close()
   }
 
   private case class Section(kind: String, name: String, lines: Vector[String])

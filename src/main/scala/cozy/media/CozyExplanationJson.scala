@@ -4,8 +4,7 @@ import CozyExplanation._
 
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths}
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 
@@ -14,7 +13,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[media] object CozyExplanationJson {
@@ -81,13 +81,6 @@ private[media] object CozyExplanationJson {
     }
     "\"" + escaped + "\""
   }
-
-  private[media] def _identity(value: JsonValue): String = "sha256:" + _sha256_bytes(_canonical(value).getBytes(StandardCharsets.UTF_8))
-
-  private[media] def _sha256_file(path: Path): String = _sha256_bytes(Files.readAllBytes(path))
-
-  private[media] def _sha256_bytes(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
 
   private[media] def _object(value: JsonValue, path: String): Vector[(String, JsonValue)] = value match {
     case JsonObject(fields) => fields
@@ -157,18 +150,6 @@ private[media] object CozyExplanationJson {
     value
   }
 
-  private[media] def _sha256_text(value: String, path: String): String = {
-    if (value == null || !_sha256_pattern.pattern.matcher(value).matches)
-      _fail("EXPLANATION_SCHEMA_INVALID", path, "must be 64 lowercase hexadecimal SHA-256 characters")
-    value
-  }
-
-  private[media] def _identity_text(value: String, path: String): String = {
-    if (value == null || !_identity_pattern.pattern.matcher(value).matches)
-      _fail("EXPLANATION_SCHEMA_INVALID", path, "must be sha256:<64-lowercase-hex>")
-    value
-  }
-
   private[media] def _references(value: JsonValue, path: String): Vector[String] = {
     val references = _array(value, path).zipWithIndex.map { case (item, index) => _token(_string(item, s"$path[$index]"), s"$path[$index]") }
     _unique(references, path, "reference")
@@ -196,25 +177,18 @@ private[media] object CozyExplanationJson {
     case NonFatal(e) => _fail("EXPLANATION_SCHEMA_INVALID", label, Option(e.getMessage).getOrElse("cannot read UTF-8 file"))
   }
 
-  private[media] def _atomic_write(path: Path, text: String): Unit = {
+  private[media] def _write_output(path: Path, text: String): Unit = {
     val output = try path.toAbsolutePath.normalize() catch { case NonFatal(_) => _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output path is invalid") }
     val parent = Option(output.getParent).getOrElse(_fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output parent is required"))
     if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(parent))
       _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(output))
       _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "output must not be a symbolic link")
-    val temporary = Files.createTempFile(parent, ".cozy-explanation-", ".tmp")
     try {
-      Files.write(temporary, text.getBytes(StandardCharsets.UTF_8))
-      try Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException => _fail("EXPLANATION_COMMAND_INVALID", "$command.save", "filesystem does not support same-directory atomic output replacement")
-      }
+      Files.writeString(output, text, StandardCharsets.UTF_8)
     } catch {
       case fault: ExplanationFault => throw fault
-      case NonFatal(e) => _fail("EXPLANATION_COMMAND_INVALID", "$command.save", Option(e.getMessage).getOrElse("cannot write output"))
-    } finally {
-      try Files.deleteIfExists(temporary) catch { case NonFatal(_) => () }
+      case NonFatal(error) => _fail("EXPLANATION_COMMAND_INVALID", "$command.save", Option(error.getMessage).getOrElse("cannot write output"))
     }
   }
 

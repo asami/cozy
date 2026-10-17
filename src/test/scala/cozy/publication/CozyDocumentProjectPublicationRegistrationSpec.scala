@@ -13,11 +13,12 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct. 1, 2026
- * @version Oct. 1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
-  "Cozy Document Project publication registration snapshot" should {
+  import CozyDocumentProjectPublicationRegistrationSpec._
+  "Cozy Document Project publication registration planning" should {
     "retain the original paired descriptor, profile, context, candidates, and all fixture bytes" in {
       _with_fixture("paired") { fixture =>
         Given("a genuine portable export and original media with a configured SmartDox profile and paired site context")
@@ -26,7 +27,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
         val mediaplan = _media_plan(binding)
         val before = _tree_bytes(fixture.root)
 
-        When("the registration snapshot is planned")
+        When("the registration inputs is planned")
         val plan = CozyDocumentProjectPublicationTarget.planRegistration(config)
 
         Then("all original producer authorities and portable evidence are retained without writes")
@@ -34,7 +35,6 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
         plan.siteBinding shouldBe binding
         plan.siteBinding.config shouldBe config.media
         plan.siteBinding.descriptorEvidence.path shouldBe fixture.descriptor
-        plan.siteBinding.descriptorBytes shouldBe Files.readAllBytes(fixture.descriptor).toVector
         plan.siteBinding.context shouldBe mediaplan.context
         plan.siteBinding.context.project.map(_.root.path) shouldBe Some(fixture.media)
         plan.siteBinding.context.project.map(_.marker.path) shouldBe Some(fixture.media.resolve("conf/cozy/config.yaml"))
@@ -62,7 +62,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
         val binding = CozyArticleMediaSiteBinding.plan(config.media)
         val before = _tree_bytes(fixture.root)
 
-        When("the registration snapshot is planned with that original descriptor")
+        When("the registration inputs is planned with that original descriptor")
         val plan = CozyDocumentProjectPublicationTarget.planRegistration(config)
 
         Then("the configured SmartDox authority and descriptor location remain exactly producer-resolved")
@@ -86,7 +86,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
         val binding = CozyArticleMediaSiteBinding.plan(config.media)
         val before = _tree_bytes(fixture.root)
 
-        When("the registration snapshot is planned without site options")
+        When("the registration inputs is planned without site options")
         val plan = CozyDocumentProjectPublicationTarget.planRegistration(config)
 
         Then("the original binding supplies the selected profile while site context remains absent")
@@ -108,7 +108,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
         val binding = CozyArticleMediaSiteBinding.plan(config.media)
         val before = _tree_bytes(fixture.root)
 
-        When("the selected registration snapshot is planned")
+        When("the selected registration inputs is planned")
         val plan = CozyDocumentProjectPublicationTarget.planRegistration(config)
 
         Then("only the producer-selected original candidate is retained")
@@ -209,11 +209,11 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
       }
     }
 
-    "re-admit portable evidence and reject an export damaged after earlier admission" in {
+    "reject a missing required HTML file during ordinary registration planning" in {
       _with_fixture("damaged") { fixture =>
-        Given("a genuine previously admitted export whose Article review was subsequently damaged")
+        Given("a genuine previously admitted export whose required Article review file is absent")
         val earlier = CozyDocumentProjectPublicationTarget.admit(fixture.bundle)
-        _write(earlier.articleReview, "damaged output\n")
+        Files.delete(earlier.articleReview)
         val config = _registration(fixture, paired = true)
         val before = _tree_bytes(fixture.root)
 
@@ -222,7 +222,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
           CozyDocumentProjectPublicationTarget.planRegistration(config)
         }
 
-        Then("fresh portable verification rejects the damaged bundle without relying on the earlier snapshot")
+        Then("required-file admission rejects the incomplete bundle without writes")
         failure.getMessage should include("DP-OP-001")
         _tree_bytes(fixture.root) shouldBe before
       }
@@ -246,7 +246,6 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
     }
   }
 
-  private final case class Fixture(root: Path, bundle: Path, media: Path, descriptor: Path, site: Path)
 
   private def _registration(fixture: Fixture, paired: Boolean = false): CozyDocumentProjectPublicationTarget.RegistrationConfig =
     CozyDocumentProjectPublicationTarget.RegistrationConfig(
@@ -265,7 +264,7 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
       profile = Some(binding.publicationProfile),
       siteRoot = binding.config.siteRoot,
       siteConfig = binding.config.siteConfig
-    ), binding.descriptorBytes)
+    ))
 
   private def _with_fixture(name: String, overlay: Boolean = false)(body: Fixture => Unit): Unit = {
     val work = Files.createDirectories(Paths.get("target/document-project-publication-registration-spec/work").toAbsolutePath.normalize())
@@ -363,4 +362,8 @@ final class CozyDocumentProjectPublicationRegistrationSpec extends AnyWordSpec w
     }
     finally stream.close()
   }
+}
+
+object CozyDocumentProjectPublicationRegistrationSpec {
+  private[publication] final case class Fixture(root: Path, bundle: Path, media: Path, descriptor: Path, site: Path)
 }

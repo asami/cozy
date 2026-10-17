@@ -274,12 +274,12 @@ exact-language match and a present output. Output resolution uses the existing
 Cozy media output contract; it MUST NOT invent a `production.json` artifact
 path. The resolved output is a normalized direct regular, non-symlink MP4.
 Its production JSON remains the identity, language, render, and QA authority:
-`render.status` is `completed`, `render.qa.status` is
-`technical-and-visual-qa-passed`, and its `render.sha256` equals the source
-MP4 SHA-256. `render.sha256` is required to be a JSON string matching exactly
-`[0-9a-f]{64}`: no null, whitespace, prefix, uppercase character, alternate
-length, or other interpretation is accepted. WIP does not require or serialize YouTube; listening review is
-evidence-only and non-gating.
+`render.status` is `completed` and `render.qa.status` is
+`technical-and-visual-qa-passed`. WIP explicitly adopts the selected supplied
+MP4; production JSON has no local render-digest admission gate. Ordinary JSON
+loading ignores extra properties without dedicated legacy hash processing.
+WIP does not require or serialize YouTube; listening review is evidence-only
+and non-gating.
 
 ### Phase 40 PDF WIP registration
 
@@ -292,7 +292,19 @@ source only for a `prebuilt` resource. That direct regular non-symlink output
 must have current `cozy.media.receipt.v2` and
 `cozy.media.pdf-review-state.v1` evidence from the Phase 40 acceptance
 boundary. The WIP binding revalidates those exact conditions under the existing
-two-root and registry locks before replacement.
+two-root and registry locks before replacement. The WIP path uses ordinary
+receipt and selected-PDF review-state currentness without a site-only fallback.
+Copy consumes its direct source; prebuilt consumes its direct source and any
+explicitly named site-video production file. Package knowledge and unrelated
+inputs remain current-command validation/race inputs, not copy/prebuilt
+conversion inputs. Known state/receipt fields load directly and arbitrary stored
+extras are ignored. Only selected PDF metadata is compared with its resolved
+resource and accepted entry; stale unselected PDFs cannot veto unchanged English
+selection. Failures name the stage, resource, actual source/output/state or
+manifest path, producer and next target build. No accepted-output/state digest
+is used, and valid timestamp-preserved rewrites have no digest-detection promise.
+Presentation artifacts and renderer hashes remain unfinished S03 work. Real
+distribution byte integrity, locking and rollback remain unchanged.
 
 The resulting strict variant maps `article_pdf` only to `articlePdf` and
 `summary_slides_pdf` only to `summarySlidesPdf`, retaining exactly the public
@@ -371,7 +383,18 @@ Preflight MUST capture coherent evidence for descriptor and project
 configuration/profile, resource mapping, infographic destination, PDF output
 and current Phase 40 receipt/review-state evidence, production JSON, source
 MP4, publication-registry snapshot/root, website root, and every video
-destination. Under both root locks and the registry lock, it revalidates all
+destination. Ordinary local file observations are normalized lexical and real
+paths, size, actual `FileTime` modification time, and stable fileKey, with
+direct regular non-symlink checks and coherent two-read bytes/attributes.
+The plan also retains the exact transient descriptor bytes and selected
+production JSON bytes for same-operation revalidation. Even an equivalent
+production JSON rewrite with unchanged size, modification time, and fileKey
+invalidates that operation's byte observation. No generic file snapshot hash,
+PDF hash, persisted observation identity, or command-wide MP4 byte retention
+is introduced. Explicit `sourceArtifactSha256` and optional
+`installedArtifactSha256` protect only the actual selected MP4 publication
+record and its named copy, backup, installation, and restoration operations.
+Under both root locks and the registry lock, it revalidates all
 evidence, builds the canonical correlated strict-plus-integrity plan, creates
 same-filesystem sibling temps only for video candidates, copies, fsyncs, and
 verifies their digests, then creates verified sibling backups only for
@@ -386,8 +409,15 @@ On failure after any mutation, if registry replacement occurred, rollback first
 atomically restores its exact original owner-bundle bytes (or removes a newly
 created canonical bundle), then restores pre-existing destinations and removes
 new destinations in reverse install order, then removes temps and backups. It
-revalidates original registry, root, destination bytes, and identities before
-reporting failure. A rollback failure is distinct and never reported as
+revalidates the complete original registry (including its actual bundle bytes),
+unchanged root/source/production/context and candidate evidence, and each
+original/restored optional destination artifact digest before reporting failure.
+The restoration-only predicate recomputes ordinary planning and admits the
+actual direct destination identity and modification time after an atomic
+backup move; it does not require that backup inode to equal the former
+destination fileKey. Strict pre-mutation revalidation still requires the
+original full plan, and installed-byte validation remains strict. Successful
+rollback reports the original application failure. A rollback failure is distinct and never reported as
 success; no application exception may return success with partial state.
 
 ### Root and path safety
@@ -400,7 +430,7 @@ root being an ancestor or descendant of the other. A website root may be a
 descendant of the project root, while an external direct publication root may
 be admitted only when all direct-entry, canonical, non-symlink, and containment
 checks pass. Also reject symlink ancestors or destinations, path escape,
-non-regular inputs, stale SHA, identity drift, and cross-filesystem non-atomic
+non-regular inputs, selected MP4 artifact-integrity mismatch, identity drift, and cross-filesystem non-atomic
 staging. The command performs no network/upload/publish/deploy/site-build
 operation.
 
@@ -479,3 +509,398 @@ rollback/drift, dry-run parity/repeatability, and production/standard-BoK
 exclusions. Those acceptance cases are documentation of externally testable
 behavior; this Slice does not add Scala tests or claim that any implementation
 or validation has completed.
+
+## 2026-10-09 Phase 71.5 shared-context input amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S13-CONTEXT-DESCRIPTOR-READ`. Shared configuration resolution uses one
+actual read of each selected configuration after initial direct-file and
+lexical/real-path admission, reusing the initial project-marker input in its
+layer. Repeated byte/attribute comparisons, the between-read mutation hook,
+and the production-unused whole-context revalidation API are removed without
+a replacement proof. Earlier accepted contracts remain dated history; this
+amendment supersedes only their between-read and whole-context revalidation
+promises.
+
+The same nearest lexical project discovery, exact six candidates/order,
+native parsers, profile grammar, layer precedence, source provenance,
+selected-root containment, ordinary I/O/parse failures, and JVM `user.home`
+coordination remain. Existing [CozyProjectContextSpec](../../src/test/scala/cozy/config/CozyProjectContextSpec.scala)
+retains those semantic scenarios.
+
+Original Context directory/file metadata and initial stable-key admission
+remain coupled to WIP consumers. Their removal and WIP/SiteBinding/transaction
+protection remain OPEN finite `R715-12/14` obligations, rather than an accepted
+preservation exception or a completed Context removal. Their existing contract
+is not globally rewritten here. The [S13 journal](../journal/2026/10/2026-10-09-phase-71.5-context-descriptor-read.md)
+preserves its initial implemented-unvalidated progress and pending
+parent-selected focused validation. No Step or Phase acceptance is claimed.
+
+2026-10-09 actual-result continuation: S13 is
+implemented-focused-validated-unreviewed. The selected five existing suites
+completed with zero aborted suites: 104 tests succeeded, with zero failed,
+canceled, ignored or pending tests. SBT reported zero warnings and zero errors;
+SBT and wrapper exits were 0 and the terminal shared serial lock was released.
+No hostile-XML diagnostic lines occurred in this selected command. This result
+does not supply native, Step or Phase acceptance; all recorded open obligations
+remain OPEN.
+
+## 2026-10-09 Phase 71.5 Context/Site/WIP direct-input and copy amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S15-CONTEXT-SITE-WIP-DIRECT`, under
+[artifact protection removal](../design/artifact-protection-removal.md).
+This amendment supersedes the earlier promises for Context directory/file
+size, modification-time and stable-file-key admission; WIP/Site file metadata,
+repeated byte/attribute observations and whole-plan revalidation; SiteCommand's
+final selected-evidence check; and WIP physical-copy locks, staging, fsync,
+backup, atomic destination replacement, digest verification and restoration.
+Earlier accepted text and S13 records remain dated history; S13's single
+configuration read and project-marker reuse continue.
+
+Context directory and file evidence now carries normalized lexical and real
+paths only. WIP uses the existing Context project-root value directly.
+Selected descriptor and production inputs are read once for ordinary parsing;
+infographic and PDF path admission does not read content merely to retain
+identity evidence. Initial direct-file/directory checks, lexical/real
+containment, nearest project discovery, the six native configuration formats,
+layer precedence, profiles and provenance, selected resource/role/locale
+semantics, production QA and accepted YouTube URL grammar remain. Ordinary PDF
+receipt and selected review-state `requireCurrent` behavior remains. JVM
+`user.home` coordination concerns the shared property and fixtures, and remains.
+SiteCommand consumes its initial binding plan through the existing Registry
+APIs; their required removed-binding callback is the literal `() => ()`.
+
+WIP dry-run returns the initially admitted plan without replanning or copy I/O.
+Non-dry WIP copies only selected videos directly from their admitted source
+paths, sorted by destination path, before the existing Registry replacement.
+The current initial Fresh policy copies without replacement; ExactRepeat uses
+`REPLACE_EXISTING`. Infographic and PDF candidates are reuse-only. Initial
+root breadth, overlap, external-publication and selected-path predicates
+remain. The existing `afterinstall` callback runs after each direct copy;
+Registry-result completeness remains an ordinary semantic requirement.
+An I/O or callback failure propagates and cannot return success. Copied files
+may remain after failure; WIP provides no destination rollback or preservation
+guarantee, and regeneration is the recovery operation.
+
+Shared Registry/Compiler root metadata, stable keys, locks, snapshot checks,
+atomic metadata replacement and Registry bundle restoration are still actual
+unfinished Phase 71.5 `R715-12/14` obligations. WIP `DirectoryEvidence` still
+captures real stable keys for those consumers. Initial source/installed MP4
+digests, canonical integrity records and the initial Fresh/ExactRepeat policy
+also remain unfinished connected work. They are not a waiver, compatibility
+adapter or fake key/hash. Removing WIP copy protection does not remove or
+promise anything about the shared Registry's own restoration behavior.
+All-removal, Step and Phase closure are not claimed.
+
+The affected existing Executable Specifications are amended in place for
+ordinary behavior; protection-only scenarios are removed. S15 is
+implemented-unvalidated-unreviewed. The parent-selected eight-suite command,
+actual native-result relevance assessment and independent acceptance remain
+pending. Current human hearing stays OPEN; earlier native decode, end-card and
+player-EOF observations do not establish hearing. Repository-full SBT and
+broader integration remain deferred-not-run to Phase 71.7.
+
+## S15 actual-result continuation — 2026-10-09
+
+Current status: `P715-02-S15-CONTEXT-SITE-WIP-DIRECT` is
+implemented-focused-validated-unreviewed. This continuation preserves the
+initial implemented-unvalidated record as dated history. The parent-admitted
+selected focused command completed all eight existing suites with zero aborted
+suites: 124 tests succeeded, with zero failed, canceled, ignored or pending
+tests. SBT reported zero warnings and zero errors; the hostile-XML diagnostic
+count was zero. SBT and wrapper exits were 0, and the shared serial lock was
+released. These are actual selected behavior results, recorded in the
+[focused-validation result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s15-focused-validation-result.json)
+and [factual projection](../../.codex-workflow/phases/PHASE-71.5/p715-02-s15-factual-projection.json).
+
+The parent admitted the actual S15 diff and native relevance: the Context
+metadata and WIP/Site input/copy changes preserve normal video rendering and
+assembly, and the selected Context/Media/Credits behavior passed. Relevant S14
+JA34 render/build, decode, visible unmuted playback, opaque end card, player EOF
+and cleanup remain dated evidence. No post-S15 native execution or actual
+human hearing is claimed. Current hearing and final whole-Phase native
+relevance assessment remain OPEN.
+
+Shared Registry/Compiler/root-key protection and initial WIP canonical
+integrity/Fresh/ExactRepeat admission remain unfinished `R715-12/14` work.
+All remaining finite removal items, `E715-01..04`, and Step/Phase independent
+reviews, acceptance, commits and release obligations remain OPEN. The focused
+result closes none of those obligations and supplies no preservation waiver.
+Repository-full SBT and broader integration remain deferred-not-run to Phase
+71.7. No closure checkbox is changed.
+
+## 2026-10-09 Phase 71.5 Registry/Compiler direct I/O amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S16-REGISTRY-COMPILER-DIRECT`, under
+[artifact protection removal](../design/artifact-protection-removal.md).
+This amendment supersedes the shared Registry/Compiler promises for root
+file-key seals, monitor/file-lock exclusion, complete raw-byte snapshots,
+revalidation/CAS, fsync/atomic metadata replacement and exact WIP owner-bundle
+restoration. It also supersedes legacy BuildContext source revalidation,
+immutable-context proofs and staging-to-target atomic installation. Earlier
+accepted text, S13/S14 evidence and the S15 implementation and actual-result
+continuations remain dated history. S15's literal site callback and remaining
+WIP directory-key description are superseded here.
+
+Registry `Snapshot(entries,bundleNames)` now carries ordinary semantic entries
+and sorted configured names, including configured empty bundles. Entries-only
+fixtures default to no configured names; metadata projection retains the
+original configured names. Each Registry input is parsed normally without
+retaining its bytes. JSON/schema/key/path/duplicate checks, strict role/locale
+and PDF semantics, configured owner selection and selected bundle existence
+remain initial admission requirements. General publication retains root
+creation and supported alias canonicalization; existing Site/WIP transactions
+retain their initial existing direct canonical-root admission. WIP directory
+evidence carries only path and identity, with no file-key prerequisite.
+
+Registry transactions retain active callback lifetime and one-merge state.
+There is no thread-confinement, filesystem exclusion or pre/post root/byte
+proof. Read-only planning uses its initial semantic snapshot and creates
+nothing. `mergeSite` takes only its role updates. WIP's actual `beforeReplace`
+copy and `afterReplace` result callbacks, and publication's actual artifact
+admission callback, retain their operation ordering. Initial owner/role
+conflicts fail before artifact admission. Metadata updates follow current
+semantic read/transform/direct-write behavior in deterministic selected order;
+normal ownership/unknown-field parsing is independent of byte immutability.
+Compiler writes canonical bundle JSON directly to the selected target, or
+performs its selected delete. Current-site wrappers and generic entry fields,
+publication/project/sample/source metadata, attribution/sourceCommit and
+descriptive SourceFile size remain ordinary product data. Compiler staging
+that assembles metadata remains ordinary assembly.
+
+Legacy BuildContext creates a fresh
+`target/cozy-bok/article-media/<strategy>/snapshots/snapshot-<unique>/publication`
+directory directly and copies the configured selected bundles by name, applying
+the existing policy omissions. Actual copies preserve raw wrapper and generic
+fields. The four strategies and aliases, required repository selection,
+output layout and consumer invocation remain. The canonical warehouse branch
+is unchanged. `activeLeaseCount` measures actual consumer lifetime; its
+synchronized bookkeeping and global JVM `user.home` fixture coordination do
+not provide artifact exclusion or immutability.
+
+Ordinary parsing, materialization, copy, callback and I/O failures propagate and
+cannot return success. A failure can leave partial selected metadata or the
+new invocation's generated context; no atomic replacement, cleanup or
+restoration guarantee applies. Recovery is regeneration. Configured source
+files, prior/unselected contexts and unrelated outputs are outside these
+writes. S15's sorted direct selected video copies and registry-last result
+ordering remain.
+
+The article-media integrity schema/codecs/digest admission and concrete
+Association/Policy/VideoEvidence/VideoRegistration/InfographicEvidence readers
+remain actual unfinished `R715-12` work. WIP source/installed SHA,
+content-addressed versions and initial Fresh/ExactRepeat integrity admission,
+Video/Media artifact destination SHA/force/locks/staging/rollback and infographic
+evidence revalidation remain connected removal requirements. Other finite
+`R715-*` rows and `E715-01..04` remain OPEN; these are not retained exceptions,
+waivers or compatibility scaffolds. This shared-boundary removal closes none
+of them wholesale.
+
+S16 status is **implemented-unvalidated-unreviewed**. The existing scenarios
+are amended in place; protection-only cases are removed. The parent-selected
+17-suite serialized validation, actual post-S16 native relevance assessment
+and independent Step/Phase acceptance remain pending. S15's actual 124-test
+result and S14's actual JA34 render/build/decode, visible unmuted playback,
+opaque end card, player EOF and cleanup remain dated evidence. Current human
+hearing and final Phase relevance remain OPEN. Reviews, acceptance, commits
+and release are OPEN. Repository-full SBT and broader integration remain
+deferred-not-run to Phase 71.7. No validation, hearing or closure result is
+invented by this amendment.
+
+## S16 actual-result continuation — 2026-10-09
+
+Current status: `P715-02-S16-REGISTRY-COMPILER-DIRECT` is
+**implemented-focused-validated-unreviewed**. The initial implementation and
+pending-validation records above remain dated history. The parent-admitted
+final focused run completed all 17 existing suites: 278 tests succeeded
+(207 + 71 across the two selected task groups), with zero failed, aborted,
+canceled, ignored or pending cases. Warnings, errors and fixture diagnostics
+were zero. SBT and wrapper exits were 0, and the shared serial lock was released.
+Actual evidence: [final focused-validation result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s16-repair01-focused-validation-result.json) and [parent factual projection](../../.codex-workflow/phases/PHASE-71.5/p715-02-s16-factual-projection.json).
+
+The [initial focused-validation failure](../../.codex-workflow/phases/PHASE-71.5/p715-02-s16-focused-validation-failure01.json) remains history: 278 successes and one failure across 17 suites,
+plus the Warehouse Fixture outer-reference warning. The separately executed
+[frozen repair manifest](../../.codex-workflow/phases/PHASE-71.5/p715-02-s16-fix-manifest01.json) and [parent fix admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s16-parent-fix-admission01.json) retired only the obsolete Registry-lock-dependent
+VideoCommand concurrent-force scenario, its dedicated `BlockingPublishingRunner`
+and dead imports. Warehouse Fixture moved to its owning object with unchanged
+four Path fields and remaining behavior bodies. There was no production
+change, warning suppression, replacement lock or weakening of ordinary
+acceptance. The actual changed inventory is now 25 paths within 29 admitted
+paths: the original 28 plus the causally necessary existing VideoCommandSpec
+repair path. Earlier 24-of-28 editing records remain initial history.
+
+Five completed repair histories are retained. Cycle 6 was consumed by this
+actual repair and focused validation; its mandatory independent M2 review
+remains **OPEN**. It is not accepted, and no counters are reset. Unfinished
+P715-02 has no Step-review predecessor yet; this continuation invents no
+review, predecessor or acceptance lineage.
+
+The parent's actual eight-production-file diff and connected 17-suite admission
+classify S16 as publication-metadata/legacy-context work preserving S14's JA
+speech, VideoRuntime, credits, rendering and final assembly. S14's actual
+34-scene generation/build/decode, visible unmuted playback, opaque end card,
+player EOF and cleanup remain dated relevant evidence only. No post-S16 native
+execution or current human hearing is claimed. Current hearing and final
+whole-Phase native relevance remain **OPEN**.
+
+Original article-media digest schemas/readers, WIP source/installed SHA,
+content-addressed version and initial Fresh/ExactRepeat integrity policy,
+connected artifact destination protections, other finite `R715-*` work and
+`E715-01..04` external obligations remain **OPEN**. Step/Phase independent
+reviews, acceptance, commits and release remain **OPEN**. Repository-full SBT
+and broader integration remain deferred-not-run to Phase 71.7. No closure
+checkbox is changed. This continuation projects admitted facts only; it runs
+no validation, review or commit and changes no source, test or control record.
+
+## 2026-10-09 S17 article-media association without digests
+
+This is the current contract for `P715-02-S17-ARTICLE-MEDIA-ASSOCIATION-DIGEST-REMOVAL`.
+It supersedes the earlier article-association SHA, source/installed byte equality,
+WIP content-derived version, Fresh/ExactRepeat admission and infographic
+post-install evidence re-preparation requirements. Earlier declarations and
+actual-result records remain dated history. The original Phase 71.5 authority,
+`fc640ec` base and P715-02 accumulator continue unchanged.
+
+`CozyArticleMediaIntegrity.Input` and `Record` describe an ordinary semantic
+association: article identity, exact locale and role, public/repository path,
+media type, actual producer provenance and publication state. Their `artifact`
+is `Option[Artifact]`. `VideoPublication` and `MediaPackage` require
+`Some(Artifact(identity, version))` with genuine declared, normalized name/version
+metadata. `WipSiteVideo` requires `None`; its JSON contains no artifact envelope
+or invented version. Its selected resource ID remains in its existing
+provenance. The existing `cozy.article-media-integrity.v1` schema and
+`metadata/article-media-integrity/...` namespace identify this metadata only.
+They provide no content integrity guarantee. Association SHA fields, acquisition,
+codec requirements and comparisons are removed. Known-field checking and normal
+canonical format/semantic roundtrip remain; no alternate schema, legacy digest
+decoder, adapter or substitute identity is introduced.
+
+Video evidence retains selected manifest/registry schema, declared name/version,
+status, the unique selected MP4 record, provider-neutral URL and ordinary staged
+or installed direct path/containment. Registration relates that evidence to the
+actual selected publication result. Infographic evidence retains the initially
+parsed descriptor, actual build receipt and declared dependencies, selected
+resource/profile/locale, source PNG format, declared output and result/destination
+relation. The command completes that initially prepared evidence against the
+actual CozyMedia result without hashing or post-install re-preparation/equality.
+Before-first-install and after-artifact-before-merge callbacks retain their actual
+operation/failure order; registry merge follows the artifact results.
+
+Policy keeps initial lexical/real containment, direct regular selected artifacts,
+role, locale, canonical metadata and publication state. Published availability
+opens and closes the selected file normally to retain permission and I/O failures,
+without reading a content identity. A missing Published artifact is omitted with
+an unavailable diagnostic in Preview and fails in Production. Permission,
+non-regular and escaping paths remain hard failures. WIP exclusion, Registered
+and Withdrawn policy, optional infographic and URL-less/external forms remain.
+
+WIP planning parses the selected production JSON for article/locale/resource
+facts and keeps descriptor, receipt, declared dependencies and root/path ownership.
+A present destination must be a direct contained regular generated file. An
+initial absent registry video/association pair permits creation. A complete
+existing provider-neutral site-hosted WIP pair permits refresh only for the same
+article/locale/public destination/descriptor/resource/production mapping. Partial,
+non-WIP, external, production-owned, conflicting path/mapping and duplicate
+selections fail normally. This is a Unit ownership check, independent of bytes,
+hashes, versions or full-record equality. Every selected WIP video is copied
+directly with `REPLACE_EXISTING`, followed by its afterinstall callback and the
+registry-last merge/result. Dry-run performs no installation. Missing inputs,
+copy, parse, callback and registry I/O failures propagate and may leave partial
+selected generated outputs; recovery is regeneration.
+
+S17 is **implemented-unvalidated-unreviewed**. Existing executable scenarios are
+amended in place, including ordinary copy-output byte-vector expectations; only
+the frozen digest/content-equality cases or sub-flows are retired. No new suite,
+scenario, harness or removal-proof test is added. The parent-selected 19 existing
+suites and whole-S17 diff/Given/When/Then admission remain pending. The exact
+allocation, union of changed paths and actual clauses are recorded in the
+[S17 journal](../journal/2026/10/2026-10-09-phase-71.5-article-media-association-without-digests.md).
+
+Actual Media `PreparedPublication.sourceSha256`, destination disposition/force,
+reconstruction/staging/fsync/atomic transaction and remaining Media review byte
+checks, plus VideoPublisher metadata SHA and destination force/hash/staging/fsync/
+atomic admission and concrete callers, remain **OPEN** for the next original
+producer/destination unit. They are unfinished removal work, not retained
+exceptions or compatibility promises. Other finite `R715-*`, remaining
+MediaWarehouse/modeler responsibilities and `E715-01..04` remain **OPEN**.
+
+S16's actual 278 successes across 17 suites, zero warnings/errors/diagnostics,
+terminal exits 0 and released shared serial lock remain dated evidence. Five
+completed repair histories are preserved; consumed cycle 6 is validated but its
+mandatory independent M2 assurance is **OPEN**, without a fabricated Step-review
+predecessor, reset or waiver. S14's actual JA34 generation/assembly/decode,
+visible unmuted playback/end card/EOF and cleanup remain dated evidence whose
+post-S17 relevance belongs to the parent. Current human hearing and final
+whole-Phase native relevance remain **OPEN**. Step/Phase independent reviews,
+acceptance, commits and release remain **OPEN**. Repository-full SBT and broader
+integration are deferred-not-run to Phase 71.7. This amendment claims no S17
+validation, review, hearing, native execution or closure result.
+
+
+## S17 actual-result continuation — 2026-10-09
+
+S17 is **implemented-focused-validated-unreviewed**. This continuation records
+later parent evidence under the original S17 implementation authority; the earlier
+unvalidated handoff remains historical. The association contract removes digest
+fields, uses genuine `Some(Artifact)` for non-WIP records and `None` for WIP,
+retains ordinary semantic ownership, and directly refreshes every selected WIP
+output before updating the registry last. Preview/Production retain ordinary
+permission and file IO behavior.
+
+The [actual final focused-validation result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s17-repair02-focused-validation-result.json) records **325 tests
+succeeded across 19 completed suites**, with **0 failures, canceled, ignored,
+pending or aborted**. Its two groups succeeded with 227 and 98 tests respectively.
+Warnings, errors and fixture diagnostics are all zero. SBT and wrapper exits are
+both 0, and the shared serial lock was released. The
+[parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s17-repair02-parent-edit-admission.json) and
+[factual projection record](../../.codex-workflow/phases/PHASE-71.5/p715-02-s17-factual-projection.json) retain the supporting boundary
+and history. These results establish focused validation, with independent review
+and acceptance still pending.
+
+The original terminal scope mismatch and 22 partial edits remain preserved. The
+initial S17 validation failed at two BoK `Option[Artifact]` accessors, with two
+compile errors and zero tests executed. The actual pre-edit header mismatch
+refused the edit without a delta. Corrected header governance then admitted the
+two accessor changes and current header. The deployed minimal shared-skill
+recovery 17 resolved the exact LF-only native-origin pre-render refusal; the
+original refused child remains do-not-resume, and its raw records remain retained.
+The subsequent actual execution completed 19 suites with 324 successes and one
+failure from an obsolete WIP metadata SHA expectation. The admitted second repair
+removed exactly two stale protection expectations from the existing WIP command
+specification and updated its current header, preserving the ordinary copied-byte,
+provenance, path, dry-run and registry checks without replacement proof assertions.
+The final 325/19 result above follows that admitted change. The raw failures,
+both repair manifests and actual reports remain historical evidence.
+
+The five accepted repair histories remain unchanged. Consumed cycles **6, 7 and
+8** are validated and still require mandatory **independent M2 assurance: OPEN**;
+the consumed counter is 8, without reset or waiver. Cycle 6 retains
+`P715-S16-VALIDATION-CONCURRENCY-001` and `P715-S16-OUTER-REFERENCE-001` as
+validated, awaiting independent M2 assurance. The typed ledger contains only the
+P715-01 Step review; P715-02 remains unfinished and has no Step-review predecessor.
+Parent validation or source reports do not fabricate that predecessor or become
+accepted repair history.
+
+The parent's actual relevance assessment records that S17 changes publication
+associations and consumer availability. These 19 suites exercise publication,
+bilingual DoxSite, staging and command callers. This unit changed no speech,
+storyboard, render-template, audio assembly or end-card source. S14's actual JA34
+generation, assembly, decode, visible unmuted playback, end-card, EOF and cleanup
+remain dated evidence. No current post-S17 native execution or hearing is claimed.
+The same representative's current-native relevance, final whole-Phase native
+relevance and current human hearing remain **OPEN**.
+
+Original producer/destination removal remains **OPEN**: VideoPublisher repository
+and video SHA emission, destination force/hash/staging/fsync/atomic admission and
+concrete callers; Media `PreparedPublication.sourceSha256`, destination state,
+disposition, force/hash/reconstruction/staging/fsync/atomic transaction and
+remaining Media review byte checks. Remaining finite `R715-06/08/09/10/11/13/14/15`
+work, including MediaWarehouse/modeler responsibilities, and separately owned
+`E715-01..04` external-reader duties remain **OPEN**. S17 closes neither R715-12
+nor R715-14 wholesale. Independent Step and full-Phase reviews, Step/Phase
+acceptance, commits and release remain **OPEN**. Repository-full SBT and broader
+integration remain **deferred-not-run to Phase 71.7**. No checklist box is closed,
+and no accepted Step, Phase, native or hearing result is inferred by this factual
+continuation.

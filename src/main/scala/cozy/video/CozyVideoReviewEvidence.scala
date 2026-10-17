@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,7 +27,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -43,7 +43,6 @@ private[cozy] trait CozyVideoReviewEvidence {
       RAISE.invalidArgumentFault(s"Final video for review evidence must not be a symbolic link: $finalvideo")
     if (!Files.isRegularFile(finalvideo, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Missing final video for review evidence: $finalvideo")
-    val finalhash = _sha256(finalvideo)
     val savedir = config.saveDir.toAbsolutePath.normalize()
     if (savedir.getParent == null)
       RAISE.invalidArgumentFault("Review evidence --save target must not be the filesystem root.")
@@ -67,10 +66,9 @@ private[cozy] trait CozyVideoReviewEvidence {
     val manifest = savedir.resolve("review-manifest.json")
     if (Files.exists(manifest, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(manifest))
       RAISE.invalidArgumentFault(s"Review evidence manifest target must not be a symbolic link: $manifest")
-    val videomanifest = _review_validated_video_manifest(plan, finalvideo, finalhash)
-    val videomanifesthash = _sha256(videomanifest)
+    val videomanifest = _review_validated_video_manifest(plan, finalvideo)
     val dockermounts =
-      if (plan.execution.toolMode == VideoToolMode.Docker)
+      if (plan.execution.selected("ffmpeg").mode == VideoToolMode.Docker)
         Some(ReviewEvidenceDockerMounts(
           DockerMount(canonicalfinalvideo, "/review-input/final.mp4", readonly = true),
           DockerMount(canonicalsavedir, "/review-output", readonly = false)
@@ -84,7 +82,7 @@ private[cozy] trait CozyVideoReviewEvidence {
     val topframes = Vector.newBuilder[Json]
     val partjson = parts.map { evidence =>
       val timing = _review_required_object(evidence.props, "timing", s"Remotion props for ${evidence.part.id}")
-      val partmanifest = _review_part_manifest_audio_binding(evidence.part, evidence.audiomanifestpath)
+      val partmanifest = _review_part_manifest_file(evidence.part)
       def _timing_int_(name: String): Int = _review_nonnegative_int(timing, name, s"Remotion timing for ${evidence.part.id}")
       val opening = _timing_int_("openingFrames")
       val summary = _timing_int_("summaryFrames")
@@ -127,19 +125,20 @@ private[cozy] trait CozyVideoReviewEvidence {
           savedir.resolve("frames").resolve(_review_scene_frame_name(evidence.part.index, sceneindex, sceneid, "speech"))
         )
         val audio = evidence.audioentries.get(sceneid)
+        val actualduration = audio.map(entry => _review_audio_duration(evidence.part, entry))
         audio.foreach { entry =>
           effectiveprop.foreach { value =>
             if (!_review_same_seconds(value, entry.tailSilence))
               RAISE.invalidArgumentFault(s"Remotion scene $sceneid effectiveTailSilenceSeconds does not match the audio manifest.")
           }
           audiodurationframesprop.foreach { value =>
-            val expected = math.max(1, math.round(entry.audioDuration * evidence.fps).toInt)
+            val expected = _review_audio_frames(actualduration.get, evidence.fps, s"audioDurationFrames for Remotion scene $sceneid")
             if (value != expected)
               RAISE.invalidArgumentFault(s"Remotion scene $sceneid audioDurationFrames does not match the audio manifest.")
           }
         }
         val tail = audio.filter(_.tailSilence > 0).map { entry =>
-          val audiodurationframes = math.max(1, math.round(entry.audioDuration * evidence.fps).toInt)
+          val audiodurationframes = _review_audio_frames(actualduration.get, evidence.fps, s"audioDurationFrames for Remotion scene $sceneid")
           val tailframe = math.min(duration - 1, math.max(0, leadin + audiodurationframes))
           ReviewEvidenceFrame(
             "tail",
@@ -218,15 +217,9 @@ private[cozy] trait CozyVideoReviewEvidence {
         "durationFrames" -> Json.fromInt(evidence.totalframes),
         "durationSeconds" -> Json.fromDoubleOrNull(_round3(evidence.totalframes.toDouble / evidence.fps)),
         "propsPath" -> Json.fromString(evidence.propspath.toString),
-        "propsSha256" -> Json.fromString(_sha256(evidence.propspath)),
         "audioManifestPath" -> evidence.audiomanifestpath.map(x => Json.fromString(x.toString)).getOrElse(Json.Null),
-        "audioManifestSha256" -> evidence.audiomanifestpath.map(x => Json.fromString(_sha256(x))).getOrElse(Json.Null),
-        "partManifest" -> partmanifest.map { case (path, binding) =>
-          Json.obj(
-            "path" -> Json.fromString(path.toString),
-            "sha256" -> Json.fromString(_sha256(path)),
-            "audioManifestSha256" -> binding.map(Json.fromString).getOrElse(Json.Null)
-          )
+        "partManifest" -> partmanifest.map { path =>
+          Json.obj("path" -> Json.fromString(path.toString))
         }.getOrElse(Json.Null),
         "scenes" -> Json.fromValues(scenejson)
       )
@@ -242,26 +235,16 @@ private[cozy] trait CozyVideoReviewEvidence {
       "schema" -> Json.fromString("cozy.video.review-evidence.v1"),
       "status" -> Json.fromString("validated"),
       "projectFile" -> Json.obj(
-        "path" -> Json.fromString(plan.projectFile.toString),
-        "sha256" -> Json.fromString(_sha256(plan.projectFile))
+        "path" -> Json.fromString(plan.projectFile.toString)
       ),
       "finalVideo" -> Json.obj(
-        "path" -> Json.fromString(finalvideo.toString),
-        "sha256" -> Json.fromString(finalhash)
+        "path" -> Json.fromString(finalvideo.toString)
       ),
       "videoManifest" -> Json.obj(
         "path" -> Json.fromString(videomanifest.toString),
-        "sha256" -> Json.fromString(videomanifesthash),
         "status" -> Json.fromString("validated")
       ),
-      "renderer" -> Json.obj(
-        "encodingPolicy" -> Json.fromString(renderer.policy.name),
-        "fps" -> Json.fromInt(renderer.fps),
-        "width" -> Json.fromInt(renderer.width),
-        "height" -> Json.fromInt(renderer.height),
-        "crf" -> Json.fromInt(renderer.crf),
-        "x264Preset" -> renderer.x264Preset.map(Json.fromString).getOrElse(Json.Null)
-      ),
+      "renderer" -> CozyVideoQuality.encodingJson(renderer, "encodingPolicy", "encodingOrigins"),
       "frames" -> Json.fromValues(topframejson),
       "parts" -> Json.fromValues(partjson)
     )
@@ -316,13 +299,13 @@ private[cozy] trait CozyVideoReviewEvidence {
           val leadin = _review_nonnegative_int(scene, "leadInFrames", s"Remotion scene $sceneid")
           val transition = _review_nonnegative_int(scene, "sectionTransitionFrames", s"Remotion scene $sceneid")
           val audio = audioentries(sceneid)
-          val expectedduration = _review_timing_frames(
-            math.max(audio.targetDuration, audio.leadSilence + audio.audioDuration + audio.tailSilence),
-            fps,
-            1L,
-            transition,
-            s"durationFrames for Remotion scene $sceneid"
-          )
+          val actualduration = _review_audio_duration(part, audio)
+          val expectedduration = _review_scene_frames(audio, actualduration, fps, transition, s"durationFrames for Remotion scene $sceneid")
+          _review_optional_nonnegative_int(scene, "audioDurationFrames", s"Remotion scene $sceneid").foreach { value =>
+            val expected = _review_audio_frames(actualduration, fps, s"audioDurationFrames for Remotion scene $sceneid")
+            if (value != expected)
+              RAISE.invalidArgumentFault(s"Remotion scene $sceneid audioDurationFrames does not match the audio manifest.")
+          }
           val expectedleadin = _review_timing_frames(
             audio.leadSilence,
             fps,
@@ -363,35 +346,18 @@ private[cozy] trait CozyVideoReviewEvidence {
         (Some(path), byid)
     }
 
-  private[video] def _review_part_manifest_audio_binding(
-    part: VideoPartPlan,
-    audiomanifestpath: Option[Path]
-  ): Option[(Path, Option[String])] = {
+  private[video] def _review_part_manifest_file(part: VideoPartPlan): Option[Path] = {
     val path = part.manifestPath.toAbsolutePath.normalize()
     if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))
       None
     else {
       if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
         RAISE.invalidArgumentFault(s"Part manifest for review evidence must be a direct regular file: $path")
-      val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
         e => RAISE.invalidArgumentFault(s"Invalid part manifest for review evidence for part ${part.id}: ${e.getMessage}"),
         identity
       )
-      val binding = json.hcursor.downField("audioManifestSha256").focus match {
-        case None => None
-        case Some(value) if value.isNull => None
-        case Some(value) => Some(value.asString.map(_.trim).filter(_.nonEmpty).getOrElse(
-          RAISE.invalidArgumentFault(s"Invalid audioManifestSha256 in part manifest for review evidence for part ${part.id}.")
-        ))
-      }
-      audiomanifestpath.foreach { audiopath =>
-        binding.foreach { value =>
-          val actual = _sha256(audiopath)
-          if (value != actual)
-            RAISE.invalidArgumentFault(s"Part manifest audioManifestSha256 does not match the current audio manifest for part ${part.id}.")
-        }
-      }
-      Some(path -> binding)
+      Some(path)
     }
   }
 
@@ -474,14 +440,50 @@ private[cozy] trait CozyVideoReviewEvidence {
     rounded + transition.toLong
   }
 
-  private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+  private def _review_audio_frames(seconds: Double, fps: Int, label: String): Int = {
+    val scaled = seconds * fps.toDouble
+    if (!java.lang.Double.isFinite(scaled) || scaled < 0 || math.ceil(scaled) > Int.MaxValue.toDouble)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    math.max(1, math.ceil(scaled).toInt)
+  }
+
+  private def _review_audio_duration(part: VideoPartPlan, entry: VideoAudioManifestEntry): Double = {
+    val directory = part.audioDir.getOrElse(
+      RAISE.invalidArgumentFault(s"Missing audio directory for part ${part.id}. Rerender before requesting review evidence.")
+    )
+    val path = directory.resolve(entry.file).normalize()
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"Missing audio file for part ${part.id}, scene ${entry.sceneId}: $path. Rerender before requesting review evidence.")
+    _wav_duration(path)
+  }
+
+  private def _review_scene_frames(audio: VideoAudioManifestEntry, actualduration: Double, fps: Int, transition: Int, label: String): Long = {
+    val seconds = Vector(audio.targetDuration, audio.leadSilence, audio.audioDuration, audio.tailSilence,
+      audio.leadSilence + audio.audioDuration + audio.tailSilence,
+      actualduration, audio.leadSilence + actualduration + audio.tailSilence)
+    if (seconds.exists(value => !java.lang.Double.isFinite(value) || value < 0 ||
+        math.ceil(value * fps.toDouble) >= Long.MaxValue.toDouble))
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    val leadframes = math.max(0L, math.round(audio.leadSilence * fps.toDouble))
+    val audioframes = math.max(1L, math.ceil(actualduration * fps.toDouble).toLong)
+    val tailframes = math.max(0L, math.ceil(audio.tailSilence * fps.toDouble).toLong)
+    if (leadframes > Long.MaxValue - audioframes || leadframes + audioframes > Long.MaxValue - tailframes)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    val frames = VideoTiming.evaluate(audio.targetDuration, audio.leadSilence, actualduration, audio.tailSilence, fps).
+      effectiveFrameCount
+    if (frames > Long.MaxValue - transition.toLong)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    frames + transition.toLong
+  }
+
+  private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path): Path = {
     if (plan.project.parts.exists(_.storyboard.isDefined))
       _review_validated_storyboard_final_manifest(plan, finalvideo)
     else
-      _review_validated_legacy_video_manifest(plan, finalvideo, finalhash)
+      _review_validated_legacy_video_manifest(plan, finalvideo)
   }
 
-  private def _review_validated_legacy_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+  private def _review_validated_legacy_video_manifest(plan: VideoPlan, finalvideo: Path): Path = {
     val manifest = plan.manifestPath.toAbsolutePath.normalize()
     if (Files.isSymbolicLink(manifest) || !Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Missing validated project video manifest for review evidence: $manifest")
@@ -495,8 +497,6 @@ private[cozy] trait CozyVideoReviewEvidence {
     val manifestoutput = (if (output.isAbsolute) output else plan.projectRoot.resolve(output)).toAbsolutePath.normalize()
     if (manifestoutput != finalvideo)
       RAISE.invalidArgumentFault(s"Project video manifest outputPath does not match final video: $manifest")
-    if (_review_required_string(json, "finalVideoSha256", "project video manifest") != finalhash)
-      RAISE.invalidArgumentFault(s"Project video manifest finalVideoSha256 does not match final video: $manifest")
     val encoding = _review_required_object(json, "encoding", "project video manifest")
     _review_require_effective_encoding(encoding, "policy", plan.encoding, "project video manifest encoding")
     manifest
@@ -523,6 +523,19 @@ private[cozy] trait CozyVideoReviewEvidence {
     fields.foreach { case (field, expected) =>
       if (json.hcursor.downField(field).focus != Some(expected))
         RAISE.invalidArgumentFault(s"$field does not match planned effective encoding in $label.")
+    }
+    val originsfield = if (policyfield == "encodingPolicy") "encodingOrigins" else "origins"
+    val jointfields = Vector("qualityProfile", "audioBitrate", originsfield)
+    val supplied = jointfields.exists(field => json.hcursor.downField(field).focus.isDefined)
+    val legacy = encoding.audioBitrate == "320k" && (
+      encoding.origins.get("qualityProfile").contains("legacy-policy") &&
+        encoding.origins.get("audioBitrate").contains("legacy-policy") || encoding.origins.isEmpty)
+    if (supplied || !legacy) {
+      val expected = CozyVideoQuality.encodingJson(encoding, policyfield, originsfield)
+      jointfields.foreach { field =>
+        if (json.hcursor.downField(field).focus != expected.hcursor.downField(field).focus)
+          RAISE.invalidArgumentFault(s"$field does not match planned effective encoding in $label.")
+      }
     }
   }
 
@@ -599,8 +612,7 @@ private[cozy] trait CozyVideoReviewEvidence {
       "sceneId" -> frame.sceneid.map(Json.fromString).getOrElse(Json.Null),
       "absoluteFrame" -> Json.fromInt(frame.absoluteframe),
       "absoluteSeconds" -> Json.fromDoubleOrNull(_round3(frame.absoluteframe.toDouble / frame.fps)),
-      "path" -> Json.fromString(_review_relative_path(savedir, target)),
-      "sha256" -> Json.fromString(_sha256(target))
+      "path" -> Json.fromString(_review_relative_path(savedir, target))
     )
   }
 

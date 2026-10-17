@@ -1,10 +1,9 @@
 package cozy.document
 
-import cozy.document.CozyDocumentProjectEvidence.{Attempt, AttemptOutput, FileIdentity, NativeAcceptedClosure, NativeClosure, NativeFailedClosure}
+import cozy.document.CozyDocumentProjectEvidence.{Attempt, AttemptOutput, FileReference, NativeAcceptedClosure, NativeClosure, NativeFailedClosure}
 import io.circe.Json
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -13,21 +12,20 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 10, 2026
- * @version Sep. 10, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectNativeEvidence {
   private val _attempt_v2_schema = "cozy.document-operation-attempt.v2"
-  private val _hash_pattern = "[0-9a-f]{64}".r
 
   def captureNativeInputs(
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation
-  ): Vector[FileIdentity] =
+  ): Vector[FileReference] =
     nativeInputPaths(descriptor, operation).map { relative =>
-      val path = CozyDocumentProject._direct_file(project, relative, "native provider direct input")
-      FileIdentity(relative, _sha256(path))
+      CozyDocumentProject._direct_file(project, relative, "native provider direct input")
+      FileReference(relative)
     }
 
   private[cozy] def nativeInputPaths(
@@ -40,7 +38,7 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     result: CozyDocumentProjectProvider.ProviderResult
   ): NativeClosure = result match {
     case CozyDocumentProjectProvider.Executed(outputs, diagnostics, receipt) =>
@@ -144,7 +142,7 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
         )
         val output = parsed.head
         if (receiptidentity != CozyDocumentProjectProvider.NATIVE_RECEIPT_IDENTITY ||
-            receiptvalue != CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType, output.sha256))
+            receiptvalue != CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType))
           _invalid("Document Project retained accepted v2 attempt receipt is not the canonical native receipt")
         parsed
       case "failed" =>
@@ -154,7 +152,7 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
       case _ => _invalid("Document Project retained v2 attempt outcome must be accepted or failed")
     }
     Attempt(
-      FileIdentity(CozyDocumentProject._project_relative(project, path), _sha256(path)),
+      FileReference(CozyDocumentProject._project_relative(project, path)),
       _attempt_v2_schema,
       operation.id,
       outcome,
@@ -164,18 +162,20 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     )
   }
 
-  def nativeAttemptCurrent(project: Path, attempt: Attempt): Boolean =
-    attempt.inputs.forall(identity => identityCurrent(project, identity)) &&
-      attempt.outputs.forall(output => identityCurrent(project, FileIdentity(output.path, output.sha256)))
+  def nativeOutputsAvailable(project: Path, attempt: Attempt): Boolean =
+    attempt.inputs.forall(reference => fileAvailable(project, reference)) &&
+      attempt.outputs.nonEmpty && attempt.outputs.forall { output =>
+        fileAvailable(project, FileReference(output.path)) && Files.size(project.resolve(output.path)) > 0
+      }
 
-  def identityCurrent(project: Path, identity: FileIdentity): Boolean =
-    _identity_current(project, identity)
+  def fileAvailable(project: Path, reference: FileReference): Boolean =
+    _file_available(project, reference)
 
   private def _validate_native_executed(
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     outputs: Vector[CozyDocumentProjectProvider.ProviderOutput],
     diagnostics: Vector[String],
     receipt: CozyDocumentProjectProvider.ProviderReceipt
@@ -186,9 +186,9 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     }
     if (operation.id != "article.render-review" || declaration.providerBinding != operation.providerBinding)
       return Left("native provider acceptance is outside the sole article review binding")
-    if (inputs != captureNativeInputs(project, descriptor, operation) ||
-        !inputs.forall(identity => _identity_current(project, identity)))
-      return Left("native provider direct input identity changed before accepted-evidence closure")
+    if (inputs.map(_.path) != nativeInputPaths(descriptor, operation) ||
+        !inputs.forall(reference => _file_available(project, reference)))
+      return Left("native provider direct input paths are invalid or unavailable")
     if (diagnostics.isEmpty || diagnostics.exists(value => value.trim.isEmpty))
       return Left("native provider returned empty diagnostics")
     if (outputs.size != declaration.outputs.size)
@@ -197,18 +197,14 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
       case (output, declared) =>
         if (output.identity != declared.identity || output.path != declared.path || output.mediaType != declared.mediaType)
           return Left("native provider output identity, path, or media type does not match its declaration")
-        if (!_hash_pattern.pattern.matcher(output.sha256).matches())
-          return Left("native provider output sha256 must be lowercase SHA-256")
         val path = CozyDocumentProject._direct_file(project, output.path, "native provider accepted output")
         if (Files.size(path) == 0)
           return Left("native provider output must contain direct HTML bytes")
-        if (_sha256(path) != output.sha256)
-          return Left("native provider output sha256 does not match the declared output bytes")
     }
     val output = outputs.head
     if (receipt.identity != CozyDocumentProjectProvider.NATIVE_RECEIPT_IDENTITY ||
-        receipt.value != CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType, output.sha256))
-      Left("native provider receipt does not exactly bind operation, output, media type, and sha256")
+        receipt.value != CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType))
+      Left("native provider receipt must record operation, output path, and media type")
     else Right(())
   }
 
@@ -216,7 +212,7 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     outcome: String,
     diagnostics: Vector[String],
     outputs: Vector[CozyDocumentProjectProvider.ProviderOutput],
@@ -234,27 +230,19 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     val destination = directory.resolve(s"$attemptid.yaml").normalize()
     if (!destination.startsWith(directory) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
       CozyDocumentProject._failure("DP-PATH-001", "native operation attempt destination is unsafe or already exists")
-    var temporary: Option[Path] = None
     try {
-      val value = Files.createTempFile(directory, ".attempt-", ".tmp")
-      temporary = Some(value)
-      Files.writeString(value, yaml, StandardCharsets.UTF_8)
-      Files.move(value, destination, StandardCopyOption.ATOMIC_MOVE)
-      temporary = None
+      Files.writeString(destination, yaml, StandardCharsets.UTF_8)
       Attempt(
-        FileIdentity(CozyDocumentProject._project_relative(project, destination), _sha256(destination)),
+        FileReference(CozyDocumentProject._project_relative(project, destination)),
         _attempt_v2_schema,
         operation.id,
         outcome,
         operation.produces,
         inputs,
-        outputs.map(output => AttemptOutput(output.identity, output.path, output.mediaType, output.sha256))
+        outputs.map(output => AttemptOutput(output.identity, output.path, output.mediaType))
       )
     } catch {
-      case _: AtomicMoveNotSupportedException => CozyDocumentProject._failure("DP-PATH-001", "native operation attempt append requires ATOMIC_MOVE")
-      case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "native operation attempt cannot be appended")
-    } finally {
-      temporary.foreach(Files.deleteIfExists)
+      case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "native operation attempt cannot be written")
     }
   }
 
@@ -278,22 +266,21 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     attemptid: String,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     outcome: String,
     diagnostics: Vector[String],
     outputs: Vector[CozyDocumentProjectProvider.ProviderOutput],
     receipt: Option[CozyDocumentProjectProvider.ProviderReceipt]
   ): String = {
     val inputyaml = inputs.flatMap { input =>
-      Vector(s"  - path: ${input.path}", s"    sha256: ${input.sha256}")
+      Vector(s"  - path: ${input.path}")
     }
     val diagnosticyaml = diagnostics.map(value => s"  - ${_yaml_double_quoted(value)}")
     val outputyaml = if (outputs.isEmpty) Vector("  []") else outputs.flatMap { output =>
       Vector(
         s"  - identity: ${output.identity}",
         s"    path: ${output.path}",
-        s"    mediaType: ${output.mediaType}",
-        s"    sha256: ${output.sha256}"
+        s"    mediaType: ${output.mediaType}"
       )
     }
     val receiptyaml = receipt match {
@@ -317,13 +304,13 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
     value: Json
-  ): Vector[FileIdentity] = {
+  ): Vector[FileReference] = {
     val inputvalues = value.asArray.getOrElse(_invalid("Document Project retained v2 attempt inputs must be an array"))
     val expected = nativeInputPaths(descriptor, operation)
     if (inputvalues.size != expected.size)
       _invalid("Document Project retained v2 attempt inputs must match direct native input order")
     inputvalues.zip(expected).map { case (inputvalue, expectedpath) =>
-      val identity = _retained_file_identity(inputvalue, "Document Project retained v2 attempt input")
+      val identity = _retained_file_reference(inputvalue, "Document Project retained v2 attempt input")
       if (identity.path != expectedpath)
         _invalid("Document Project retained v2 attempt inputs must match direct native input order")
       identity
@@ -335,8 +322,8 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     declared: CozyDocumentWorkflow.OutputDeclaration
   ): AttemptOutput = {
     val fields = _object(value, "Document Project retained accepted v2 attempt output")
-    if (fields.keySet != Set("identity", "path", "mediaType", "sha256"))
-      _invalid("Document Project retained accepted v2 attempt output must have exactly identity, path, mediaType, sha256")
+    if (fields.keySet != Set("identity", "path", "mediaType"))
+      _invalid("Document Project retained accepted v2 attempt output must have exactly identity, path, mediaType")
     val identity = _nonempty(
       _string(fields, "identity", "Document Project retained accepted v2 attempt output"),
       "Document Project retained accepted v2 attempt output identity"
@@ -346,11 +333,10 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
       _string(fields, "mediaType", "Document Project retained accepted v2 attempt output"),
       "Document Project retained accepted v2 attempt output mediaType"
     )
-    val sha256 = _string(fields, "sha256", "Document Project retained accepted v2 attempt output")
-    _retained_identity(path, sha256, "Document Project retained accepted v2 attempt output")
+    _retained_reference(path, "Document Project retained accepted v2 attempt output")
     if (identity != declared.identity || path != declared.path || mediatype != declared.mediaType)
       _invalid("Document Project retained accepted v2 attempt output does not match the native declaration")
-    AttemptOutput(identity, path, mediatype, sha256)
+    AttemptOutput(identity, path, mediatype)
   }
 
   private def _native_input_paths(
@@ -359,10 +345,10 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
   ): Vector[String] =
     if (operation.id == "article.render-review")
       Vector(descriptor.contentCore, "index.dox", "presentation/visual-pages.yaml", "infographic/infographic.svg")
-    else _invalid("native direct input identities are unsupported for this operation")
+    else _invalid("native direct input paths are unsupported for this operation")
 
-  private def _identity_current(project: Path, identity: FileIdentity): Boolean = {
-    val path = project.resolve(identity.path).normalize()
+  private def _file_available(project: Path, reference: FileReference): Boolean = {
+    val path = project.resolve(reference.path).normalize()
     if (!path.startsWith(project)) false
     else {
       val relative = project.relativize(path)
@@ -374,19 +360,19 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
       directancestors &&
         !Files.isSymbolicLink(path) &&
         Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
-        _sha256(path) == identity.sha256
+        Files.isReadable(path)
     }
   }
 
-  private def _retained_file_identity(value: Json, label: String): FileIdentity = {
+  private def _retained_file_reference(value: Json, label: String): FileReference = {
     val fields = _object(value, label)
-    if (fields.keySet != Set("path", "sha256")) _invalid(s"$label must have exactly path and sha256")
-    _retained_identity(_string(fields, "path", label), _string(fields, "sha256", label), label)
+    if (fields.keySet != Set("path")) _invalid(s"$label must have exactly path")
+    _retained_reference(_string(fields, "path", label), label)
   }
 
-  private def _retained_identity(path: String, sha256: String, label: String): FileIdentity = {
-    if (!_relative_path(path) || !_hash_pattern.pattern.matcher(sha256).matches()) _invalid(s"$label identity is invalid")
-    FileIdentity(path, sha256)
+  private def _retained_reference(path: String, label: String): FileReference = {
+    if (!_relative_path(path)) _invalid(s"$label path is invalid")
+    FileReference(path)
   }
 
   private def _failure_diagnostics(diagnostics: Vector[String], fallback: String): Vector[String] = {
@@ -452,7 +438,5 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     }
     value.nonEmpty && !path.isAbsolute && path.iterator().asScala.forall(part => part.toString != "." && part.toString != "..")
   }
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _invalid(message: String): Nothing = CozyDocumentProject._descriptor_failure(message)
 }

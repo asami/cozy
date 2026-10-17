@@ -13,6 +13,8 @@ import org.smartdox.parser.Dox2Parser
 import org.smartdox.transformers.Dox2HtmlTransformer
 import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
+import org.smartdox.doxsite.{DoxSite, DoxSitePublicDocuments}
+import org.goldenport.realm.Realm
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
 import java.time.{Instant, LocalDate, LocalDateTime, YearMonth, ZoneOffset}
@@ -32,14 +34,21 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 
+private[cozy] object CozyBokMetadata {
+  import CozyBokImplementation._
+
+  private[bok] final case class CategorySummary(slug: String, title: String, description: String, purpose: BokPurpose)
+}
+
 private[cozy] trait CozyBokMetadata {
   self: CozyBokImplementation.type =>
-  private[bok] final case class CategorySummary(slug: String, title: String, description: String, purpose: BokPurpose)
 
+  private[bok] type CategorySummary = CozyBokMetadata.CategorySummary
+  private[bok] lazy val CategorySummary = CozyBokMetadata.CategorySummary
   private[bok] def _regular_category_summaries(source: Path): Vector[CategorySummary] =
     _category_summaries(source).filterNot(x => _is_special_category(x.slug))
 
@@ -69,46 +78,46 @@ private[cozy] trait CozyBokMetadata {
       }
     }
 
-  private[bok] def _category_contents(source: Path): Vector[CategoryContent] =
-    _regular_category_summaries(source).map { summary =>
-      val dir = source.resolve(summary.slug)
+  private[bok] def _category_contents(source: Path): Vector[CategoryContent] = {
+    val summaries = _regular_category_summaries(source)
+    val selected = if (summaries.nonEmpty)
+      DoxSitePublicDocuments.sources(Realm.create(DoxSite.realmConfig, source.toFile))
+    else
+      Vector.empty[DoxSitePublicDocuments.Source]
+    summaries.map { summary =>
       CategoryContent(
         summary.slug,
         summary.title,
         summary.description,
         summary.purpose,
-        _article_page_items(dir),
+        _article_page_items(source, summary.slug, selected),
         _glossary_page_items(source.resolve("glossary").resolve(summary.slug), summary.slug)
       )
     }
+  }
 
   private[bok] def _source_article_count(config: BuildConfig): Int =
     _category_contents(config.sourcepath).map(_.articles.size).sum
 
-  private def _article_page_items(dir: Path): Vector[CategoryPageItem] =
-    if (!Files.isDirectory(dir))
-      Vector.empty
-    else {
-      val stream = Files.walk(dir)
-      try {
-        stream.iterator.asScala.toVector.
-          filter(Files.isRegularFile(_)).
-          filter(_is_source_document).
-          filterNot(_is_index_source_document).
-          filterNot(x => dir.relativize(x).toString.replace(java.io.File.separatorChar, '/').startsWith("glossary/")).
-          map { file =>
-            val rel = dir.relativize(file).toString.replace(java.io.File.separatorChar, '/')
-            CategoryPageItem(
-              _source_document_html_href(rel),
-              _dox_title(file),
-              _dox_brief(file),
-              _modified_at_millis(file)
-            )
-          }.sortBy(_.href)
-      } finally {
-        stream.close()
-      }
-    }
+  private def _article_page_items(
+    root: Path,
+    category: String,
+    selected: Vector[DoxSitePublicDocuments.Source]
+  ): Vector[CategoryPageItem] = {
+    val prefix = category.replace(java.io.File.separatorChar, '/') + "/"
+    selected.filter(_.publicPath.startsWith(prefix)).
+      filterNot(source => source.publicPath == prefix + "index.html" ||
+        source.publicPath.startsWith(prefix + "glossary/")).
+      map { source =>
+        val file = root.resolve(source.sourcePath)
+        CategoryPageItem(
+          source.publicPath.stripPrefix(prefix),
+          _dox_title(file),
+          _dox_brief(file),
+          _modified_at_millis(file)
+        )
+      }.sortBy(_.href)
+  }
 
   private def _glossary_page_items(dir: Path, category: String): Vector[CategoryPageItem] =
     if (!Files.isDirectory(dir))

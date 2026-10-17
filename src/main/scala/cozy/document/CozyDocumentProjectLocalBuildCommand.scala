@@ -2,13 +2,13 @@ package cozy.document
 
 import io.circe.Json
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 14, 2026
- * @version Sep. 14, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectLocalBuildCommand {
@@ -221,21 +221,10 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private def _install(plan: Plan, html: String): Unit = {
     val directory = plan.output.getParent
     _ensure_output_directory(plan.project, directory)
-    var temporary: Option[Path] = None
     try {
-      val path = Files.createTempFile(directory, ".cozy-document-project-local-build-", ".tmp")
-      temporary = Some(path)
-      Files.writeString(path, html, StandardCharsets.UTF_8)
-      Files.move(path, plan.output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(plan.output, html, StandardCharsets.UTF_8)
     } catch {
-      case _: AtomicMoveNotSupportedException => _failure("atomic target installation is not supported", plan.contract.id)
-      case NonFatal(value) => _failure("target installation failed", Option(value.getMessage).getOrElse(value.getClass.getSimpleName))
-    } finally {
-      temporary.foreach { path =>
-        try Files.deleteIfExists(path)
-        catch { case NonFatal(_) => () }
-      }
+      case NonFatal(value) => _failure("target write failed", Option(value.getMessage).getOrElse(value.getClass.getSimpleName))
     }
   }
 
@@ -252,8 +241,6 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       } else {
         try Files.createDirectory(current)
         catch { case NonFatal(value) => _failure("target output directory cannot be created", Option(value.getMessage).getOrElse(current.toString)) }
-        if (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS))
-          _failure("target output parent must be a direct directory", current.toString)
       }
     }
   }

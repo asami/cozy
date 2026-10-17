@@ -11,10 +11,21 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 17, 2026
- * @version Sep. 17, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object SkillDrivenWorkflowProducerFixtureSpec {
+  private final case class FixtureRunState(
+    completedactions: Vector[String],
+    localexecutions: Vector[(String, ActionExecution.Completed)],
+    suspendedcontinuation: Option[Continuation],
+    terminated: Boolean
+  )
+}
+
 final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+  import SkillDrivenWorkflowProducerFixtureSpec.FixtureRunState
+
   "The checked-in Workflow producer fixture" should {
     "render the frozen StateMachine API/SPI boundary" which {
       "produce byte-identical ABI evidence through two isolated modeler-scala generations" in {
@@ -193,13 +204,6 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
       }
     }
   }
-
-  private final case class FixtureRunState(
-    completedactions: Vector[String],
-    localexecutions: Vector[(String, ActionExecution.Completed)],
-    suspendedcontinuation: Option[Continuation],
-    terminated: Boolean
-  )
 
   private def _workflow(): WorkflowDefinition = {
     val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()

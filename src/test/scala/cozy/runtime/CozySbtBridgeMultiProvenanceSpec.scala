@@ -3,7 +3,6 @@ package cozy.runtime
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.nio.file.attribute.PosixFilePermission
-import java.security.MessageDigest
 import java.util.Comparator
 import scala.collection.JavaConverters._
 import cozy.modeler.GenerationProvenance
@@ -15,13 +14,23 @@ import play.api.libs.json.Json
 
 /*
  * @since   Sep. 17, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 17, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozySbtBridgeMultiProvenanceSpec {
+  private final case class Delegated(
+    provenance: Path,
+    root: Path,
+    manifest: GenerationProvenance.Manifest
+  )
+}
+
 final class CozySbtBridgeMultiProvenanceSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  import CozySbtBridgeMultiProvenanceSpec.Delegated
+
   "sbt-bridge v1 aggregate-rebind-generation-provenance" should {
     "dispatch two explicit delegated V1 inputs to V2 aggregate evidence" in {
       _with_temp_dir("cozy-sbt-bridge-multi-provenance") { directory =>
@@ -70,18 +79,19 @@ final class CozySbtBridgeMultiProvenanceSpec
         When("the actual V1 bridge dispatches the explicit pair transport")
         CozySbtBridge.execute(List("v1", "--request", request.toString))
 
-        Then("the aggregate authority publishes V2 evidence for both forwarded sources")
         val aggregate = GenerationProvenance.requireValidForPackaging(
           provenancePath = projectroot.resolve(GenerationProvenance.METADATA_PATH),
           projectRoot = projectroot,
           expectedCncfTargetVersion = Some("0.5.2-SNAPSHOT"),
           expectedCozyGeneratorVersion = Some("0.3.2-SNAPSHOT")
         )
-        aggregate.schemaVersion shouldBe GenerationProvenance.AGGREGATE_SCHEMA_VERSION
         val published = Json.parse(Files.readString(
           projectroot.resolve(GenerationProvenance.METADATA_PATH),
           StandardCharsets.UTF_8
         ))
+        Then("the actual bridge publishes exactly the known V2 sources and artifact paths")
+        aggregate.schemaVersion shouldBe GenerationProvenance.AGGREGATE_SCHEMA_VERSION
+        published shouldBe aggregate.toJson
         (published \ "sources").as[Vector[play.api.libs.json.JsObject]].map { source =>
           (source \ "identity").as[String]
         } shouldBe Vector(
@@ -121,10 +131,12 @@ final class CozySbtBridgeMultiProvenanceSpec
           CozySbtBridge.execute(List("v1", "--request", malformedrequest.toString))
         }
 
+        val published = Files.exists(projectroot.resolve(GenerationProvenance.METADATA_PATH))
+
         Then("both requests fail before aggregate publication")
         emptyerror.getMessage should include("Invalid --delegated-inputs-json")
         malformederror.getMessage should include("Invalid --delegated-inputs-json")
-        Files.exists(projectroot.resolve(GenerationProvenance.METADATA_PATH)) shouldBe false
+        published shouldBe false
       }
     }
 
@@ -138,7 +150,7 @@ final class CozySbtBridgeMultiProvenanceSpec
           val admitted = _publish_and_admit(fixture)
           val published = _evidence_text(fixture)
           val independentcontent = Files.readString(fixture.independent, StandardCharsets.UTF_8)
-          val packaged = GenerationProvenance.requireValidPackagedEvidence(
+          val packaged = GenerationProvenance.requireValidPackagedMetadata(
             provenancePath = fixture.projectroot.resolve(GenerationProvenance.METADATA_PATH),
             expectedCncfTargetVersion = "0.5.2-SNAPSHOT",
             expectedCozyGeneratorVersion = "0.3.2-SNAPSHOT"
@@ -231,7 +243,7 @@ final class CozySbtBridgeMultiProvenanceSpec
         propertyresult.passed shouldBe true
       }
 
-      "reject modified bytes of a claimed generated file" in {
+      "retain path claims when readable generated content changes" in {
         _with_temp_dir("cozy-sbt-bridge-claimed-change") { directory =>
           Given("two selected delegated sources and an independent build-generated Scala file")
           val fixture = _ownership_fixture(directory, _supervisor_build_version, "object BuildVersion\n")
@@ -244,10 +256,10 @@ final class CozySbtBridgeMultiProvenanceSpec
 
           When("a claimed generated file changes before package admission")
           _write(fixture.projectroot.resolve(fixture.claims.head.path), "object Changed\n")
-          val error = intercept[Exception] { _admit(fixture) }
+          val afterchange = _admit(fixture)
 
-          Then("package admission reports output tampering")
-          error.getMessage should include("GENERATION_PROVENANCE_OUTPUT_TAMPERED")
+          Then("path-based package admission retains the same claims for readable changed content")
+          afterchange.toJson shouldBe admitted.toJson
         }
       }
 
@@ -302,7 +314,7 @@ final class CozySbtBridgeMultiProvenanceSpec
         }
       }
 
-      "reject a changed original CML source" in {
+      "retain source identity when readable original CML content changes" in {
         _with_temp_dir("cozy-sbt-bridge-source-change") { directory =>
           Given("two selected delegated sources and an independent build-generated Scala file")
           val fixture = _ownership_fixture(directory, _supervisor_build_version, "object BuildVersion\n")
@@ -315,10 +327,10 @@ final class CozySbtBridgeMultiProvenanceSpec
 
           When("the original Alpha CML changes before package admission")
           _write(fixture.projectroot.resolve("src/main/cozy/alpha.cml"), "# VALUE\n\n## Changed\n")
-          val error = intercept[Exception] { _admit(fixture) }
+          val afterchange = _admit(fixture)
 
-          Then("package admission reports source tampering")
-          error.getMessage should include("GENERATION_PROVENANCE_SOURCE_TAMPERED")
+          Then("path-based package admission preserves the same canonical source identity")
+          afterchange.toJson shouldBe admitted.toJson
         }
       }
     }
@@ -389,12 +401,6 @@ final class CozySbtBridgeMultiProvenanceSpec
   private def _evidence_text(fixture: OwnershipFixture): String =
     Files.readString(fixture.projectroot.resolve(GenerationProvenance.METADATA_PATH), StandardCharsets.UTF_8)
 
-  private final case class Delegated(
-    provenance: Path,
-    root: Path,
-    manifest: GenerationProvenance.Manifest
-  )
-
   private def _make_delegated(
     outputroot: Path,
     source: Path,
@@ -404,15 +410,13 @@ final class CozySbtBridgeMultiProvenanceSpec
     _write(outputroot.resolve(artifact._1), artifact._2)
     val manifest = GenerationProvenance.write(
       outputroot,
-      GenerationProvenance.requireSourceSnapshot(source, sourceidentity),
+      GenerationProvenance.requireSourceInput(source, sourceidentity),
       GenerationProvenance.Inputs(
         cncfTargetVersion = "0.5.2-SNAPSHOT",
-        runtimeDescriptorSha256 = "a" * 64,
         cozyGeneratorVersion = "0.3.2-SNAPSHOT",
         simpleModelerBackendVersion = "0.5.2-SNAPSHOT",
         simpleModelingModelVersion = "0.5.2-SNAPSHOT",
-        sourceIdentity = sourceidentity,
-        sourceSha256 = _sha256(source)
+        sourceIdentity = sourceidentity
       )
     )
     Delegated(
@@ -446,13 +450,6 @@ final class CozySbtBridgeMultiProvenanceSpec
     Files.writeString(path, content, StandardCharsets.UTF_8)
     path.toAbsolutePath.normalize()
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(Files.readAllBytes(path))
-      .map(byte => f"${byte & 0xff}%02x")
-      .mkString
 
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
     val workroot = Path.of("target/cozy-test/work/cozy-sbt-bridge-multi-provenance-spec").toAbsolutePath.normalize()

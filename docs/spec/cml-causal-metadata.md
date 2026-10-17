@@ -303,8 +303,8 @@ Classification has no added carriers and no new Term is declared.
 
 Every added named element uses the exact qualified `causal.example` pair and
 display name `共有`. Source attribution is supplied literal data:
-authority `causal.example`, path `fixtures/causal-model.cml`, sixty-four `a`
-characters as sha256 and occurrence lines 1..19. Both anonymous full core
+authority `causal.example`, path `fixtures/causal-model.cml`,
+and occurrence lines 1..19. Both anonymous full core
 records are exactly equal with line 19, absent stable identity and present-empty
 references; their admitted Cause and Reaction payloads differ. No source file,
 computed digest, source-currentness certification or ordinal identity is implied.

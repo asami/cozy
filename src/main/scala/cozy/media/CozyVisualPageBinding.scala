@@ -3,7 +3,6 @@ package cozy.media
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 
@@ -11,7 +10,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPageBinding {
@@ -24,13 +23,12 @@ private[cozy] object CozyVisualPageBinding {
     patterns: Vector[PatternBinding]
   ) {
     def canonicalJson: String = CozyVisualPageBinding.canonicalJson(this)
-    def bindingIdentity: String = CozyVisualPageBinding.bindingIdentity(this)
+    def canonicalValue: io.circe.Json = CozyVisualPageBinding.canonicalValue(this)
   }
 
   final case class ValidatedBinding(
     binding: Binding,
-    canonicalJson: String,
-    bindingIdentity: String
+    canonicalJson: String
   ) {
     def id: String = binding.id
     def profile: String = binding.profile
@@ -62,15 +60,16 @@ private[cozy] object CozyVisualPageBinding {
     val parsed = _parse_json(inputtext, "$")
     val binding = _parse_binding(parsed, "$", validated)
     val canonical = canonicalJson(binding)
-    ValidatedBinding(binding, canonical, bindingIdentity(binding))
+    ValidatedBinding(binding, canonical)
   }
 
   def canonicalJson(binding: Binding): String = _canonical(_binding_value(binding))
 
-  def bindingIdentity(binding: Binding): String = {
-    val bytes = canonicalJson(binding).getBytes(StandardCharsets.UTF_8)
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
-  }
+  def canonicalValue(binding: Binding): io.circe.Json =
+    io.circe.parser.parse(canonicalJson(binding)).fold(
+      error => _fail("VISUAL_PAGE_BINDING_JSON", "$", error.message),
+      value => value
+    )
 
   private def _parse_binding(value: Value, path: String, validated: CozyVisualPage.ValidatedDocument): Binding = {
     val fields = _object(value, path)

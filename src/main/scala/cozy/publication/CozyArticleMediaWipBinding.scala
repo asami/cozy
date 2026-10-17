@@ -2,9 +2,7 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import cozy.media.CozyMedia
 import cozy.media.CozyMediaPdfReviewState
 import cozy.media.CozyMediaReceipt
@@ -16,7 +14,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 12, 2026
  *  version Aug. 30, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipBinding {
@@ -31,16 +30,12 @@ private[cozy] object CozyArticleMediaWipBinding {
 
   final case class DirectoryEvidence(
     path: Path,
-    identity: Path,
-    fileKey: AnyRef
+    identity: Path
   )
 
   final case class FileEvidence(
     path: Path,
-    identity: Path,
-    sha256: String,
-    size: Long,
-    fileKey: AnyRef
+    identity: Path
   )
 
   sealed trait Evidence
@@ -50,8 +45,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     source: FileEvidence,
     production: FileEvidence,
     destination: Path,
-    destinationParent: DirectoryEvidence,
-    installedDestination: Option[FileEvidence]
+    destinationParent: DirectoryEvidence
   ) extends Evidence
 
   final case class Candidate(
@@ -67,9 +61,8 @@ private[cozy] object CozyArticleMediaWipBinding {
     config: Config,
     descriptor: CozyMedia.Descriptor,
     descriptorEvidence: FileEvidence,
-    descriptorBytes: Vector[Byte],
     descriptorRoot: DirectoryEvidence,
-    projectRoot: DirectoryEvidence,
+    projectRoot: cozy.config.CozyProjectContext.DirectoryIdentity,
     context: cozy.config.CozyProjectContext.Context,
     articleIdentity: String,
     publicationProfile: String,
@@ -80,10 +73,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     candidates: Vector[Candidate]
   )
 
-  def plan(config: Config): Plan =
-    _plan(config, Map.empty)
-
-  private def _plan(config: Config, admittedinstalled: Map[Path, String]): Plan = {
+  def plan(config: Config): Plan = {
     val normalizedconfig = _normalize_config(config)
     val descriptorsnapshot = _file_snapshot(normalizedconfig.descriptorFile, "descriptor")
     val mediaplan = CozyMedia.resolvePlan(
@@ -116,7 +106,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     )
     if (project.kind.map(_.value) != Some("smartdox-site"))
       _invalid("Article-media WIP binding requires project.kind smartdox-site")
-    val projectroot = DirectoryEvidence(project.root.path, project.root.identity, project.root.fileKey)
+    val projectroot = project.root
     val configuration = CozyMedia.requireConfiguredPublicationProfile(mediaplan, profile)
     if (configuration.siteKind != "smartdox")
       _invalid(s"Article-media WIP binding requires configured smartdox site-kind: $profile")
@@ -139,33 +129,17 @@ private[cozy] object CozyArticleMediaWipBinding {
       projectroot,
       profileroot,
       websiteroot
-    )).sortBy(_.resourceId)
+    )).sortBy(_.resourceid)
     _validate_duplicate_tuples(articleidentity, drafts)
     val updates = drafts.map { candidate =>
-      CozyArticleMediaRegistry.WipRoleUpdate(candidate.articleIdentity, candidate.variant, candidate.integrity)
+      CozyArticleMediaRegistry.WipRoleUpdate(candidate.articleidentity, candidate.variant, candidate.integrity)
     }
     val registry = CozyArticleMediaRegistry.validateWipReadOnly(publicationroot.path, updates)
-    val candidates = drafts.map { candidate =>
-      candidate.evidence match {
-        case x: VideoEvidence if registry.videoStates.get(candidate.key).contains(CozyArticleMediaRegistry.WipVideoState.Fresh) && x.installedDestination.nonEmpty =>
-          val admitted = admittedinstalled.get(x.destination)
-          if (admitted != Some(x.source.sha256) || x.installedDestination.map(_.sha256) != admitted)
-            _invalid(s"Article-media WIP fresh destination must be absent: ${candidate.resourceId}")
-        case x: VideoEvidence if registry.videoStates.get(candidate.key).contains(CozyArticleMediaRegistry.WipVideoState.ExactRepeat) =>
-          val installed = x.installedDestination.getOrElse(
-            _invalid(s"Article-media WIP repeat destination is missing: ${candidate.resourceId}")
-          )
-          if (installed.sha256 != x.source.sha256)
-            _invalid(s"Article-media WIP repeat destination digest differs: ${candidate.resourceId}")
-        case _ =>
-      }
-      candidate.toCandidate
-    }
+    val candidates = drafts.map(_.toCandidate)
     Plan(
       normalizedconfig,
       descriptor,
       descriptorsnapshot.evidence,
-      descriptorsnapshot.bytes,
       descriptorroot,
       projectroot,
       mediaplan.context,
@@ -179,66 +153,18 @@ private[cozy] object CozyArticleMediaWipBinding {
     )
   }
 
-  def revalidate(value: Plan): Plan = {
-    if (value == null || value.config == null)
-      _invalid("Article-media WIP binding plan must be defined")
-    val recomputed = plan(value.config)
-    if (recomputed != value)
-      _invalid("Article-media WIP binding evidence has changed")
-    recomputed
-  }
-
-  private[publication] def revalidateInstalled(value: Plan): Plan = {
-    if (value == null || value.config == null)
-      _invalid("Article-media WIP binding plan must be defined")
-    val admitted = value.candidates.collect {
-      case candidate if candidate.evidence.isInstanceOf[VideoEvidence] =>
-        val evidence = candidate.evidence.asInstanceOf[VideoEvidence]
-        evidence.destination -> evidence.source.sha256
-    }.toMap
-    val recomputed = _plan(value.config, admitted)
-    if (_stable_plan(recomputed) != _stable_plan(value))
-      _invalid("Article-media WIP binding evidence has changed after installation")
-    recomputed
-  }
-
-  private def _stable_plan(value: Plan): (Config, CozyMedia.Descriptor, FileEvidence, Vector[Byte], DirectoryEvidence, DirectoryEvidence,
-    cozy.config.CozyProjectContext.Context, String, String, DirectoryEvidence, DirectoryEvidence, DirectoryEvidence, Vector[(String, String, CozyArticleMediaRegistry.StrictRole, CozyArticleMediaPublication.Variant, Option[CozyArticleMediaIntegrity.Result], Any)]) =
-    (
-      value.config,
-      value.descriptor,
-      value.descriptorEvidence,
-      value.descriptorBytes,
-      value.descriptorRoot,
-      value.projectRoot,
-      value.context,
-      value.articleIdentity,
-      value.publicationProfile,
-      value.profileRoot,
-      value.publicationRoot,
-      value.websiteRoot,
-      value.candidates.map { candidate =>
-        val evidence = candidate.evidence match {
-          case x: VideoEvidence => (x.source, x.production, x.destination, x.destinationParent)
-          case x => x
-        }
-        (candidate.resourceId, candidate.locale, candidate.role, candidate.variant, candidate.integrity, evidence)
-      }
-    )
-
   private final case class FileSnapshot(evidence: FileEvidence, bytes: Vector[Byte])
 
   private final case class CandidateDraft(
-    articleIdentity: String,
-    resourceId: String,
+    articleidentity: String,
+    resourceid: String,
     locale: String,
     role: CozyArticleMediaRegistry.StrictRole,
     variant: CozyArticleMediaPublication.Variant,
     integrity: Option[CozyArticleMediaIntegrity.Result],
     evidence: Evidence
   ) {
-    def key: (String, String, String) = (articleIdentity, locale, role.name)
-    def toCandidate: Candidate = Candidate(resourceId, locale, role, variant, integrity, evidence)
+    def toCandidate: Candidate = Candidate(resourceid, locale, role, variant, integrity, evidence)
   }
 
   private def _normalize_config(config: Config): Config = {
@@ -279,7 +205,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     profile: String,
     descriptorfile: Path,
     descriptorroot: DirectoryEvidence,
-    projectroot: DirectoryEvidence,
+    projectroot: cozy.config.CozyProjectContext.DirectoryIdentity,
     profileroot: DirectoryEvidence,
     websiteroot: DirectoryEvidence
   ): CandidateDraft = {
@@ -305,25 +231,25 @@ private[cozy] object CozyArticleMediaWipBinding {
         val destination = resolved.publications.getOrElse(profile,
           _invalid(s"Article-media WIP binding infographic has no selected publication profile: $resourceid/$profile")
         )
-        val evidence = _root_absolute_file_snapshot(profileroot, destination, s"infographic destination for $resourceid")
+        val evidence = _root_absolute_file(profileroot, destination, s"infographic destination for $resourceid")
         val variant = _normalized_variant(articleidentity, CozyArticleMediaPublication.Variant(
           locale = locale,
           infographic = Some(ImageReference(publicpath, articlemedia.mediaType, articlemedia.alt))
         ))
-        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Infographic, variant, None, InfographicEvidence(evidence.evidence))
+        CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Infographic, variant, None, InfographicEvidence(evidence))
       case "video" =>
         if (resource.kind != "video")
           _invalid(s"Article-media WIP binding video resource kind is invalid: $resourceid")
-        val source = _file_snapshot(resolved.output.getOrElse(
+        val source = _direct_regular_file(resolved.output.getOrElse(
           _invalid(s"Article-media WIP binding video output must be defined: $resourceid")
         ), s"video output for $resourceid")
-        if (!source.evidence.path.getFileName.toString.endsWith(".mp4"))
+        if (!source.path.getFileName.toString.endsWith(".mp4"))
           _invalid(s"Article-media WIP binding video output must be an MP4: $resourceid")
         val productionrelative = CozyArticleMediaNormalization.normalizeRelativePath(articlemedia.production.getOrElse(
           _invalid(s"Article-media WIP binding video production must be defined: $resourceid")
         ), s"Article-media WIP binding video production for $resourceid")
         val production = _root_file_snapshot(descriptorroot, productionrelative, s"video production for $resourceid")
-        _validate_production(production.bytes, articleidentity, locale, resourceid, source.evidence.sha256)
+        _validate_production(production.bytes, articleidentity, locale, resourceid)
         val descriptorrelative = _project_relative(projectroot, descriptorfile, "descriptor")
         val productionprojectrelative = _project_relative(projectroot, production.evidence.path, s"video production for $resourceid")
         val destinationrelative = _video_destination(articleidentity, locale)
@@ -331,7 +257,8 @@ private[cozy] object CozyArticleMediaWipBinding {
         val parent = _direct_directory(Option(destination.getParent).getOrElse(
           _invalid(s"Article-media WIP binding video destination parent is missing: $resourceid")
         ), s"video destination parent for $resourceid")
-        val installed = _optional_root_file_snapshot(websiteroot, destinationrelative, s"video destination for $resourceid")
+        if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+          _root_absolute_file(websiteroot, destination, s"video destination for $resourceid")
         val contenturl = new URI("/" + destinationrelative)
         val variant = _normalized_variant(articleidentity, CozyArticleMediaPublication.Variant(
           locale = locale,
@@ -341,16 +268,15 @@ private[cozy] object CozyArticleMediaWipBinding {
           articleIdentity = articleidentity,
           locale = locale,
           role = CozyArticleMediaIntegrity.Role.Video,
-          artifact = CozyArticleMediaIntegrity.Artifact(resourceid, source.evidence.sha256),
+          artifact = None,
           publicPath = contenturl,
           repositoryPath = destinationrelative,
           mediaType = "video/mp4",
-          sha256 = source.evidence.sha256,
           provenance = CozyArticleMediaIntegrity.WipSiteVideo(descriptorrelative, resourceid, productionprojectrelative),
           publicationState = CozyArticleMediaIntegrity.PublicationState.Published
         ))
         CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Video, variant, Some(integrity),
-          VideoEvidence(source.evidence, production.evidence, destination, parent, installed.map(_.evidence)))
+          VideoEvidence(source, production.evidence, destination, parent))
       case "article_pdf" =>
         _pdf_candidate(resolved, mediaplan, articleidentity, locale, resourceid, CozyArticleMediaRegistry.StrictRole.ArticlePdf)
       case "summary_slides_pdf" =>
@@ -389,7 +315,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     ).getOrElse(
       _invalid(s"Article-media WIP binding PDF output must be defined: $resourceid")
     )
-    val evidence = _file_snapshot(output, s"${role.name} output for $resourceid")
+    val evidence = _direct_regular_file(output, s"${role.name} output for $resourceid")
     CozyMediaReceipt.requireCurrent(mediaplan, resolved)
     CozyMediaPdfReviewState.requireCurrent(mediaplan, Vector(resolved))
     val pdf = PdfDocumentReference(publicpath, "application/pdf", articlemedia.label)
@@ -407,7 +333,7 @@ private[cozy] object CozyArticleMediaWipBinding {
       role,
       _normalized_variant(articleidentity, variant),
       None,
-      PdfEvidence(evidence.evidence)
+      PdfEvidence(evidence)
     )
   }
 
@@ -434,8 +360,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     bytes: Vector[Byte],
     articleidentity: String,
     locale: String,
-    resourceid: String,
-    sourcedigest: String
+    resourceid: String
   ): Unit = {
     val root = try Json.parse(new String(bytes.toArray, StandardCharsets.UTF_8)).asOpt[JsObject] catch {
       case NonFatal(_) => None
@@ -453,12 +378,6 @@ private[cozy] object CozyArticleMediaWipBinding {
     val qa = _required_json_object(render, "qa", resourceid)
     if (_required_json_string(qa, "status", resourceid) != "technical-and-visual-qa-passed")
       _invalid(s"Article-media WIP binding video render QA status is invalid: $resourceid")
-    val digest = render.value.get("sha256") match {
-      case Some(JsString(value)) if value.matches("[0-9a-f]{64}") => value
-      case _ => _invalid(s"Article-media WIP binding video render sha256 must be exact lowercase SHA-256: $resourceid")
-    }
-    if (digest != sourcedigest)
-      _invalid(s"Article-media WIP binding video render sha256 differs from output: $resourceid")
   }
 
   private def _normalized_variant(
@@ -482,7 +401,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     uri
   }
 
-  private def _project_relative(root: DirectoryEvidence, path: Path, label: String): String = {
+  private def _project_relative(root: cozy.config.CozyProjectContext.DirectoryIdentity, path: Path, label: String): String = {
     val normalized = _normalized_host_path(path, label)
     val identity = try normalized.toRealPath() catch {
       case NonFatal(e) => _invalid(s"Article-media WIP binding $label cannot be resolved: ${e.getMessage}")
@@ -505,6 +424,16 @@ private[cozy] object CozyArticleMediaWipBinding {
     _root_absolute_file_snapshot(root, path, label)
   }
 
+  private def _root_absolute_file(root: DirectoryEvidence, path: Path, label: String): FileEvidence = {
+    val normalized = _normalized_host_path(path, label)
+    if (!normalized.startsWith(root.path) || normalized == root.path)
+      _invalid(s"Article-media WIP binding $label escapes its root")
+    val file = _direct_regular_file(normalized, label)
+    if (!file.identity.startsWith(root.identity))
+      _invalid(s"Article-media WIP binding $label real identity escapes its root")
+    file
+  }
+
   private def _root_absolute_file_snapshot(root: DirectoryEvidence, path: Path, label: String): FileSnapshot = {
     val normalized = _normalized_host_path(path, label)
     if (!normalized.startsWith(root.path) || normalized == root.path)
@@ -515,53 +444,24 @@ private[cozy] object CozyArticleMediaWipBinding {
     snapshot
   }
 
-  private def _optional_root_file_snapshot(root: DirectoryEvidence, relative: String, label: String): Option[FileSnapshot] = {
-    val path = _root_path(root, relative, label)
-    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) None else Some(_root_file_snapshot(root, relative, label))
-  }
-
   private def _file_snapshot(path: Path, label: String): FileSnapshot = {
     val file = _direct_regular_file(path, label)
-    val before = _file_attributes(file.path, label)
-    val firstbytes = try Files.readAllBytes(file.path) catch {
+    val bytes = try Files.readAllBytes(file.path) catch {
       case NonFatal(e) => _invalid(s"Article-media WIP binding $label cannot be read: ${e.getMessage}")
     }
-    val middle = _file_attributes(file.path, label)
-    val secondbytes = try Files.readAllBytes(file.path) catch {
-      case NonFatal(e) => _invalid(s"Article-media WIP binding $label cannot be read: ${e.getMessage}")
-    }
-    val after = _file_attributes(file.path, label)
-    if (file.fileKey != before.fileKey() || !_same_file_attributes(before, middle) ||
-      !_same_file_attributes(before, after) || firstbytes.length.toLong != before.size() ||
-      secondbytes.length.toLong != before.size() || !firstbytes.sameElements(secondbytes))
-      _invalid(s"Article-media WIP binding $label changed while being read")
-    FileSnapshot(FileEvidence(file.path, file.identity, _sha256(firstbytes), firstbytes.length.toLong, file.fileKey), firstbytes.toVector)
+    FileSnapshot(file, bytes.toVector)
   }
-
-  private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() && before.size() == after.size() &&
-      before.lastModifiedTime() == after.lastModifiedTime()
 
   private def _direct_regular_file(path: Path, label: String): FileEvidence = {
     val lexical = _normalized_host_path(path, label)
-    val attributes = _file_attributes(lexical, label)
+    if (Files.isSymbolicLink(lexical) || !Files.isRegularFile(lexical, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Article-media WIP binding $label must be an existing direct regular non-symlink file: $lexical")
     val identity = try lexical.toRealPath() catch {
       case NonFatal(e) => _invalid(s"Article-media WIP binding $label cannot be resolved: ${e.getMessage}")
     }
     if (identity != lexical)
       _invalid(s"Article-media WIP binding $label must not use a lexical or symlink alias: $lexical")
-    FileEvidence(lexical, identity, "", attributes.size(), attributes.fileKey())
-  }
-
-  private def _file_attributes(path: Path, label: String): BasicFileAttributes = {
-    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media WIP binding $label must be an existing direct regular non-symlink file: $path")
-    val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => _invalid(s"Article-media WIP binding $label attributes cannot be read: ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      _invalid(s"Article-media WIP binding $label has no stable file identity: $path")
-    attributes
+    FileEvidence(lexical, identity)
   }
 
   private def _direct_directory(path: Path, label: String): DirectoryEvidence = {
@@ -573,12 +473,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     }
     if (identity != lexical)
       _invalid(s"Article-media WIP binding $label must not use a lexical or symlink alias: $lexical")
-    val attributes = try Files.readAttributes(lexical, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => _invalid(s"Article-media WIP binding $label attributes cannot be read: ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      _invalid(s"Article-media WIP binding $label has no stable directory identity: $lexical")
-    DirectoryEvidence(lexical, identity, attributes.fileKey())
+    DirectoryEvidence(lexical, identity)
   }
 
   private def _normalized_host_path(path: Path, label: String): Path = {
@@ -596,12 +491,6 @@ private[cozy] object CozyArticleMediaWipBinding {
     value.value.get(field).collect { case JsString(x) if x.nonEmpty && x == x.trim => x }.getOrElse(
       _invalid(s"Article-media WIP binding video production $field must be a non-empty exact string: $resourceid")
     )
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(bytes)
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

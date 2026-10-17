@@ -7,7 +7,7 @@ import io.circe.Json
 import io.circe.parser
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.attribute.FileTime
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import scala.collection.JavaConverters._
@@ -15,21 +15,20 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoStoryboardReview {
-  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoCommand with CozyVideoPlanning =>
-
+private[cozy] object CozyVideoStoryboardReview {
   final case class StoryboardReviewConfig(projectFile: Path, saveDir: Path) {
     def projectRoot: Path = projectFile.getParent
   }
   object StoryboardReviewConfig {
     def create(args: List[String]): StoryboardReviewConfig = {
       val parsed = CozyCliArgs.parseStrict(
-        _p_project_file,
-        _p_save
-      )(_normalize_property_args(args))
+        CozyVideoImplementation._p_project_file,
+        CozyVideoImplementation._p_save
+      )(CozyVideoImplementation._normalize_property_args(args))
       val projectfile = parsed.argument("project-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing project file for video storyboard review-evidence")
       )
@@ -41,41 +40,33 @@ private[cozy] trait CozyVideoStoryboardReview {
     projectFile: Path,
     saveDir: Path,
     evidencePath: Path,
-    handoffPath: Path,
-    evidenceIdentity: String,
-    storyboardIdentity: String,
-    visualInputIdentities: Vector[String]
+    handoffPath: Path
   )
 
   final case class StoryboardReviewCurrent(
     projectFile: Path,
     evidencePath: Path,
-    handoffPath: Path,
-    evidenceIdentity: String,
-    handoffIdentity: String,
-    storyboardIdentity: String
+    handoffPath: Path
   )
 
-  private final case class ApprovedStoryboard(
+  private final case class ReviewStoryboard[S](
     sourcepath: Path,
     relativepath: String,
-    storyboard: Storyboard,
-    identity: String
+    storyboard: S
   )
 
   private final case class VisualInput(
     reference: String,
     sourcepath: Path,
     relativepath: String,
-    copiedpath: Path,
-    identity: String
+    copiedpath: Path
   )
 
   private final case class VisualPageAsset(
     id: String,
     path: String,
     mediatype: String,
-    sha256: String
+    modifiedat: FileTime
   )
 
   private final case class VisualPageProof(
@@ -83,26 +74,34 @@ private[cozy] trait CozyVideoStoryboardReview {
     source: String,
     catalog: String,
     pageid: String,
-    visualpagesetidentity: String,
-    catalogidentity: String,
-    logicalidentity: String,
-    visualpageidentity: String,
-    assets: Vector[VisualPageAsset],
-    bindingidentity: String
+    assets: Vector[VisualPageAsset]
   )
 
   private final case class EffectiveRenderer(
     partid: String,
-    configuration: Json,
-    identity: String
+    configuration: Json
   )
 
   private final case class VisualPageReview(
     evidencedirectory: Path,
-    approvedevidenceidentity: String,
     pages: Vector[VisualPageProof],
     renderers: Vector[EffectiveRenderer]
   )
+}
+
+private[cozy] trait CozyVideoStoryboardReview {
+  self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoCommand with CozyVideoPlanning =>
+
+  import CozyVideoStoryboardReview.{VisualInput, VisualPageAsset, VisualPageProof, EffectiveRenderer, VisualPageReview}
+
+  type StoryboardReviewConfig = CozyVideoStoryboardReview.StoryboardReviewConfig
+  lazy val StoryboardReviewConfig = CozyVideoStoryboardReview.StoryboardReviewConfig
+  type StoryboardReviewResult = CozyVideoStoryboardReview.StoryboardReviewResult
+  lazy val StoryboardReviewResult = CozyVideoStoryboardReview.StoryboardReviewResult
+  type StoryboardReviewCurrent = CozyVideoStoryboardReview.StoryboardReviewCurrent
+  lazy val StoryboardReviewCurrent = CozyVideoStoryboardReview.StoryboardReviewCurrent
+
+  private type ReviewStoryboard = CozyVideoStoryboardReview.ReviewStoryboard[Storyboard]
 
   private val _review_evidence_schema = "cozy.video.storyboard-review-evidence.v1"
   private val _storyboard_handoff_schema = "cozy.video.storyboard-handoff.v1"
@@ -110,7 +109,6 @@ private[cozy] trait CozyVideoStoryboardReview {
   private val _storyboard_handoff_schema_v2 = "cozy.video.storyboard-handoff.v2"
   private val _storyboard_schema_v1 = "cozy.video.storyboard.v1"
   private val _storyboard_schema_v2 = "cozy.video.storyboard.v2"
-  private val _sha256_pattern = "sha256:[0-9a-f]{64}".r
 
   def storyboardReviewEvidence(config: StoryboardReviewConfig): StoryboardReviewResult =
     _write_storyboard_review_evidence(config)
@@ -119,9 +117,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     val result = storyboardReviewEvidence(config)
     Vector(
       s"evidence: ${result.evidencePath}",
-      s"handoff: ${result.handoffPath}",
-      s"identity: ${result.evidenceIdentity}",
-      s"storyboardIdentity: ${result.storyboardIdentity}"
+      s"handoff: ${result.handoffPath}"
     ).mkString("\n")
   }
 
@@ -131,7 +127,7 @@ private[cozy] trait CozyVideoStoryboardReview {
       _review_failure("STORYBOARD_REVIEW_DECLARATION_MISSING", "video project does not declare storyboardReview")
     )
     val projectroot = _canonical_project_root(plan.projectRoot)
-    val approved = _approved_storyboard(projectroot, review)
+    val approved = _review_storyboard(projectroot, review)
     if (approved.storyboard.schema != _storyboard_schema_v2)
       _review_failure("STORYBOARD_REVIEW_CROSS_MEDIA_SCHEMA_UNSUPPORTED", "Cross-media Review requires Storyboard v2 visual-page evidence")
     val visualpage = _visual_page_review(projectroot, plan.project, review, approved).getOrElse(
@@ -140,22 +136,13 @@ private[cozy] trait CozyVideoStoryboardReview {
     _validate_storyboard_review_current(plan)
     val evidencepath = visualpage.evidencedirectory.resolve("review-evidence.json").normalize()
     val handoffpath = visualpage.evidencedirectory.resolve("handoff.json").normalize()
-    val evidence = _read_json(evidencepath, "Storyboard v2 review evidence")
-    val handoff = _read_json(handoffpath, "Storyboard v2 review handoff")
-    StoryboardReviewCurrent(
-      plan.projectFile,
-      evidencepath,
-      handoffpath,
-      _identity_field(evidence, "Storyboard v2 review evidence"),
-      _identity_field(handoff, "Storyboard v2 review handoff"),
-      approved.identity
-    )
+    StoryboardReviewCurrent(plan.projectFile, evidencepath, handoffpath)
   }
 
   private[video] def _validate_storyboard_review_current(plan: VideoPlan): Unit =
     plan.project.storyboardReview.foreach { review =>
       val projectroot = _canonical_project_root(plan.projectRoot)
-      val approved = _approved_storyboard(projectroot, review)
+      val approved = _review_storyboard(projectroot, review)
       approved.storyboard.schema match {
         case `_storyboard_schema_v1` =>
           if (review.visualPage.isDefined)
@@ -163,12 +150,10 @@ private[cozy] trait CozyVideoStoryboardReview {
           review.visualStory.foreach { visualstory =>
             val evidencedirectory = _safe_evidence_directory(projectroot, visualstory.evidenceDirectory)
             val inputs = _admitted_visual_inputs(projectroot, evidencedirectory, approved.storyboard, visualstory)
-            val approvedevidenceidentity = _approved_visual_story_evidence_identity(visualstory)
             val evidencepath = evidencedirectory.resolve("review-evidence.json").normalize()
             _require_direct_output_file(evidencepath, evidencedirectory, "Storyboard review evidence")
             val evidence = _read_json(evidencepath, "Storyboard review evidence")
-            val expected = _review_evidence_payload_v1(approved, inputs, visualreview = true)
-            _validate_current_evidence(evidence, expected, approved, inputs, approvedevidenceidentity)
+            _validate_current_evidence(evidence, inputs, evidencedirectory)
           }
         case `_storyboard_schema_v2` =>
           val visualpage = _visual_page_review(projectroot, plan.project, review, approved)
@@ -177,31 +162,18 @@ private[cozy] trait CozyVideoStoryboardReview {
           val evidencedirectory = visualpage.map(_.evidencedirectory).orElse(visualstorydirectory)
           evidencedirectory.foreach { directory =>
             val inputs = review.visualStory.map(visualstory => _admitted_visual_inputs(projectroot, directory, approved.storyboard, visualstory)).getOrElse(Vector.empty)
-            val expected = _review_evidence_payload_v2(approved, inputs, visualpage)
             val evidencepath = directory.resolve("review-evidence.json").normalize()
             _require_direct_output_file(evidencepath, directory, "Storyboard v2 review evidence")
             val evidence = _read_json(evidencepath, "Storyboard v2 review evidence")
-            _validate_current_evidence_v2(
-              evidence,
-              expected,
-              approved,
-              inputs,
-              _approved_evidence_identities(review, visualpage)
-            )
-            val expectedhandoff = _storyboard_handoff_payload_v2(projectroot, evidencepath, _json_identity(expected), approved, inputs, visualpage)
+            _validate_current_evidence_v2(evidence, inputs, directory)
             val handoffpath = directory.resolve("handoff.json").normalize()
             _require_direct_output_file(handoffpath, directory, "Storyboard v2 review handoff")
-            _validate_current_handoff_v2(_read_json(handoffpath, "Storyboard v2 review handoff"), expectedhandoff)
+            _validate_current_handoff_v2(_read_json(handoffpath, "Storyboard v2 review handoff"))
           }
         case schema =>
           _review_failure("STORYBOARD_REVIEW_SCHEMA_UNSUPPORTED", s"Unsupported Storyboard schema: $schema")
       }
     }
-
-  private def _identity_field(value: Json, label: String): String =
-    value.hcursor.get[String]("identity").toOption.filter(identity => _sha256_pattern.pattern.matcher(identity).matches).getOrElse(
-      _review_failure("STORYBOARD_REVIEW_CROSS_MEDIA_IDENTITY_INVALID", s"$label must contain a SHA-256 identity")
-    )
 
   private[video] def _write_storyboard_review_evidence(config: StoryboardReviewConfig): StoryboardReviewResult = {
     val projectfile = _verified_project_file(config.projectFile)
@@ -210,7 +182,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     val review = project.storyboardReview.getOrElse(
       _review_failure("STORYBOARD_REVIEW_DECLARATION_MISSING", "video project does not declare storyboardReview")
     )
-    val approved = _approved_storyboard(projectroot, review)
+    val approved = _review_storyboard(projectroot, review)
     approved.storyboard.schema match {
       case `_storyboard_schema_v1` =>
         if (review.visualPage.isDefined)
@@ -227,7 +199,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     projectfile: Path,
     projectroot: Path,
     review: StoryboardReview,
-    approved: ApprovedStoryboard,
+    approved: ReviewStoryboard,
     config: StoryboardReviewConfig
   ): StoryboardReviewResult = {
     val expectedvisualdirectory = review.visualStory.map { visualstory =>
@@ -250,24 +222,12 @@ private[cozy] trait CozyVideoStoryboardReview {
     }
     val visualdirectory = review.visualStory.map(_ => _ensure_direct_directory(savedir.resolve("visual-inputs").normalize(), savedir, "Storyboard visual-inputs"))
     val payload = _review_evidence_payload_v1(approved, inputs, review.visualStory.isDefined)
-    val evidenceidentity = _json_identity(payload)
-    val evidencejson = payload.deepMerge(Json.obj("identity" -> Json.fromString(evidenceidentity)))
     val evidencepath = savedir.resolve("review-evidence.json").normalize()
-    _write_json(evidencepath, evidencejson, savedir)
+    _write_json(evidencepath, payload, savedir)
     val handoffpath = savedir.resolve("handoff.json").normalize()
     val handofffields = Vector(
       Some("schema" -> Json.fromString(_storyboard_handoff_schema)),
-      Some("evidencePath" -> Json.fromString(_display_path(projectroot, evidencepath))),
-      Some("evidenceIdentity" -> Json.fromString(evidenceidentity)),
-      Some("storyboardIdentity" -> Json.fromString(approved.identity)),
-      if (review.visualStory.isDefined) Some(
-        "visualInputIdentities" -> Json.fromValues(inputs.map { input =>
-          Json.obj(
-            "reference" -> Json.fromString(input.reference),
-            "identity" -> Json.fromString(input.identity)
-          )
-        })
-      ) else None
+      Some("evidencePath" -> Json.fromString(_display_path(projectroot, evidencepath)))
     ).flatten
     _write_json(handoffpath, Json.obj(handofffields: _*), savedir)
     visualdirectory.foreach(_ => ())
@@ -275,10 +235,7 @@ private[cozy] trait CozyVideoStoryboardReview {
       projectfile,
       savedir,
       evidencepath,
-      handoffpath,
-      evidenceidentity,
-      approved.identity,
-      inputs.map(_.identity)
+      handoffpath
     )
   }
 
@@ -287,7 +244,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     projectroot: Path,
     project: VideoProject,
     review: StoryboardReview,
-    approved: ApprovedStoryboard,
+    approved: ReviewStoryboard,
     config: StoryboardReviewConfig
   ): StoryboardReviewResult = {
     val visualpage = _visual_page_review(projectroot, project, review, approved)
@@ -309,27 +266,20 @@ private[cozy] trait CozyVideoStoryboardReview {
     }.getOrElse(Vector.empty)
     review.visualStory.foreach(_ => _ensure_direct_directory(savedir.resolve("visual-inputs").normalize(), savedir, "Storyboard visual-inputs"))
     val payload = _review_evidence_payload_v2(approved, inputs, visualpage)
-    val evidenceidentity = _json_identity(payload)
-    val evidencejson = _append_identity_last(payload, evidenceidentity)
     val evidencepath = savedir.resolve("review-evidence.json").normalize()
-    _write_json(evidencepath, evidencejson, savedir)
+    _write_json(evidencepath, payload, savedir)
     val handoffpath = savedir.resolve("handoff.json").normalize()
-    val handoffpayload = _storyboard_handoff_payload_v2(projectroot, evidencepath, evidenceidentity, approved, inputs, visualpage)
-    val handoffidentity = _json_identity(handoffpayload)
-    _write_json(handoffpath, _append_identity_last(handoffpayload, handoffidentity), savedir)
+    val handoffpayload = _storyboard_handoff_payload_v2(projectroot, evidencepath, inputs, visualpage)
+    _write_json(handoffpath, handoffpayload, savedir)
     StoryboardReviewResult(
       projectfile,
       savedir,
       evidencepath,
-      handoffpath,
-      evidenceidentity,
-      approved.identity,
-      inputs.map(_.identity)
+      handoffpath
     )
   }
 
-  private def _approved_storyboard(projectroot: Path, review: StoryboardReview): ApprovedStoryboard = {
-    val approvedidentity = _validate_identity(review.approvedIdentity, "STORYBOARD_REVIEW_APPROVAL_IDENTITY_INVALID")
+  private def _review_storyboard(projectroot: Path, review: StoryboardReview): ReviewStoryboard = {
     val sourcepath = _safe_project_relative_file(projectroot, review.source, "Storyboard review source")
     val result = loadStoryboard(sourcepath)
     if (!result.isValid)
@@ -338,13 +288,7 @@ private[cozy] trait CozyVideoStoryboardReview {
         result.diagnostics.map(_.render).mkString("; ")
       )
     val storyboard = result.storyboard.get
-    val identity = storyboardIdentity(storyboard)
-    if (identity != approvedidentity)
-      _review_failure(
-        "STORYBOARD_REVIEW_APPROVAL_MISMATCH",
-        s"current Storyboard identity $identity does not equal approvedIdentity $approvedidentity"
-      )
-    ApprovedStoryboard(sourcepath, _display_path(projectroot, sourcepath), storyboard, identity)
+    CozyVideoStoryboardReview.ReviewStoryboard(sourcepath, _display_path(projectroot, sourcepath), storyboard)
   }
 
   private def _admitted_visual_inputs(
@@ -371,7 +315,7 @@ private[cozy] trait CozyVideoStoryboardReview {
       val relative = _display_path(projectroot, sourcepath)
       val destination = evidencedirectory.resolve("visual-inputs").resolve(_relative_path(reference)).normalize()
       _require_contained_path(evidencedirectory, destination, s"Storyboard visual input destination $reference")
-      VisualInput(reference, sourcepath, relative, destination, _file_identity(sourcepath))
+      VisualInput(reference, sourcepath, relative, destination)
     }
   }
 
@@ -390,12 +334,10 @@ private[cozy] trait CozyVideoStoryboardReview {
     }
     if (!Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination))
       _review_failure("STORYBOARD_REVIEW_INPUT_COPY_INVALID", s"copied visual input is not a direct regular file: $destination")
-    if (_file_identity(destination) != input.identity)
-      _review_failure("STORYBOARD_REVIEW_INPUT_COPY_CHANGED", s"visual input changed while copying: ${input.reference}")
     input.copy(copiedpath = destination)
   }
 
-  private def _review_evidence_payload_v1(approved: ApprovedStoryboard, inputs: Vector[VisualInput], visualreview: Boolean): Json = {
+  private def _review_evidence_payload_v1(approved: ReviewStoryboard, inputs: Vector[VisualInput], visualreview: Boolean): Json = {
     val scenejson = approved.storyboard.scenes.map { scene =>
       Json.obj(
         "section" -> Json.fromString(scene.section),
@@ -417,15 +359,13 @@ private[cozy] trait CozyVideoStoryboardReview {
       Some("schema" -> Json.fromString(_review_evidence_schema)),
       Some("status" -> Json.fromString("validated")),
       Some("source" -> Json.fromString(approved.relativepath)),
-      Some("storyboardIdentity" -> Json.fromString(approved.identity)),
       Some("scenes" -> Json.fromValues(scenejson)),
       if (visualreview)
         Some("visualInputs" -> Json.fromValues(inputs.map { input =>
           Json.obj(
             "reference" -> Json.fromString(input.reference),
             "source" -> Json.fromString(input.relativepath),
-            "path" -> Json.fromString(_slash_path(Paths.get("visual-inputs").resolve(_relative_path(input.reference)))),
-            "identity" -> Json.fromString(input.identity)
+            "path" -> Json.fromString(_slash_path(Paths.get("visual-inputs").resolve(_relative_path(input.reference))))
           )
         }))
       else None
@@ -434,7 +374,7 @@ private[cozy] trait CozyVideoStoryboardReview {
   }
 
   private def _review_evidence_payload_v2(
-    approved: ApprovedStoryboard,
+    approved: ReviewStoryboard,
     inputs: Vector[VisualInput],
     visualpage: Option[VisualPageReview]
   ): Json =
@@ -442,7 +382,6 @@ private[cozy] trait CozyVideoStoryboardReview {
       "schema" -> Json.fromString(_review_evidence_schema_v2),
       "status" -> Json.fromString("validated"),
       "source" -> Json.fromString(approved.relativepath),
-      "storyboardIdentity" -> Json.fromString(approved.identity),
       "scenes" -> Json.fromValues(approved.storyboard.scenes.map(_review_scene_json_v2)),
       "visualInputs" -> Json.fromValues(inputs.map(_visual_input_json)),
       "visualPages" -> Json.fromValues(visualpage.toVector.flatMap(_.pages).map(_visual_page_proof_json)),
@@ -485,8 +424,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     Json.obj(
       "reference" -> Json.fromString(input.reference),
       "source" -> Json.fromString(input.relativepath),
-      "path" -> Json.fromString(_slash_path(Paths.get("visual-inputs").resolve(_relative_path(input.reference)))),
-      "identity" -> Json.fromString(input.identity)
+      "path" -> Json.fromString(_slash_path(Paths.get("visual-inputs").resolve(_relative_path(input.reference))))
     )
 
   private def _visual_page_proof_json(proof: VisualPageProof): Json =
@@ -496,12 +434,7 @@ private[cozy] trait CozyVideoStoryboardReview {
       "source" -> Json.fromString(proof.source),
       "catalog" -> Json.fromString(proof.catalog),
       "pageId" -> Json.fromString(proof.pageid),
-      "visualPageSetIdentity" -> Json.fromString(proof.visualpagesetidentity),
-      "catalogIdentity" -> Json.fromString(proof.catalogidentity),
-      "logicalIdentity" -> Json.fromString(proof.logicalidentity),
-      "visualPageIdentity" -> Json.fromString(proof.visualpageidentity),
-      "assets" -> Json.fromValues(proof.assets.map(_visual_page_asset_json)),
-      "bindingIdentity" -> Json.fromString(proof.bindingidentity)
+      "assets" -> Json.fromValues(proof.assets.map(_visual_page_asset_json))
     )
 
   private def _visual_page_asset_json(asset: VisualPageAsset): Json =
@@ -509,21 +442,18 @@ private[cozy] trait CozyVideoStoryboardReview {
       "id" -> Json.fromString(asset.id),
       "path" -> Json.fromString(asset.path),
       "mediaType" -> Json.fromString(asset.mediatype),
-      "sha256" -> Json.fromString(asset.sha256)
+      "modifiedAt" -> Json.fromString(asset.modifiedat.toString)
     )
 
   private def _effective_renderer_json(renderer: EffectiveRenderer): Json =
     Json.obj(
       "partId" -> Json.fromString(renderer.partid),
-      "configuration" -> renderer.configuration,
-      "identity" -> Json.fromString(renderer.identity)
+      "configuration" -> renderer.configuration
     )
 
   private def _storyboard_handoff_payload_v2(
     projectroot: Path,
     evidencepath: Path,
-    evidenceidentity: String,
-    approved: ApprovedStoryboard,
     inputs: Vector[VisualInput],
     visualpage: Option[VisualPageReview]
   ): Json =
@@ -531,8 +461,6 @@ private[cozy] trait CozyVideoStoryboardReview {
       "schema" -> Json.fromString(_storyboard_handoff_schema_v2),
       "status" -> Json.fromString("validated"),
       "evidencePath" -> Json.fromString(_display_path(projectroot, evidencepath)),
-      "evidenceIdentity" -> Json.fromString(evidenceidentity),
-      "storyboardIdentity" -> Json.fromString(approved.identity),
       "visualInputs" -> Json.fromValues(inputs.map(_visual_input_json)),
       "visualPages" -> Json.fromValues(visualpage.toVector.flatMap(_.pages).map(_visual_page_proof_json)),
       "effectiveRenderers" -> Json.fromValues(visualpage.toVector.flatMap(_.renderers).map(_effective_renderer_json))
@@ -542,7 +470,7 @@ private[cozy] trait CozyVideoStoryboardReview {
     projectroot: Path,
     project: VideoProject,
     review: StoryboardReview,
-    approved: ApprovedStoryboard
+    approved: ReviewStoryboard
   ): Option[VisualPageReview] = {
     val visualscreens = approved.storyboard.scenes.zipWithIndex.collect {
       case (scene, index) if scene.screen.isInstanceOf[StoryboardVisualPageScreen] =>
@@ -567,21 +495,17 @@ private[cozy] trait CozyVideoStoryboardReview {
         symlinkfailurecode = "STORYBOARD_REVIEW_VISUAL_PAGE_BINDING_UNSAFE"
       )
       val evidencedirectory = _safe_literal_evidence_directory(projectroot, declaration.evidenceDirectory)
-      val approvedevidenceidentity = _validate_identity(
-        declaration.approvedEvidenceIdentity,
-        "STORYBOARD_REVIEW_VISUAL_PAGE_APPROVED_EVIDENCE_IDENTITY_INVALID"
-      )
       val pages = visualscreens.map { case (sceneid, index, screen) =>
         _resolve_visual_page_proof(projectroot, approved, sceneid, index, screen, bindingpath)
       }
       val renderers = _effective_storyboard_renderers(projectroot, project, approved.sourcepath)
-      Some(VisualPageReview(evidencedirectory, approvedevidenceidentity, pages, renderers))
+      Some(VisualPageReview(evidencedirectory, pages, renderers))
     }
   }
 
   private def _resolve_visual_page_proof(
     projectroot: Path,
-    approved: ApprovedStoryboard,
+    approved: ReviewStoryboard,
     sceneid: String,
     index: Int,
     screen: StoryboardVisualPageScreen,
@@ -609,29 +533,19 @@ private[cozy] trait CozyVideoStoryboardReview {
       case _ =>
         _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_DUPLICATE", s"screen[$index] pageId resolves more than once: ${screen.pageId}")
     }
-    val binding = try CozyVisualPageBinding.load(bindingpath, validated) catch {
+    try CozyVisualPageBinding.load(bindingpath, validated) catch {
       case NonFatal(error) =>
         _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_BINDING_INVALID", s"screen[$index] binding cannot validate against its resolved VisualPageSet/catalog: ${Option(error.getMessage).getOrElse("invalid binding")}")
     }
-    val logicalidentity = validated.logicalIdentities.toMap.getOrElse(
-      page.id,
-      _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_LOGICAL_IDENTITY_MISSING", s"screen[$index] selected page has no logical identity: ${page.id}")
-    )
-    val visualpageidentity = validated.visualPageIdentities.toMap.getOrElse(
-      page.id,
-      _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_IDENTITY_MISSING", s"screen[$index] selected page has no visual-page identity: ${page.id}")
-    )
     VisualPageProof(
       sceneid,
       screen.source,
       screen.catalog,
       screen.pageId,
-      validated.documentIdentity,
-      validated.catalogIdentity,
-      logicalidentity,
-      visualpageidentity,
-      page.assets.map(asset => VisualPageAsset(asset.id, asset.path, asset.mediaType, asset.sha256)),
-      binding.bindingIdentity
+      page.assets.map { asset =>
+        val assetpath = CozyVisualPage._safe_direct_file(sourcepath.getParent, asset.path, s"asset.${asset.id}.path")
+        VisualPageAsset(asset.id, asset.path, asset.mediaType, Files.getLastModifiedTime(assetpath, LinkOption.NOFOLLOW_LINKS))
+      }
     )
   }
 
@@ -648,7 +562,7 @@ private[cozy] trait CozyVideoStoryboardReview {
             _review_failure("STORYBOARD_REVIEW_EFFECTIVE_RENDERER_MISSING", s"Storyboard part ${part.displayId(index + 1)} has no selected effective VideoRenderer")
           )
           val configuration = _video_renderer_json(renderer)
-          Vector(EffectiveRenderer(part.displayId(index + 1), configuration, _json_identity(configuration)))
+          Vector(EffectiveRenderer(part.displayId(index + 1), configuration))
         } else Vector.empty
       }
     }.toVector.sortBy(_.partid)
@@ -668,7 +582,10 @@ private[cozy] trait CozyVideoStoryboardReview {
       "crf" -> renderer.crf.map(Json.fromInt).getOrElse(Json.Null),
       "x264Preset" -> renderer.x264Preset.map(Json.fromString).getOrElse(Json.Null),
       "effectProfile" -> renderer.effectProfile.map(Json.fromString).getOrElse(Json.Null)
-    )
+    ).deepMerge(Json.fromFields(Vector(
+      renderer.qualityProfile.map(profile => "qualityProfile" -> Json.fromString(profile.name)),
+      renderer.audioBitrate.map(bitrate => "audioBitrate" -> Json.fromString(bitrate))
+    ).flatten))
 
   private def _safe_storyboard_relative_file(projectroot: Path, storyboardroot: Path, raw: String, label: String): Path = {
     val relative = _safe_relative_path(raw, label)
@@ -716,110 +633,135 @@ private[cozy] trait CozyVideoStoryboardReview {
       case _ => ()
     }
 
-  private def _approved_visual_story_evidence_identity(visualstory: StoryboardReviewVisualStory): String =
-    visualstory.approvedEvidenceIdentity match {
-      case Some(value) if _is_identity(value) => value
-      case Some(value) =>
-        _review_failure("STORYBOARD_REVIEW_APPROVED_EVIDENCE_IDENTITY_INVALID", s"approvedEvidenceIdentity is not a lowercase SHA-256 identity: $value")
-      case None =>
-        _review_failure("STORYBOARD_REVIEW_APPROVED_EVIDENCE_MISSING", "visualStory.approvedEvidenceIdentity is required before video build")
-    }
-
-  private def _approved_evidence_identities(review: StoryboardReview, visualpage: Option[VisualPageReview]): Vector[String] = {
-    val visualstory = review.visualStory.map(_approved_visual_story_evidence_identity)
-    val page = visualpage.map(_.approvedevidenceidentity)
-    (visualstory.toVector ++ page.toVector).distinct
+  private def _validate_current_evidence(evidence: Json, inputs: Vector[VisualInput], directory: Path): Unit = {
+    _validate_review_document(evidence, _review_evidence_schema, "EVIDENCE")
+    if (evidence.hcursor.downField("visualInputs").focus.flatMap(_.asArray).isEmpty)
+      _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", "visual-story evidence requires visualInputs")
+    _validate_visual_copies(inputs, directory)
   }
 
-  private def _validate_current_evidence(
-    evidence: Json,
-    expected: Json,
-    approved: ApprovedStoryboard,
-    inputs: Vector[VisualInput],
-    approvedevidenceidentity: String
-  ): Unit = {
-    val actualidentity = evidence.hcursor.get[String]("identity").toOption.getOrElse(
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_MISSING", "review-evidence.json has no identity")
-    )
-    if (!_is_identity(actualidentity))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_INVALID", s"review-evidence.json identity is invalid: $actualidentity")
-    val payload = evidence.asObject.map(_.remove("identity")).map(Json.fromJsonObject).getOrElse(
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", "review-evidence.json must be a JSON object")
-    )
-    if (evidence.hcursor.get[String]("schema").toOption != Some(_review_evidence_schema))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_SCHEMA_INVALID", "review-evidence.json schema is not supported")
-    if (evidence.hcursor.get[String]("status").toOption != Some("validated"))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_STATUS_INVALID", "review-evidence.json status is not validated")
-    if (_json_identity(payload) != actualidentity)
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_MISMATCH", "review-evidence.json identity does not match its canonical payload")
-    if (payload != expected)
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_STALE", s"review-evidence.json is stale for approved Storyboard ${approved.identity}")
-    if (actualidentity != approvedevidenceidentity)
-      _review_failure(
-        "STORYBOARD_REVIEW_APPROVED_EVIDENCE_MISMATCH",
-        s"approvedEvidenceIdentity $approvedevidenceidentity does not match current evidence $actualidentity"
-      )
+  private def _validate_current_evidence_v2(evidence: Json, inputs: Vector[VisualInput], directory: Path): Unit = {
+    _validate_review_document(evidence, _review_evidence_schema_v2, "EVIDENCE")
+    _visual_page_references(evidence)
+    _validate_visual_copies(inputs, directory)
+  }
+
+  private def _validate_current_handoff_v2(handoff: Json): Unit = {
+    _validate_review_document(handoff, _storyboard_handoff_schema_v2, "HANDOFF")
+    _visual_page_references(handoff)
+  }
+
+  private def _validate_review_document(value: Json, schema: String, label: String): Unit = {
+    if (value.asObject.isEmpty)
+      _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", "review document must be a JSON object")
+    if (value.hcursor.get[String]("schema").toOption != Some(schema))
+      _review_failure(s"STORYBOARD_REVIEW_${label}_SCHEMA_INVALID", "review document schema is not supported")
+    if (value.hcursor.get[String]("status").toOption != Some("validated"))
+      _review_failure(s"STORYBOARD_REVIEW_${label}_STATUS_INVALID", "review document status is not validated")
+    val evidence = label == "EVIDENCE"
+    val v2 = schema.endsWith(".v2")
+    val required = Set("schema") ++ (if (evidence || v2) Set("status") else Set.empty[String]) ++
+      (if (evidence) Set("source", "scenes") else Set("evidencePath")) ++
+      (if (v2) Set("visualInputs", "visualPages", "effectiveRenderers") else Set.empty[String])
+    val allowed = required ++ (if (evidence && !v2) Set("visualInputs") else Set.empty[String])
+    val fields = _known_review_fields(value.asObject.get, allowed)
+    if (!required.subsetOf(fields.keys.toSet))
+      _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", "review document required fields are missing or unknown")
+    val reference = if (evidence) "source" else "evidencePath"
+    if (!fields(reference).flatMap(_.asString).exists(text => text.nonEmpty && text == text.trim))
+      _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", s"$reference must be a non-empty exact string")
+    Vector("scenes", "visualInputs", "visualPages", "effectiveRenderers").filter(fields.contains).foreach { name =>
+      if (fields(name).flatMap(_.asArray).isEmpty)
+        _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", s"$name must be an array")
+    }
+    _validate_review_rows(Json.fromJsonObject(fields), v2, label)
+  }
+
+  private def _known_review_fields(fields: io.circe.JsonObject, names: Set[String]): io.circe.JsonObject =
+    fields.filterKeys(names.contains)
+
+  private def _validate_review_rows(value: Json, v2: Boolean, label: String): Unit = {
+    def _invalid_(message: String): Nothing = _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", message)
+    def _rows_(name: String): Vector[Json] = value.hcursor.downField(name).focus.flatMap(_.asArray).toVector.flatten
+    def _fields_(row: Json, names: Set[String]): io.circe.JsonObject = {
+      val fields = _known_review_fields(row.asObject.getOrElse(_invalid_("review entry must be an object")), names)
+      if (fields.keys.toSet != names) _invalid_(s"review entry requires fields: ${names.toVector.sorted.mkString(", ")}")
+      fields
+    }
+    def _string_(fields: io.circe.JsonObject, name: String): String =
+      fields(name).flatMap(_.asString).getOrElse(_invalid_(s"$name must be a string"))
+    def _reference_(fields: io.circe.JsonObject, name: String): String = {
+      val text = _string_(fields, name)
+      if (text.isEmpty || text != text.trim) _invalid_(s"$name must be a non-empty exact string")
+      text
+    }
+    def _unique_(values: Vector[String], name: String): Unit =
+      if (values.distinct.size != values.size) _invalid_(s"$name must be unique")
+
+    if (value.hcursor.downField("scenes").focus.isDefined && _rows_("scenes").isEmpty)
+      _invalid_("scenes must not be empty")
+    _rows_("scenes").foreach { row =>
+      val strings = Set("section", "speaker", "role", "narration", "caption", "transition", "direction")
+      val fields = _fields_(row, strings ++ Set("screen", "duration", "leadSilence"))
+      strings.foreach(name => _string_(fields, name))
+      Vector("duration", "leadSilence").foreach { name =>
+        if (fields(name).flatMap(_.asNumber).flatMap(_.toBigDecimal).isEmpty) _invalid_(s"$name must be a number")
+      }
+      val screen = fields("screen").get
+      val visual = v2 && screen.hcursor.get[String]("kind").toOption.contains("visual-page")
+      val names = if (visual) Set("kind", "source", "catalog", "pageId") else Set("heading", "content") ++ (if (v2) Set("kind") else Set.empty[String])
+      val screenfields = _fields_(screen, names)
+      names.foreach(name => _string_(screenfields, name))
+      if (v2 && !Set("text", "visual-page").contains(_string_(screenfields, "kind"))) _invalid_("screen kind is invalid")
+    }
+    val references = _rows_("visualInputs").map { row =>
+      val fields = _fields_(row, Set("reference", "source", "path"))
+      Vector("reference", "source", "path").foreach(name => _safe_relative_path(_reference_(fields, name), name))
+      _reference_(fields, "reference")
+    }
+    _unique_(references, "visual input references")
+    val parts = _rows_("effectiveRenderers").map { row =>
+      val fields = _fields_(row, Set("partId", "configuration"))
+      val configuration = fields("configuration").get
+      val names = Set("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile")
+      _fields_(configuration, names)
+      val knownconfiguration = Json.fromJsonObject(_known_review_fields(configuration.asObject.get,
+        names ++ Set("qualityProfile", "audioBitrate")))
+      if (knownconfiguration.as[VideoRenderer].isLeft) _invalid_("renderer configuration is invalid")
+      _reference_(fields, "partId")
+    }
+    _unique_(parts, "renderer part IDs")
+  }
+
+  private def _validate_visual_copies(inputs: Vector[VisualInput], directory: Path): Unit =
     inputs.foreach { input =>
-      _require_direct_output_file(input.copiedpath, input.copiedpath.getParent, s"Storyboard visual input ${input.reference}")
-      if (_file_identity(input.copiedpath) != input.identity)
-        _review_failure("STORYBOARD_REVIEW_INPUT_STALE", s"visual input changed since evidence generation: ${input.reference}")
+      _require_direct_output_file(input.copiedpath, directory, s"Storyboard visual input ${input.reference}")
     }
-  }
 
-  private def _validate_current_evidence_v2(
-    evidence: Json,
-    expected: Json,
-    approved: ApprovedStoryboard,
-    inputs: Vector[VisualInput],
-    approvedidentities: Vector[String]
-  ): Unit = {
-    val actualidentity = evidence.hcursor.get[String]("identity").toOption.getOrElse(
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_MISSING", "review-evidence.json has no identity")
-    )
-    if (!_is_identity(actualidentity))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_INVALID", s"review-evidence.json identity is invalid: $actualidentity")
-    val payload = evidence.asObject.map(_.remove("identity")).map(Json.fromJsonObject).getOrElse(
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_MALFORMED", "review-evidence.json must be a JSON object")
-    )
-    if (evidence.hcursor.get[String]("schema").toOption != Some(_review_evidence_schema_v2))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_SCHEMA_INVALID", "review-evidence.json schema is not supported for Storyboard v2")
-    if (evidence.hcursor.get[String]("status").toOption != Some("validated"))
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_STATUS_INVALID", "review-evidence.json status is not validated")
-    if (_json_identity(payload) != actualidentity)
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_IDENTITY_MISMATCH", "review-evidence.json identity does not match its canonical payload")
-    if (payload != expected)
-      _review_failure("STORYBOARD_REVIEW_EVIDENCE_STALE", s"review-evidence.json is stale for approved Storyboard ${approved.identity}")
-    approvedidentities.foreach { approvedidentity =>
-      if (actualidentity != approvedidentity)
-        _review_failure(
-          "STORYBOARD_REVIEW_APPROVED_EVIDENCE_MISMATCH",
-          s"approved evidence identity $approvedidentity does not match current evidence $actualidentity"
-        )
+  private def _visual_page_references(value: Json): Vector[Json] = {
+    def _invalid_(message: String): Nothing = _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_PROOF_INVALID", message)
+    def _exact_string_(value: Option[Json]): Boolean = value.flatMap(_.asString).exists(text => text.nonEmpty && text == text.trim)
+    val references = value.hcursor.downField("visualPages").focus.flatMap(_.asArray).getOrElse(_invalid_("visualPages must be an array")).toVector.map { page =>
+      val names = Vector("sceneId", "kind", "source", "catalog", "pageId", "assets")
+      val fields = _known_review_fields(page.asObject.getOrElse(_invalid_("visualPages entry must be an object")), names.toSet)
+      if (fields.keys.toVector != names || !names.dropRight(1).forall(name => _exact_string_(fields(name))))
+        _invalid_("visualPages entry requires exact sceneId,kind,source,catalog,pageId strings and assets")
+      if (fields("kind").flatMap(_.asString) != Some("visual-page"))
+        _invalid_("visualPages kind must be visual-page")
+      val assets = fields("assets").flatMap(_.asArray).getOrElse(_invalid_("visualPages.assets must be an array"))
+      assets.foreach { asset =>
+        val assetnames = Vector("id", "path", "mediaType", "modifiedAt")
+        val assetfields = _known_review_fields(asset.asObject.getOrElse(_invalid_("visualPages asset must be an object")), assetnames.toSet)
+        if (assetfields.keys.toVector != assetnames || !assetnames.forall(name => _exact_string_(assetfields(name))))
+          _invalid_("visualPages asset requires id,path,mediaType,modifiedAt strings")
+      }
+      if (assets.map(_.hcursor.get[String]("id").toOption).distinct.size != assets.size)
+        _invalid_("visualPages asset IDs must be unique")
+      Json.fromJsonObject(fields.remove("assets"))
     }
-    inputs.foreach { input =>
-      _require_direct_output_file(input.copiedpath, input.copiedpath.getParent, s"Storyboard visual input ${input.reference}")
-      if (_file_identity(input.copiedpath) != input.identity)
-        _review_failure("STORYBOARD_REVIEW_INPUT_STALE", s"visual input changed since evidence generation: ${input.reference}")
-    }
-  }
-
-  private def _validate_current_handoff_v2(handoff: Json, expected: Json): Unit = {
-    val actualidentity = handoff.hcursor.get[String]("identity").toOption.getOrElse(
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_IDENTITY_MISSING", "handoff.json has no identity")
-    )
-    if (!_is_identity(actualidentity))
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_IDENTITY_INVALID", s"handoff.json identity is invalid: $actualidentity")
-    val payload = handoff.asObject.map(_.remove("identity")).map(Json.fromJsonObject).getOrElse(
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_MALFORMED", "handoff.json must be a JSON object")
-    )
-    if (handoff.hcursor.get[String]("schema").toOption != Some(_storyboard_handoff_schema_v2))
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_SCHEMA_INVALID", "handoff.json schema is not supported for Storyboard v2")
-    if (handoff.hcursor.get[String]("status").toOption != Some("validated"))
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_STATUS_INVALID", "handoff.json status is not validated")
-    if (_json_identity(payload) != actualidentity)
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_IDENTITY_MISMATCH", "handoff.json identity does not match its canonical payload")
-    if (payload != expected)
-      _review_failure("STORYBOARD_REVIEW_HANDOFF_STALE", "handoff.json does not equal the current Storyboard v2 review handoff payload")
+    if (references.map(_.hcursor.get[String]("sceneId").toOption).distinct.size != references.size)
+      _invalid_("visualPages scene IDs must be unique")
+    references
   }
 
   private def _safe_project_relative_file(
@@ -947,41 +889,6 @@ private[cozy] trait CozyVideoStoryboardReview {
       }
     } finally input.close()
   }
-
-  private def _validate_identity(value: String, code: String): String = {
-    val normalized = Option(value).getOrElse("")
-    if (!_is_identity(normalized))
-      _review_failure(code, s"invalid SHA-256 identity: $value")
-    normalized
-  }
-
-  private def _is_identity(value: String): Boolean =
-    _sha256_pattern.pattern.matcher(Option(value).getOrElse("")).matches()
-
-  private def _append_identity_last(payload: Json, identity: String): Json =
-    Json.obj((payload.asObject.toVector.flatMap(_.toVector) :+ ("identity" -> Json.fromString(identity))): _*)
-
-  private def _json_identity(json: Json): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    "sha256:" + _sha256_hex(digest.digest(json.noSpaces.getBytes(StandardCharsets.UTF_8)))
-  }
-
-  private def _file_identity(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val input = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var count = input.read(buffer)
-      while (count >= 0) {
-        if (count > 0) digest.update(buffer, 0, count)
-        count = input.read(buffer)
-      }
-    } finally input.close()
-    "sha256:" + _sha256_hex(digest.digest())
-  }
-
-  private def _sha256_hex(bytes: Array[Byte]): String =
-    bytes.map(value => f"${value & 0xff}%02x").mkString
 
   private def _safe_relative_path(raw: String, label: String): Path = {
     val value = Option(raw).map(_.trim).getOrElse("")

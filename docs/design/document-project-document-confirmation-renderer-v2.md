@@ -2,6 +2,9 @@
 
 Status: normative for Phase 58.2, Step P582-03, Slice P582-03A
 
+Phase 71.1 supersedes only hash-derived presentation behavior. It does not
+remove current source-admission bindings, which are a later same-Phase scope.
+
 This design defines the bounded presentation seam for a strict v2 Document
 confirmation workspace. It consumes an already admitted
 `CozyDocumentDescriptionV2.ValidatedDocument`; it neither loads content nor
@@ -114,19 +117,15 @@ margin. This is a persistent desktop Core-panel navigation aid, not a fixed
 reading pane: the complete Document article remains natural height. The rule is
 screen-only, leaving print and narrow fallback behavior unchanged.
 
-## Status, identity, and deterministic output
+## Status and deterministic output
 
 The normal workspace makes four admitted facts primary: complete Document
 coverage, current sources, admitted state, and no unresolved references. They
 are direct projections of `ValidatedDocument`, not renderer diagnostics or a
-new universal Summary assertion. Core and Document identities, plus the
-rendered output identity, live in a collapsed secondary disclosure.
-
-The rendered artifact identity is the SHA-256 identity of the deterministic
-HTML with only the self-disclosing output-identity value normalized to empty.
-This makes the identity sensitive to every other HTML byte while avoiding an
-impossible recursive hash of a document containing its own final hash. The
-returned identity and the disclosed output identity are therefore identical.
+new universal Summary assertion. The renderer emits no Core, Document, or
+output digest disclosure, output-identity attribute, two-pass normalization,
+or `Rendered.identity`; equal semantic inputs produce one deterministic pass
+regardless of legacy source digest metadata.
 
 All author-controlled text and attributes pass through HTML escaping. The page
 contains only inline CSS and script: no resource URL, network request, canvas,
@@ -145,3 +144,10 @@ production vocabulary values.
 The new required screen-heading field extends only the private,
 still-unreleased presentation vocabulary; it changes no authoring model,
 semantic schema, public API, or title authority and adds no fallback.
+
+## Phase 71.1 DM08 supersession
+
+The Phase 71.1 / P710-03-DM-08 hash-free V2 model deletion makes prior
+legacy-digest wording obsolete: metadata independence is now proven by
+production loader admission. This renderer remains a pure projection of the
+same semantic `ValidatedDocument` and changes no layout or output vocabulary.

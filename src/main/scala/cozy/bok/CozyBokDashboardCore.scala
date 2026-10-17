@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -74,15 +74,14 @@ private[cozy] trait CozyBokDashboardCore {
   }
 
   private def _site_asset_href(config: BuildConfig, page: Path, path: String): String = {
-    val website = config.websitePath.toAbsolutePath.normalize
-    val normalizedpage = page.toAbsolutePath.normalize
-    val root = config.localeMode match {
-      case LocaleMode.SingleLocaleRoot => website
-      case LocaleMode.MultiLocaleSubdirs =>
-        config.languages.map(lang => website.resolve(lang).normalize).
-          find(normalizedpage.startsWith(_)).getOrElse(website)
+    val websiteroot = config.websitePath.toAbsolutePath.normalize()
+    val relative = websiteroot.relativize(page.toAbsolutePath.normalize())
+    val locale = relative.iterator.asScala.map(_.toString).take(1).find(config.languages.contains)
+    val assetroot = config.localeMode match {
+      case LocaleMode.MultiLocaleSubdirs => locale.map(websiteroot.resolve).getOrElse(websiteroot)
+      case LocaleMode.SingleLocaleRoot => websiteroot
     }
-    _relative_href(page, root.resolve(path))
+    _relative_href(page, assetroot.resolve(path))
   }
 
   private[bok] def _relative_href(page: Path, destination: Path): String =

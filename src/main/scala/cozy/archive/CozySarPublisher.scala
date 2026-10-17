@@ -5,7 +5,8 @@ import java.nio.file.{Files, Path}
 /*
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozySarPublisher {
@@ -41,7 +42,6 @@ object CozySarPublisher {
     version: String,
     channel: String,
     file: String,
-    publishedsar: Path,
     args: List[String]
   ): RepositoryArtifactCatalogVersion =
     RepositoryArtifactCatalogVersion(
@@ -51,8 +51,7 @@ object CozySarPublisher {
       component = None,
       publishedAt = Some(RepositoryArtifactPublisher.publishedAt(args)),
       file = Some(file),
-      runtime = None,
-      checksumSha256 = Some(RepositoryArtifactPublisher.sha256(publishedsar))
+      runtime = None
     )
 
   private val _publish_only_keys =

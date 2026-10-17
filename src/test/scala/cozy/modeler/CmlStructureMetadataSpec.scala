@@ -11,7 +11,7 @@ import CmlStructureMetadata._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -45,6 +45,134 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
       _graph_result(result).envelope.extensions.value("org.example.opaque") shouldBe Json.obj("any" -> Json.arr(JsNull, "retained"))
     }
 
+    "ordinary source attribution projection" which {
+      "admit independently varied source extras in root and embedded records" in {
+        Given("a full Catalog with local reference and Derived sources, plus an opaque hash-named peer")
+        val base = _graph_with_reference()
+        val peer = Json.obj("org.example.opaque" -> Json.obj("sha256" -> Json.arr("keep", JsNull)))
+        val graph = _graph_result(CmlStructureMetadata.build(base.catalog, base.elements, base.relations, peer))
+        val root = CmlStructureMetadata.toJson(graph)
+        val variations = for {
+          corehistorical <- Gen.oneOf(_source_extra_values)
+          coreother <- Gen.oneOf(_source_extra_values)
+          embeddedhistorical <- Gen.oneOf(_source_extra_values)
+          embeddedother <- Gen.oneOf(_source_extra_values)
+        } yield (corehistorical, coreother, embeddedhistorical, embeddedother)
+
+        When("the actual reader admits independent extra types in the complete root and embedded Catalog context")
+        val outcomes = _source_extra_values.map { extra =>
+          _graph_result(CmlStructureMetadata.read(_independent_source_extras(root, extra, None, None, extra)))
+        }
+        val property = Prop.forAll(variations) { case (corehistorical, coreother, embeddedhistorical, embeddedother) =>
+          val supplied = _independent_source_extras(root, corehistorical, coreother, embeddedhistorical, embeddedother)
+          CmlStructureMetadata.read(supplied) match {
+            case Right(read) =>
+              read.catalog.elements == graph.catalog.elements && read.catalog.terms == graph.catalog.terms &&
+                read.elements == graph.elements && read.relations == graph.relations &&
+                read.catalog.element(ModelElementId("model.example", "entity:item")) == Right(graph.catalog.elements.head) &&
+                read.envelope.extensions.value("org.example.opaque") == peer.value("org.example.opaque") &&
+                CmlStructureMetadata.canonicalJson(read) == CmlStructureMetadata.canonicalJson(graph)
+            case Left(_) => false
+          }
+        }
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+
+        Then("ignored extras never contradict typed binding and canonical publication retains only required source fields")
+        outcomes.foreach { read =>
+          read.catalog.elements shouldBe graph.catalog.elements
+          read.elements shouldBe graph.elements
+          read.relations shouldBe graph.relations
+          CmlStructureMetadata.toJson(read) shouldBe root
+        }
+        check.passed shouldBe true
+      }
+
+      "reject contradicted or malformed known embedded facts despite ignored extras" in {
+        Given("an embedded record with a local semantic reference and a complete admitted Catalog")
+        val root = _independent_source_extras(CmlStructureMetadata.toJson(_graph_with_reference()), Some(JsNull), None, Some(Json.arr(1)), Some(JsBoolean(false)))
+        val record = _wire_element(root, 0).value("element").asInstanceOf[JsObject]
+        val source = record.value("source").asInstanceOf[JsObject]
+        val references = record.value("references").asInstanceOf[JsObject]
+        val values = references.value("value").asInstanceOf[JsArray].value
+        val reference = values.head.asInstanceOf[JsObject]
+        val changedreference = references + ("value" -> JsArray(values.updated(0, reference + ("boundary" -> JsString("external")))))
+        val changes = Vector(
+          _replace_embedded_source_field(root, "path", JsString("src/main/cml/other.cml")),
+          _replace_embedded_source_field(root, "line", JsNumber(2)),
+          _replace_embedded_source_field(root, "authorityId", JsString("other.example")),
+          _replace_embedded_name(root, "other name"),
+          _replace_embedded_field(root, "identity", Json.obj("status" -> "present", "value" -> Json.obj("modelId" -> "model.example", "elementId" -> "entity:other"))),
+          _replace_embedded_field(root, "references", changedreference),
+          _replace_embedded_field(root, "source", source - "authorityId"),
+          _replace_embedded_field(root, "source", source - "path"),
+          _replace_embedded_field(root, "source", source - "line"),
+          _replace_embedded_source_field(root, "path", JsNull),
+          _replace_embedded_source_field(root, "authorityId", JsNumber(1)),
+          _replace_embedded_source_field(root, "line", JsString("1")),
+          _replace_embedded_source_field(root, "line", JsNumber(0)),
+          _replace_embedded_field(root, "name", JsNull)
+        )
+
+        When("the ordinary reader validates each supplied embedded known-field alternative")
+        val outcomes = changes.map(value => _first(CmlStructureMetadata.read(value)))
+
+        Then("every contradiction or malformed known record fails at the same safe typed-binding coordinate")
+        outcomes.foreach { diagnostic =>
+          diagnostic.kind shouldBe InvalidCoreBinding
+          diagnostic.path shouldBe "extensions.cozy.cml.structure.elements[0].element"
+          diagnostic.detail shouldBe "The embedded Structure record does not match admitted typed core facts."
+        }
+      }
+
+      "preserve anonymous full-record multiplicity and reject missing or extra witnesses with ignored extras" in {
+        Given("two identical anonymous records, one distinct anonymous record and the existing identified projections")
+        val base = _graph()
+        val anonymous = ElementRecord(Absent(NotRepresented, "Anonymous declaration."), "value", "anonymous", _source("model.example"), Absent(NotDeclared, "No references are declared."))
+        val witnesses = Vector(anonymous, anonymous, anonymous.copy(name = "different"))
+        val catalog = _catalog_from(base.catalog.elements ++ witnesses, base.catalog.terms)
+        val projections = base.elements ++ witnesses.map(record => ElementProjection(record, Value, Absent(NotApplicable, "No aggregate boundary applies.")))
+        val graph = _graph_result(CmlStructureMetadata.build(catalog, projections, base.relations, Json.obj()))
+        val root = CmlStructureMetadata.toJson(graph)
+        val variations = for {
+          coreextra <- Gen.oneOf(_source_extra_values)
+          embeddedextra <- Gen.oneOf(_source_extra_values)
+        } yield (coreextra, embeddedextra)
+
+        When("bounded independently varied source extras pass through typed matching and witness coverage")
+        val property = Prop.forAll(variations) { case (coreextra, embeddedextra) =>
+          val supplied = _independent_source_extras(root, coreextra, embeddedextra, embeddedextra, coreextra)
+          val structure = _structure(supplied)
+          val values = structure.value("elements").asInstanceOf[JsArray].value
+          val variants = Vector(
+            (values.patch(base.elements.size, Vector.empty, 1), MissingProjection),
+            (values :+ values(base.elements.size), DuplicateProjection),
+            (values.dropRight(1), MissingProjection),
+            (values :+ values.last, DuplicateProjection),
+            (values.drop(1), MissingProjection),
+            (values :+ values.head, DuplicateProjection)
+          )
+          val failures = variants.forall { case (changed, expected) =>
+            CmlStructureMetadata.read(_with_structure(supplied, structure + ("elements" -> JsArray(changed)))) match {
+              case Left(diagnostics) => diagnostics.exists(_.kind == expected)
+              case Right(_) => false
+            }
+          }
+          CmlStructureMetadata.read(supplied) match {
+            case Right(read) =>
+              read.catalog.elements == catalog.elements && read.elements == projections &&
+                read.elements.count(_.element == anonymous) == 2 &&
+                read.elements.count(_.element == witnesses.last) == 1 &&
+                CmlStructureMetadata.canonicalJson(read) == CmlStructureMetadata.canonicalJson(graph) && failures
+            case Left(_) => false
+          }
+        }
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+
+        Then("no anonymous duplicate is selected away and all anonymous or identified witness mismatches remain typed failures")
+        check.passed shouldBe true
+      }
+    }
+
     "STR-05 reject an embedded core contradiction" in {
       Given("a rendered graph whose embedded projection name is contradicted")
       val root = CmlStructureMetadata.toJson(_graph())
@@ -55,7 +183,7 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
       _first(result).kind shouldBe InvalidCoreBinding
       Given("the same admitted core record with a contradicted identity and provenance")
       val changedidentity = _replace_embedded_field(root, "identity", Json.obj("status" -> "present", "value" -> Json.obj("modelId" -> "model.example", "elementId" -> "other")))
-      val changedsource = _replace_embedded_field(root, "source", Json.obj("authorityId" -> "model.example", "path" -> "src/main/cml/other.cml", "sha256" -> ("b" * 64), "line" -> 1))
+      val changedsource = _replace_embedded_field(root, "source", Json.obj("authorityId" -> "model.example", "path" -> "src/main/cml/other.cml", "line" -> 1))
       When("the strict consumer reads each contradicted core binding")
       val contradictions = Vector(changedidentity, changedsource).map(value => _first(CmlStructureMetadata.read(value)).kind)
       Then("every embedded identity or provenance contradiction rejects the exact core binding")
@@ -1225,6 +1353,35 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
     }
   }
 
+  private val _source_extra_values: Vector[Option[JsValue]] = Vector(
+    None, Some(JsString("a" * 64)), Some(JsString("")), Some(JsString("malformed")),
+    Some(JsNull), Some(JsNumber(17)), Some(JsBoolean(true)),
+    Some(Json.arr("old", JsNull)), Some(Json.obj("nested" -> false))
+  )
+
+  private def _source_extras(value: JsValue, historical: Option[JsValue], other: Option[JsValue]): JsValue = value match {
+    case source: JsObject if Vector("authorityId", "path", "line").forall(source.value.contains) =>
+      val first = historical.fold(source)(extra => source + ("sha256" -> extra))
+      other.fold(first)(extra => first + ("arbitrary" -> extra))
+    case objectvalue: JsObject => JsObject(objectvalue.fields.map { case (key, field) => key -> _source_extras(field, historical, other) })
+    case JsArray(values) => JsArray(values.map(_source_extras(_, historical, other)))
+    case scalar => scalar
+  }
+
+  private def _independent_source_extras(
+    root: JsObject,
+    corehistorical: Option[JsValue],
+    coreother: Option[JsValue],
+    embeddedhistorical: Option[JsValue],
+    embeddedother: Option[JsValue]
+  ): JsObject = {
+    val core = root ++ Json.obj(
+      "elements" -> _source_extras(root.value("elements"), corehistorical, coreother),
+      "terms" -> _source_extras(root.value("terms"), corehistorical, coreother)
+    )
+    _with_structure(core, _source_extras(_structure(core), embeddedhistorical, embeddedother).asInstanceOf[JsObject])
+  }
+
   private def _graph(
     modelid: String = "model.example",
     firstid: String = "entity:item",
@@ -1264,13 +1421,13 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
         recordidentity,
         kind,
         "共有",
-        SourceAttribution("structure.example", "src/main/cml/structure-handoff.cml", "a" * 64, Some(index + 1)),
+        SourceAttribution("structure.example", "src/main/cml/structure-handoff.cml", Some(index + 1)),
         Absent(NotDeclared, "No semantic references are declared.")
       )
     }
     val term = TermRecord(
       TermId("structure.example", "entity:order"),
-      SourceAttribution("structure.example", "glossary/structure.dox", "1" * 64, None)
+      SourceAttribution("structure.example", "glossary/structure.dox", None)
     )
     val catalog = _catalog_from(records, Vector(term))
     val aggregateid = ModelElementId("structure.example", "aggregate:order")
@@ -1466,7 +1623,7 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
     else
       Json.obj("org.example.a" -> Json.obj("z" -> JsString(suffix)), "org.example.b" -> Json.obj("z" -> JsString(suffix)))
 
-  private def _source(authority: String, path: String = "src/main/cml/example.cml", line: Option[Int] = Some(1)): SourceAttribution = SourceAttribution(authority, path, "a" * 64, line)
+  private def _source(authority: String, path: String = "src/main/cml/example.cml", line: Option[Int] = Some(1)): SourceAttribution = SourceAttribution(authority, path, line)
   private def _endpoint(target: Presence[ModelReference]): Endpoint = Endpoint(target, Absent(NotDeclared, "No role is declared."), Present(Cardinality(0, None)), Present(false))
   private def _semantics: RelationSemantics = RelationSemantics(Absent(NotDeclared, "No ownership is declared."), Present(false), Absent(NotDeclared, "No create policy is declared."), Absent(NotDeclared, "No delete policy is declared."), Absent(NotDeclared, "No reassignment policy is declared."), Absent(NotDeclared, "No reparenting policy is declared."), Present(Vector.empty), Absent(NotDeclared, "No aggregate boundary is declared."))
   private def _relation_absence_carriers(): Vector[(String, (RelationProjection, Absent) => RelationProjection, RelationProjection => Any, Vector[String])] = Vector(

@@ -18,10 +18,7 @@ document:
     relationsHeading: 関係
     noDirectChildFlowTransitions: 直接の子ステップ間の遷移はありません
     logicalStructureReference: 対応する論理構造
-    identitiesHeading: 識別情報
-    coreIdentityLabel: Core 識別子
-    documentIdentityLabel: 文書識別子
-    outputIdentityLabel: 出力識別子
+    identitiesHeading: 主張ID監査
   logicalPatterns:
     sequence: 順序
     mapping: 対応
@@ -64,11 +61,6 @@ summary:
     sourcesHeading: 元情報と編集判断
     omissionsHeading: 要約で省略
     rationaleHeading: 理由
-    identitiesHeading: 識別情報
-    coreIdentityLabel: Core 識別子
-    documentIdentityLabel: 文書識別子
-    summaryIdentityLabel: 要約識別子
-    outputIdentityLabel: 出力識別子
   sourceCategories:
     steps: ステップ
     claims: 主張

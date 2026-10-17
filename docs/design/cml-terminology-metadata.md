@@ -73,7 +73,7 @@ The supplier performs no language selection, BCP 47 normalization, synonym
 canonicalization, trimming, case folding, or text-derived classification.
 
 Strict Unicode edge-space and ISO-control semantics match Foundation for supplied
-tokens, detail, and labels. Source authority/path/SHA-256/line, relation/profile
+tokens, detail, and labels. Source authority/path/line, relation/profile
 scope, context, boundary, declared or derived origin, rule ID, and ordered source
 vectors remain literal admitted facts. No I/O, hashing, clocks, or source checks
 are needed by this immutable publication boundary.
@@ -140,7 +140,7 @@ Resolution separates shape from membership. Private pure closed-shape predicates
 validate the full record/reference/source/origin/Presence tree before any query
 dereference. They accept descriptive empty kind/name and both target families
 inside element references, while a TermLink requires TermTarget. They enforce
-Foundation's strict text, project-relative source path, literal lowercase digest,
+Foundation's strict text and project-relative source path,
 positive optional line, four absence branches, explicit label language Option
 and derived source vector shapes. They do not repeat admission, source-authority
 cross-field checks or graph residency; structurally valid foreign values receive

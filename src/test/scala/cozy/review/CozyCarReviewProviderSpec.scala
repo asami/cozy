@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Jul. 16, 2026
- * @version Jul. 16, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -59,8 +59,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         val bundle = CozyCarReviewProvider.evidenceBundle(
           CozyCarReviewProvider.Request(
             "review-example-001",
-            CozyCarReviewProvider.Target("project", Some("org.textus"), "sample-car", Some("0.1.0-SNAPSHOT"), "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+            CozyCarReviewProvider.Target("project", Some("org.textus"), "sample-car", Some("0.1.0-SNAPSHOT")),
             CozyCarReviewProvider.Limits(2000, 1000, 16777216L, 120000L),
             Vector("cozy.car-analysis"),
             Vector.empty,
@@ -71,15 +70,12 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
           "0.3.0-SNAPSHOT"
         )
 
-        Then("provider, rule set, digests, static evidence kinds, lint observations, and runtime limitation remain explicit")
+        Then("provider, rule set, static evidence kinds, lint observations, and runtime limitation remain explicit")
         (bundle \ "schemaVersion").as[String] shouldBe "textus.cbd.review-provider.v1"
         (descriptor \ "provider" \ "id").as[String] shouldBe "cozy"
         (descriptor \ "capabilities").as[Vector[play.api.libs.json.JsObject]].flatMap(x => (x \ "evidenceKinds").as[Vector[String]]).toSet should contain allOf ("car-project", "cml-model", "build", "car-package", "abi", "documentation")
         (bundle \ "provider" \ "id").as[String] shouldBe "cozy"
         (bundle \ "ruleSet" \ "id").as[String] shouldBe "cozy.car-review"
-        (bundle \ "requestDigest").as[String] shouldBe "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97"
-        (bundle \ "bundleDigest").as[String] should fullyMatch regex "sha256:[0-9a-f]{64}"
-        CozyCarReviewProvider.bundleDigest(bundle) shouldBe (bundle \ "bundleDigest").as[String]
         (bundle \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "kind").as[String]).toSet should contain allOf ("car-project", "cml-model", "build", "car-package", "abi", "documentation")
         ((bundle \ "evidence").as[Vector[play.api.libs.json.JsObject]].find(x => (x \ "id").as[String] == "evidence-project-yaml").get \ "facts" \ "supportedCncfVersions").as[Vector[String]] should contain("0.5.1")
         (bundle \ "limitations").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "code").as[String]) should contain("runtime-evidence-not-supported")
@@ -98,8 +94,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         _write(root.resolve("src/main/car/abi-manifest.json"), "{}\n")
         val request = CozyCarReviewProvider.Request(
           "review-example-001",
-          CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-          "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+          CozyCarReviewProvider.Target("project", None, "sample-car", None),
           CozyCarReviewProvider.Limits(2000, 1000, 16777216L, 120000L),
           Vector("cozy.car-analysis"),
           Vector.empty,
@@ -137,8 +132,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
           "reviewId" -> "review-example-001",
           "target" -> Json.obj(
             "kind" -> "project",
-            "name" -> "sample-car",
-            "digest" -> "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "name" -> "sample-car"
           ),
           "limits" -> Json.obj(
             "maxEvidenceItems" -> 2000,
@@ -157,11 +151,10 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
           request
         )
 
-        Then("Cozy produces a CBD-neutral evidence bundle bound to the computed request digest")
+        Then("Cozy produces a CBD-neutral evidence bundle for the requested review")
         val bundle = Json.parse(result.toOption.get).as[JsObject]
         (bundle \ "reviewId").as[String] shouldBe "review-example-001"
         (bundle \ "provider" \ "id").as[String] shouldBe "cozy"
-        (bundle \ "requestDigest").as[String] shouldBe CozyCarReviewProvider.request(request).toOption.get.requestDigest
       } finally {
         _delete(root)
       }
@@ -178,8 +171,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         val bundle = CozyCarReviewProvider.evidenceBundle(
           CozyCarReviewProvider.Request(
             "review-example-001",
-            CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+            CozyCarReviewProvider.Target("project", None, "sample-car", None),
             CozyCarReviewProvider.Limits(1, 1, 1L, 1L),
             Vector("cozy.car-analysis"),
             Vector.empty,
@@ -209,8 +201,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         val bundle = CozyCarReviewProvider.evidenceBundle(
           CozyCarReviewProvider.Request(
             "review-example-001",
-            CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+            CozyCarReviewProvider.Target("project", None, "sample-car", None),
             CozyCarReviewProvider.Limits(2000, 1000, 16777216L, 120000L),
             Vector("cozy.car-analysis"),
             Vector.empty,
@@ -239,8 +230,7 @@ final class CozyCarReviewProviderSpec extends AnyWordSpec with Matchers with Giv
         val bundle = CozyCarReviewProvider.evidenceBundle(
           CozyCarReviewProvider.Request(
             "review-example-001",
-            CozyCarReviewProvider.Target("project", None, "sample-car", None, "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            "sha256:d88fe085924cc9d234d233963bb624e584826bb8f02f19fc47253888a7c21d97",
+            CozyCarReviewProvider.Target("project", None, "sample-car", None),
             CozyCarReviewProvider.Limits(10, 10, 1024L, 1000L),
             Vector("other.provider"),
             Vector.empty,

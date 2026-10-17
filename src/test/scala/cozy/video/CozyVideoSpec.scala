@@ -3,7 +3,6 @@ package cozy.video
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import java.net.URI
@@ -19,7 +18,8 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Sep. 16, 2026
+ *  version Sep. 16, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -215,12 +215,16 @@ final class CozyVideoSpec
     "pure timing contract" which {
       "evaluate effective timing and frame quantization without pipeline access" in {
         Given("finite nonnegative target, lead, audio, and requested-tail values with positive FPS")
-        val durations = Gen.chooseNum(0.0, 60.0)
+        val durations = Gen.frequency(
+          1 -> Gen.choose(0, 60).map(_.toDouble),
+          1 -> Gen.chooseNum(0.0, 60.0),
+          1 -> Gen.oneOf(0.0, 0.1, 0.2, 0.36, 1.37)
+        )
         val fpsvalues = Gen.oneOf(1, 12, 24, 30, 60)
 
-        When("the production timing evaluator is exercised with independently generated inputs")
         val property = Prop.forAll(durations, durations, durations, durations, fpsvalues) {
           (targetduration, leadsilence, audioduration, requestedtailsilence, fps) =>
+            When("the timing request is evaluated on its frame grid")
             val timing = VideoTiming.evaluate(
               targetduration,
               leadsilence,
@@ -236,20 +240,30 @@ final class CozyVideoSpec
               requestedtailsilence,
               math.max(targetduration - leadsilence - audioduration, 0.0)
             )
-            val expectedframes = math.max(1L, math.round(expectedduration * fps.toDouble))
-            timing.effectiveSceneDuration == expectedduration &&
-            timing.effectiveTrailing == expectedtrailing &&
-            timing.effectiveFrameCount == expectedframes &&
-            timing.effectiveSceneDuration >= targetduration &&
+            val leadframes = math.max(0L, math.round(leadsilence * fps))
+            val audioframes = math.max(1L, math.ceil(audioduration * fps).toLong)
+            val tailframes = math.max(0L, math.ceil(requestedtailsilence * fps).toLong)
+            val previous = timing.effectiveFrameCount - 1L
+            Then("continuous seconds remain exact and the smallest positive envelope covers both seconds and all allocated intervals")
+            timing.effectiveSceneDuration shouldBe expectedduration
+            timing.effectiveTrailing shouldBe expectedtrailing
+            timing.effectiveSceneDuration should be >= targetduration
+            timing.effectiveFrameCount should be >= 1L
+            timing.effectiveFrameCount.toDouble should be >= (expectedduration * fps)
+            (timing.effectiveFrameCount - leadframes - audioframes) should be >= tailframes
+            (previous < 1L || previous.toDouble < expectedduration * fps ||
+              previous - leadframes - audioframes < tailframes) shouldBe true
             math.abs(
               timing.effectiveSceneDuration -
                 (leadsilence + audioduration + timing.effectiveTrailing)
-            ) <= 1e-12
+            ) should be <= 1e-12
+            true
         }
+        When("sixty independently generated integer and fractional timing requests are interpreted")
         val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(60), property)
         val zero = VideoTiming.evaluate(0.0, 0.0, 0.0, 0.0, 24)
 
-        Then("the exact target-floor, no-double-padding, and rounded positive-frame equations hold")
+        Then("target floors, overruns, leads, tails and zero timing preserve coverage without double padding")
         check.passed shouldBe true
         check.succeeded should be >= 60
         zero.effectiveSceneDuration shouldBe 0.0
@@ -296,6 +310,7 @@ final class CozyVideoSpec
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
           _write_review_video_manifest(finalvideo, Some(encoding))
+          _write_bytes(dir.resolve("build/audio/intro/01.wav"), _wav_bytes(1.0))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
           _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"standard","fps":24,"width":1440,"height":900,"crf":27,"x264Preset":"slow","timing":{"openingFrames":0,"contentFrames":24,"summaryStartFrame":24,"summaryFrames":0,"finalPageStartFrame":24,"finalPageHoldFrames":0,"totalFrames":24},"scenes":[{"id":"scene","startFrame":0,"durationFrames":24,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
@@ -317,7 +332,7 @@ final class CozyVideoSpec
           props.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
           buildmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
           _read(dir.resolve("rdf/video.ttl")) should include_text("cozy-video:encodingPolicy \"standard\"")
-          rdfmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
+          rdfmanifest.hcursor.downField("encoding").focus shouldBe Some(CozyVideoQuality.encodingJson(CozyVideoImplementation._plan(project, None, None).encoding))
           reviewmanifest.hcursor.downField("renderer").get[String]("encodingPolicy").toOption shouldBe Some("standard")
           reviewmanifest.hcursor.downField("renderer").get[Int]("fps").toOption shouldBe Some(24)
           reviewmanifest.hcursor.downField("renderer").get[Int]("width").toOption shouldBe Some(1440)
@@ -533,6 +548,7 @@ final class CozyVideoSpec
     "build planning and execution" which {
       "video build dry-run reports artifact and command plans without external tools" in {
         _with_temp_dir("cozy-video-build-dry-run") { dir =>
+          Given("a video project with dialogue, storyboard and web-demo parts using Docker tools")
           _write(dir.resolve("dialogue.json"), _script_json)
           _write(dir.resolve("storyboard.json"), _script_json)
           _write(dir.resolve("web.json"), _script_json)
@@ -553,6 +569,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the video build without checking or running external tools")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -562,6 +579,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the artifact plan and actual selected Docker command previews describe each supported part")
           ((out.contains("Cozy Video Build Dry-Run")) shouldBe true)
           ((out.contains("artifacts:")) shouldBe true)
           ((out.contains(
@@ -577,22 +595,22 @@ final class CozyVideoSpec
             "part.lecture.synthesize: voicevox (external-service) - synthesize scene audio"
           )) shouldBe true)
           ((out.contains(
-            "part.lecture.prepare-visuals: python-pillow (docker) - docker run --rm"
+            "part.lecture.prepare-visuals: python-pillow (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.lecture.render: remotion (docker) - docker run --rm"
+            "part.lecture.render: remotion (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.board.render: remotion (docker) - docker run --rm"
+            "part.board.render: remotion (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.demo.capture: playwright (docker) - docker run --rm"
+            "part.demo.capture: playwright (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
             "part.demo.synthesize: voicevox (external-service) - synthesize scene audio"
           )) shouldBe true)
           ((out.contains(
-            "project.concat: ffmpeg (docker) - docker run --rm"
+            "project.concat: ffmpeg (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
             "project.manifest: cozy (host) - write project manifest"
@@ -637,6 +655,7 @@ final class CozyVideoSpec
 
       "video build dry-run can use explicit host tool mode" in {
         _with_temp_dir("cozy-video-build-host-mode") { dir =>
+          Given("a dialogue video project and an explicit host tool mode")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -650,6 +669,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the build with host tools")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -660,21 +680,26 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the previews retain each selected host executable and its operation intent")
           ((out.contains("toolMode: host")) shouldBe true)
           ((out.contains(
-            "part.intro.prepare-visuals: python-pillow (host) - prepare dialogue visual helper assets"
+            "part.intro.prepare-visuals: python-pillow (host) - 'python3'"
           )) shouldBe true)
+          out should include("# prepare dialogue visual helper assets")
           ((out.contains(
-            "part.intro.render: remotion (host) - render dialogue part"
+            "part.intro.render: remotion (host) - 'node'"
           )) shouldBe true)
+          out should include("# render dialogue part")
           ((out.contains(
-            "project.concat: ffmpeg (host) - concat planned part outputs into final video"
+            "project.concat: ffmpeg (host) - 'ffmpeg'"
           )) shouldBe true)
+          out should include("# concat planned part outputs into final video")
         }
       }
 
       "video build dry-run resolves docker mode and image precedence" in {
         _with_temp_dir("cozy-video-build-docker-precedence") { dir =>
+          Given("layered Docker image defaults, a project Docker selection and explicit CLI overrides")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("conf/cozy/config.yaml"),
@@ -700,6 +725,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the project selection and the CLI override")
           val project = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -719,10 +745,11 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the project selects its Docker image and node executable while the CLI overrides mode and image")
           ((project.contains("toolMode: docker")) shouldBe true)
           ((project.contains("dockerImage: project-image")) shouldBe true)
           ((project.contains(
-            "docker run --rm -v '" + dir + ":/workspace' -w /workspace 'project-image' 'remotion'"
+            "'docker' 'run' '--rm' '-v' '" + dir + ":/workspace' '-w' '/workspace' 'project-image' 'node'"
           )) shouldBe true)
           ((cli.contains("toolMode: host")) shouldBe true)
           ((cli.contains("dockerImage: cli-image")) shouldBe true)
@@ -911,13 +938,13 @@ final class CozyVideoSpec
             runner
           )
 
-          Then("ffmpeg and ffprobe use container-visible staging before publishing the result")
+          Then("ffmpeg reads the selected container-visible parts and ffprobe validates the declared final output")
           out should include_text("Cozy Video Build")
           out should include_text("output: " + dir.resolve("build/final.mp4").normalize())
           out should include_text("manifest: " + dir.resolve("build/manifest.json").normalize())
           out should include_text("parts: 2")
-          runner.commands should have size 2
-          runner.commands(0).args.take(8) shouldBe Vector(
+          runner.commands should have size 4
+          runner.commands.foreach(command => command.args.take(8) shouldBe Vector(
             "docker",
             "run",
             "--rm",
@@ -926,20 +953,39 @@ final class CozyVideoSpec
             "-w",
             "/workspace",
             "ghcr.io/asami/textus-toolchain:latest"
-          )
-          runner.commands(0).args should contain("ffmpeg")
-          runner.commands(0).args should contain("/workspace/target/cozy-video/ffmpeg/concat.txt")
-          runner.commands(0).args should contain("/workspace/target/cozy-video/ffmpeg/rendered.mp4")
-          runner.commands(1).args should contain("ffprobe")
-          runner.commands(1).args should contain("/workspace/target/cozy-video/ffmpeg/rendered.mp4")
-          val concat = _read(dir.resolve("target/cozy-video/ffmpeg/concat.txt"))
-          concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-01.mp4'")
-          concat should include_text("file '/workspace/target/cozy-video/ffmpeg/parts/part-02.mp4'")
+          ))
+          val probes = runner.commands.filter(_.args.contains("ffprobe"))
+          val mux = runner.commands.find(_.args.contains("ffmpeg")).get
+          val containeroutput = Paths.get(mux.args.last)
+          val containerworkspace = Paths.get(mux.args(mux.args.indexOf("-i") + 1)).getParent
+          val workspace = dir.resolve(containerworkspace.toString.stripPrefix("/workspace/")).normalize()
+          workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
+          workspace.getFileName.toString should startWith("assembly-")
+          containeroutput.toString shouldBe "/workspace/build/final.mp4"
+          probes.take(2).map(_.args.last) shouldBe Vector(
+            "/workspace/build/parts/lecture.mp4",
+            "/workspace/build/parts/board.mp4")
+          mux.args should contain(containerworkspace.resolve("concat.txt").toString)
+          mux.args should contain(containeroutput.toString)
+          mux.args should contain("-copyts")
+          probes.last.args should contain(containeroutput.toString)
+          val concat = _read(workspace.resolve("concat.txt"))
+          concat shouldBe "file '/workspace/build/parts/lecture.mp4'\nfile '/workspace/build/parts/board.mp4'\n"
+          Files.readAllBytes(dir.resolve("build/parts/lecture.mp4")).toVector shouldBe Vector[Byte](1, 2, 3)
+          Files.readAllBytes(dir.resolve("build/parts/board.mp4")).toVector shouldBe Vector[Byte](4, 5, 6)
           dir.resolve("build/final.mp4") should be_regular_file
           val manifest = _read(dir.resolve("build/manifest.json"))
           parser.parse(manifest).toOption.flatMap(_.hcursor.get[String]("status").toOption) shouldBe Some("validated")
           manifest should include_text("\"outputPath\"")
-          manifest should include_text("\"finalVideoSha256\"")
+          val record = parser.parse(manifest).toOption.get
+          record.hcursor.downField("finalVideoSha256").focus shouldBe None
+          record.hcursor.get[String]("outputPath").toOption shouldBe Some(dir.resolve("build/final.mp4").toString)
+          record.hcursor.get[String]("toolMode").toOption shouldBe Some("docker")
+          record.hcursor.get[String]("dockerImage").toOption shouldBe Some("ghcr.io/asami/textus-toolchain:latest")
+          record.hcursor.get[String]("concatListPath").toOption shouldBe Some(workspace.resolve("concat.txt").toString)
+          record.hcursor.downField("partOutputs").focus.flatMap(_.asArray).map(_.size) shouldBe Some(2)
+          record.hcursor.downField("encoding").get[Int]("crf").toOption shouldBe Some(32)
+          record.hcursor.downField("ffprobe").downField("format").get[String]("duration").toOption shouldBe Some("1.000")
           manifest should include_text("\"partOutputs\"")
           manifest should include_text("\"concatListPath\"")
           manifest should include_text("\"ffprobe\"")
@@ -948,6 +994,7 @@ final class CozyVideoSpec
 
       "video build can assemble rendered parts in host mode" in {
         _with_temp_dir("cozy-video-build-final-host") { dir =>
+          Given("a rendered single part configured for Host assembly")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(
             dir.resolve("build/parts/intro.mp4"),
@@ -959,6 +1006,7 @@ final class CozyVideoSpec
           )
           val runner = AssemblyRunner()
 
+          When("the public final build writes and validates its selected output")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -970,12 +1018,21 @@ final class CozyVideoSpec
             runner
           )
 
+          Then("the two commands write and probe the declared final output before its manifest")
+          val output = Paths.get(runner.commands(0).args.last)
+          val workspace = Paths.get(runner.commands(0).args(runner.commands(0).args.indexOf("-i") + 1)).getParent
+          workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
+          workspace.getFileName.toString should startWith("assembly-")
+          output shouldBe dir.resolve("build/final.mp4")
+          runner.commands(1).args.last shouldBe output.toString
+          runner.commands(0).args should contain(workspace.resolve("concat.txt").toString)
+          runner.commands(0).args should contain("-copyts")
           ((out.contains("toolMode: host")) shouldBe true)
           ((runner.commands.size == 2) shouldBe true)
           ((runner.commands(0).args.head == "ffmpeg") shouldBe true)
           ((runner.commands(1).args.head == "ffprobe") shouldBe true)
           ((!runner.commands.exists(_.args.head == "docker")) shouldBe true)
-          ((_read(dir.resolve("target/cozy-video/ffmpeg/concat.txt")).contains(
+          ((_read(workspace.resolve("concat.txt")).contains(
             "file '" + dir.resolve("build/parts/intro.mp4").normalize() + "'"
           )) shouldBe true)
           ((Files.isRegularFile(
@@ -986,6 +1043,7 @@ final class CozyVideoSpec
 
       "cozy video build CLI dispatch assembles rendered parts through injected runner" in {
         _with_temp_dir("cozy-video-build-final-cli") { dir =>
+          Given("a rendered single part and an injected Host runner")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(
             dir.resolve("build/parts/intro.mp4"),
@@ -997,6 +1055,7 @@ final class CozyVideoSpec
           )
           val runner = AssemblyRunner()
 
+          When("the public CLI dispatches final build")
           val out = _capture {
             ((CozyVideo.execute(
               List(
@@ -1011,6 +1070,14 @@ final class CozyVideoSpec
             )) shouldBe true)
           }
 
+          Then("the selected final MP4 is probed and recorded with its existing manifest shape")
+          val output = Paths.get(runner.commands(0).args.last)
+          val workspace = Paths.get(runner.commands(0).args(runner.commands(0).args.indexOf("-i") + 1)).getParent
+          workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
+          workspace.getFileName.toString should startWith("assembly-")
+          output shouldBe dir.resolve("build/final.mp4")
+          runner.commands(1).args.last shouldBe output.toString
+          runner.commands(0).args should contain(workspace.resolve("concat.txt").toString)
           ((out.contains("Cozy Video Build")) shouldBe true)
           ((runner.commands.size == 2) shouldBe true)
           ((runner.commands(0).args.head == "ffmpeg") shouldBe true)
@@ -1377,11 +1444,13 @@ final class CozyVideoSpec
     "transcription" which {
       "video transcribe writes transcript captions narration and manifest in docker mode" in {
         _with_temp_dir("cozy-video-transcribe-docker") { dir =>
+          Given("a direct recorded video and the Docker transcription provider with two timed segments")
           val input = dir.resolve("demo.mp4")
           val save = dir.resolve("transcript")
           _write_bytes(input, Array[Byte](1, 2, 3, 4))
           val runner = TranscriptionRunner()
 
+          When("Cozy extracts audio and transcribes the recorded video through Docker")
           val out = CozyVideo.transcribe(
             CozyVideo
               .TranscribeConfig(input, save, projectRootOverride = Some(dir)),
@@ -1389,6 +1458,7 @@ final class CozyVideoSpec
             runner
           )
 
+          Then("the actual transcript, captions, narration and path-based record retain tool and model evidence")
           ((out.contains("Cozy Video Transcribe")) shouldBe true)
           ((out.contains("toolMode: docker")) shouldBe true)
           ((out.contains(
@@ -1407,7 +1477,20 @@ final class CozyVideoSpec
           ((transcript.contains("Hello world")) shouldBe true)
           ((captions.contains("00:00:00,000 --> 00:00:01,250")) shouldBe true)
           ((narration.contains("cozy.video.narration-draft.v1")) shouldBe true)
-          ((manifest.contains("inputSha256")) shouldBe true)
+          val record = parser.parse(manifest).toOption.get
+          record.hcursor.downField("inputSha256").focus shouldBe None
+          record.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.transcription-manifest.v1")
+          record.hcursor.get[String]("inputVideo").toOption shouldBe Some(input.toString)
+          record.hcursor.get[String]("audioPath").toOption shouldBe Some(save.resolve("audio.wav").toString)
+          record.hcursor.get[String]("transcriptPath").toOption shouldBe Some(save.resolve("transcript.json").toString)
+          record.hcursor.get[String]("captionsPath").toOption shouldBe Some(save.resolve("captions.srt").toString)
+          record.hcursor.get[String]("narrationPath").toOption shouldBe Some(save.resolve("narration.json").toString)
+          record.hcursor.get[String]("toolMode").toOption shouldBe Some("docker")
+          record.hcursor.get[String]("dockerImage").toOption shouldBe Some("ghcr.io/asami/textus-toolchain:latest")
+          record.hcursor.get[String]("modelPath").toOption shouldBe Some("/opt/textus/models/ggml-base.bin")
+          record.hcursor.get[String]("whisperVersion").toOption shouldBe Some("whisper-cli 1.7.6")
+          record.hcursor.get[Int]("segmentCount").toOption shouldBe Some(2)
+          record.hcursor.downField("commands").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("tool").toOption)) shouldBe Some(Vector(Some("ffmpeg"), Some("whisper-cli")))
           ((manifest.contains("whisper-cli 1.7.6")) shouldBe true)
           ((runner.commands.head.args.take(8) == Vector(
             "docker",
@@ -2157,7 +2240,7 @@ final class CozyVideoSpec
           propsjson.hcursor.get[Int]("width").toOption shouldBe Some(1280)
           propsjson.hcursor.get[Int]("height").toOption shouldBe Some(720)
           propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(32)
-          _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs")) should include_text("`--crf=${props.crf}`")
+          propsjson.hcursor.get[String]("outputPath").toOption shouldBe Some("build/parts/lecture.mp4")
           ((Files.isRegularFile(
             dir.resolve(
               "target/cozy-video/remotion/lecture/public/audio/01-title.wav"
@@ -2189,7 +2272,7 @@ final class CozyVideoSpec
         }
       }
 
-      "video render remotion projects configured CRF and x264 preset into the generated command" in {
+      "video render remotion retains configured CRF, x264 preset and selected output" in {
         Given("a Remotion video project with explicit encoding settings")
         _with_temp_dir("cozy-video-render-remotion-explicit-encoding") { dir =>
           _write(dir.resolve("dialogue.json"), _script_json)
@@ -2215,16 +2298,15 @@ final class CozyVideoSpec
             ProfileRenderRunner()
           )
 
-          Then("the generated props and command retain the configured CRF and preset")
+          Then("the generated props retain the configured CRF, preset and declared output")
           val propsjson = parser.parse(Files.readString(
             dir.resolve("target/cozy-video/remotion/lecture/props.json"),
             StandardCharsets.UTF_8
           )).toOption.get
-          val command = _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs"))
           propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(21)
           propsjson.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
-          command should include_text("`--crf=${props.crf}`")
-          command should include_text("`--x264-preset=${props.x264Preset}`")
+          propsjson.hcursor.get[String]("outputPath").toOption shouldBe Some("build/parts/lecture.mp4")
+          dir.resolve("build/parts/lecture.mp4") should be_regular_file
         }
       }
 
@@ -2305,11 +2387,26 @@ final class CozyVideoSpec
           When("Cozy renders with the fake runner")
           CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-          Then("the vendored renderer, structured props, and only declared staged assets are present")
           val workdir = dir.resolve("target/cozy-video/remotion/lecture")
           val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          val typescriptprops = parser.parse(_read(workdir.resolve("src/props.ts")).stripPrefix("export const cozyVideoProps = ").trim.stripSuffix(";")).toOption.get
+          val partmanifest = parser.parse(_read(dir.resolve("build/parts/lecture.manifest.json"))).toOption.get
+          val resourcepaths = Vector("DialogueVideo.jsx", "DiagramLayout.js")
+          val resources = Json.fromValues(resourcepaths.map(name => Json.obj("path" -> Json.fromString(name))))
+          val stagedresources = resourcepaths.map { name =>
+            val stream = getClass.getResourceAsStream(s"/cozy/video/remotion/$name")
+            val bundledbytes = try stream.readAllBytes() finally stream.close()
+            Files.readAllBytes(workdir.resolve("src").resolve(name)).toVector -> bundledbytes.toVector
+          }
+
+          Then("the bundled renderer bytes, path-only metadata, structured props, and only declared staged assets are present")
           props.hcursor.downField("rendererTemplate").as[String].toOption shouldBe Some("cozy-character-dialogue-v1")
-          props.hcursor.downField("rendererTemplateSha256").as[String].toOption.getOrElse("").matches("[0-9a-f]{64}") shouldBe true
+          Vector(props, typescriptprops, partmanifest).foreach { metadata =>
+            metadata.hcursor.downField("rendererTemplate").as[String].toOption shouldBe Some("cozy-character-dialogue-v1")
+            metadata.hcursor.downField("rendererTemplateSha256").focus shouldBe None
+            metadata.hcursor.downField("rendererTemplateResources").focus shouldBe Some(resources)
+          }
+          stagedresources.foreach { case (stagedbytes, bundledbytes) => stagedbytes shouldBe bundledbytes }
           props.hcursor.downField("characters").downField("presenter-left").downField("asset").as[String].toOption.getOrElse("") should startWith("characters/")
           props.hcursor.downField("scenes").downArray.downField("visual").downField("image").as[String].toOption.getOrElse("") should startWith("visuals/")
           props.hcursor.downField("scenes").downArray.downField("section").as[String].toOption shouldBe Some("intro")
@@ -2321,22 +2418,45 @@ final class CozyVideoSpec
           Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-asset.png")) shouldBe true
           Files.isRegularFile(workdir.resolve("public/visuals/scene-intro-visual-image.png")) shouldBe true
 
-          And("an explicit generic strategy opts out")
+          Given("an explicit generic strategy for the same declared character script")
           _write(dir.resolve("video_project.json"),
             """{"renderer":{"engine":"remotion","strategy":"generic"},"parts":[{"id":"lecture","type":"dialogue","script":"ja/dialogue/script.json"}]}""")
+          When("Cozy renders the explicit generic strategy")
           CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
-          parser.parse(_read(workdir.resolve("props.json"))).toOption.get.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+          val genericprops = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          Then("the generic strategy opts out of the character template and resource metadata")
+          genericprops.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+          genericprops.hcursor.downField("rendererTemplateResources").focus shouldBe Some(Json.arr())
+          genericprops.hcursor.downField("rendererTemplateSha256").focus shouldBe None
 
-          And("a part-level generic strategy also opts out and the generic root has no duplicate overlays")
+          Given("a part-level generic strategy for the same declared character script")
           _write(dir.resolve("video_project.json"),
             """{"renderer":{"engine":"remotion"},"parts":[{"id":"lecture","type":"dialogue","script":"ja/dialogue/script.json","renderer":{"strategy":"generic"}}]}""")
+          When("Cozy renders the part-level generic strategy")
           CozyVideo.render(CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ProfileRenderRunner())
-          parser.parse(_read(workdir.resolve("props.json"))).toOption.get.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+          val partgenericprops = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
           val genericroot = _read(workdir.resolve("src/Root.tsx"))
+          Then("the part-level strategy also opts out and the generic root has no duplicate overlays")
+          partgenericprops.hcursor.downField("rendererTemplate").focus shouldBe Some(Json.Null)
+          partgenericprops.hcursor.downField("rendererTemplateResources").focus shouldBe Some(Json.arr())
+          partgenericprops.hcursor.downField("rendererTemplateSha256").focus shouldBe None
           genericroot should not include ">OVERVIEW<"
           genericroot should not include ">CONCLUSION<"
           genericroot should not include ">END<"
         }
+      }
+
+      "video render rejects a missing bundled character-dialogue renderer resource" in {
+        Given("a named renderer resource that is absent from the bundle")
+        val name = "MissingRenderer.jsx"
+
+        When(s"Cozy loads $name")
+        val fault = intercept[IllegalArgumentException] {
+          CozyVideoImplementation._load_character_dialogue_template_resource(name)
+        }
+
+        Then("the invalid-argument exception identifies the missing named renderer resource")
+        fault.getMessage should include_text("Missing Cozy character-dialogue renderer resource: cozy/video/remotion/MissingRenderer.jsx")
       }
 
       "video render keeps requested legacy tail distinct from effective audio timing in character props" in {
@@ -2367,7 +2487,6 @@ final class CozyVideoSpec
           val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
           val scene = props.hcursor.downField("scenes").downArray
           val partmanifest = parser.parse(_read(dir.resolve("build/parts/lecture.manifest.json"))).toOption.get
-          val manifestsha256 = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(audiomanifest)).map("%02x".format(_)).mkString
 
           Then("the generated effective tail controls one scene duration while the authored request remains separately inspectable")
           scene.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
@@ -2376,7 +2495,13 @@ final class CozyVideoSpec
           scene.get[Int]("durationFrames").toOption shouldBe Some(20)
           props.hcursor.downField("timing").get[Int]("contentFrames").toOption shouldBe Some(20)
           props.hcursor.downField("timing").get[Int]("totalFrames").toOption shouldBe Some(20)
-          partmanifest.hcursor.downField("audioManifestSha256").as[String].toOption shouldBe Some(manifestsha256)
+          partmanifest.hcursor.downField("audioManifestSha256").focus shouldBe None
+          partmanifest.hcursor.get[String]("audioManifestPath").toOption shouldBe Some(audiomanifest.toString)
+          partmanifest.hcursor.get[String]("partId").toOption shouldBe Some("lecture")
+          partmanifest.hcursor.get[String]("renderer").toOption shouldBe Some("remotion")
+          partmanifest.hcursor.get[Int]("sceneCount").toOption shouldBe Some(1)
+          partmanifest.hcursor.get[String]("outputPath").toOption shouldBe Some(dir.resolve("build/parts/lecture.mp4").toString)
+          dir.resolve("build/parts/lecture.mp4") should be_regular_file
 
           And("the character renderer uses actual audio frames for speech while preserving the full scene visual and caption surface")
           _read(workdir.resolve("src/DialogueVideo.jsx")) should include("speechActive")
@@ -2410,18 +2535,28 @@ final class CozyVideoSpec
             runner
           )
 
-          Then("the authored diagrams and both renderer resources are staged with digest provenance")
           val workdir = dir.resolve("target/cozy-video/remotion/lecture")
           val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          val partmanifest = parser.parse(_read(dir.resolve("build/parts/lecture.manifest.json"))).toOption.get
+          val resourcepaths = Vector("DialogueVideo.jsx", "DiagramLayout.js")
+          val resources = Json.fromValues(resourcepaths.map(name => Json.obj("path" -> Json.fromString(name))))
+          val stagedresources = resourcepaths.map { name =>
+            val stream = getClass.getResourceAsStream(s"/cozy/video/remotion/$name")
+            val bundledbytes = try stream.readAllBytes() finally stream.close()
+            Files.readAllBytes(workdir.resolve("src").resolve(name)).toVector -> bundledbytes.toVector
+          }
+
+          Then("the authored diagrams and exact bundled renderer bytes are preserved with ordered path-only metadata")
           props.hcursor.downField("scenes").downArray.downField("visual").downField("diagram").downField("nodes").downArray.get[String]("label").toOption shouldBe Some("REALITY")
           props.hcursor.downField("scenes").downN(1).downField("visual").downField("diagram").get[String]("layout").toOption shouldBe Some("axis")
           Files.isRegularFile(workdir.resolve("src/DialogueVideo.jsx")) shouldBe true
           Files.isRegularFile(workdir.resolve("src/DiagramLayout.js")) shouldBe true
-          val resources = props.hcursor.downField("rendererTemplateResources").focus.flatMap(_.asArray).getOrElse(Vector.empty)
-          val resourcepaths = resources.map(_.hcursor.get[String]("path").toOption)
-          resourcepaths should contain(Some("DialogueVideo.jsx"))
-          resourcepaths should contain(Some("DiagramLayout.js"))
-          resources.forall(_.hcursor.get[String]("sha256").toOption.exists(_.matches("[0-9a-f]{64}"))) shouldBe true
+          Vector(props, partmanifest).foreach { metadata =>
+            metadata.hcursor.downField("rendererTemplate").as[String].toOption shouldBe Some("cozy-character-dialogue-v1")
+            metadata.hcursor.downField("rendererTemplateSha256").focus shouldBe None
+            metadata.hcursor.downField("rendererTemplateResources").focus shouldBe Some(resources)
+          }
+          stagedresources.foreach { case (stagedbytes, bundledbytes) => stagedbytes shouldBe bundledbytes }
         }
       }
 
@@ -2755,6 +2890,7 @@ final class CozyVideoSpec
 
       "video render simple-java2d renders all renderable parts through python and ffmpeg" in {
         _with_temp_dir("cozy-video-render-simple-java2d") { dir =>
+          Given("two renderable scripted parts with their generated audio manifests and combined audio")
           _write(dir.resolve("dialogue.json"), _script_json)
           _write(dir.resolve("storyboard.json"), _script_json)
           _write_audio_manifest(
@@ -2780,6 +2916,7 @@ final class CozyVideoSpec
           )
           val runner = RenderingRunner()
 
+          When("Cozy renders both parts through the simple-java2d provider in Docker")
           val out = CozyVideo.render(
             CozyVideo
               .RenderConfig(dir.resolve("video_project.json"), "simple-java2d"),
@@ -2787,6 +2924,7 @@ final class CozyVideoSpec
             runner
           )
 
+          Then("the renderer writes real frames, videos and path-based part records with actual scene and audio evidence")
           ((out.contains("Cozy Video Render")) shouldBe true)
           ((out.contains("parts: 2")) shouldBe true)
           ((out.contains(
@@ -2860,7 +2998,14 @@ final class CozyVideoSpec
           )) shouldBe true)
           ((manifest.contains("\"framePath\"")) shouldBe true)
           ((manifest.contains("\"audioCombinedPath\"")) shouldBe true)
-          ((manifest.contains("\"audioManifestSha256\"")) shouldBe true)
+          val record = parser.parse(manifest).toOption.get
+          record.hcursor.downField("audioManifestSha256").focus shouldBe None
+          record.hcursor.get[String]("partId").toOption shouldBe Some("lecture")
+          record.hcursor.get[String]("audioManifestPath").toOption shouldBe Some(dir.resolve("build/audio/lecture/manifest.json").toString)
+          record.hcursor.get[String]("audioCombinedPath").toOption shouldBe Some(dir.resolve("build/audio/lecture/dialogue.wav").toString)
+          record.hcursor.get[String]("outputPath").toOption shouldBe Some(dir.resolve("build/parts/lecture.mp4").toString)
+          record.hcursor.get[Int]("sceneCount").toOption shouldBe Some(3)
+          record.hcursor.get[String]("toolMode").toOption shouldBe Some("docker")
           ((manifest.contains("\"simpleJava2dWorkDir\"")) shouldBe true)
         }
       }
@@ -3027,11 +3172,11 @@ final class CozyVideoSpec
           ((framefailure.getMessage
             .contains("simple-java2d frame render failed")) shouldBe true)
 
-          Given("a prior successful part output before the encode attempt")
+          Given("the selected part output before the encode attempt")
           Files.createDirectories(dir.resolve("build/parts"))
           Files.write(dir.resolve("build/parts/intro.mp4"), "previous-successful-output".getBytes(StandardCharsets.UTF_8))
 
-          When("the staged ffmpeg encode fails")
+          When("the selected ffmpeg encode fails")
           val ffmpegfailure = intercept[Throwable] {
             CozyVideo.render(
               CozyVideo.RenderConfig(
@@ -3042,9 +3187,8 @@ final class CozyVideoSpec
               RenderingRunner(failTool = Some("ffmpeg"))
             )
           }
-          Then("the renderer reports the failure without replacing the previous part output")
+          Then("the renderer reports the actual encode failure")
           ffmpegfailure.getMessage should include("simple-java2d ffmpeg encode failed")
-          Files.readString(dir.resolve("build/parts/intro.mp4"), StandardCharsets.UTF_8) shouldBe "previous-successful-output"
 
           val missingtool = intercept[Throwable] {
             CozyVideo.render(
@@ -3296,6 +3440,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports deterministic available tools through probe" in {
         _with_temp_dir("cozy-video-tool-probe-available") { dir =>
+          Given("host tool responses and existing Chromium and whisper model files")
           val chromium = dir.resolve("chromium")
           val whisper = dir.resolve("models/ggml-base.bin")
           _write(dir.resolve("script.json"), _script_json)
@@ -3352,6 +3497,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with host tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3361,6 +3507,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the production registry reports the probed host tools and preserves host path checks")
           ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
           ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
           ((out.contains(
@@ -3385,6 +3532,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports missing and unchecked tools through probe" in {
         _with_temp_dir("cozy-video-tool-probe-missing") { dir =>
+          Given("an available host ffmpeg, a missing ffprobe and unavailable dependencies")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3441,6 +3589,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with independent host tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3450,13 +3599,15 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("ffmpeg stays available, ffprobe is missing and the other missing diagnostics are retained")
           ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
           ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
           ((out.contains("voicevox: missing (external-service)")) shouldBe true)
           ((out.contains(
             "setup: Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url."
           )) shouldBe true)
-          ((out.contains("ffmpeg: missing (host)")) shouldBe true)
+          ((out.contains("ffmpeg: available (host)")) shouldBe true)
+          out should include("ffprobe: missing (host)")
           ((out.contains("remotion-node: missing (host)")) shouldBe true)
           ((out.contains("playwright: missing (host)")) shouldBe true)
           ((out.contains("whisper-cpp: missing (host)")) shouldBe true)
@@ -3471,6 +3622,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports missing docker image with pull guidance" in {
         _with_temp_dir("cozy-video-tool-probe-image-missing") { dir =>
+          Given("an available Docker daemon whose selected toolchain image is missing")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3509,6 +3661,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with Docker tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3517,6 +3670,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the missing image has pull guidance and no Docker tool process is started")
           ((out.contains("docker-toolchain: available (docker)")) shouldBe true)
           ((out.contains("docker-image: missing (docker)")) shouldBe true)
           ((out.contains(
@@ -3531,8 +3685,9 @@ final class CozyVideoSpec
         }
       }
 
-      "video inspect docker mode check-tools focuses on docker image and voicevox" in {
+      "video inspect docker mode check-tools reports selected Docker tools and voicevox" in {
         _with_temp_dir("cozy-video-tool-probe-docker-mode") { dir =>
+          Given("an admitted Docker image with selected tool responses and an unavailable VOICEVOX service")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3572,7 +3727,23 @@ final class CozyVideoSpec
                 "check",
                 "video"
               ) -> CozyVideo
-                .VideoCommandResult(0, "textus-toolchain check video: ok\n", "")
+                .VideoCommandResult(0, "textus-toolchain check video: ok\n", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "ffmpeg", Vector("-version")) -> CozyVideo
+                .VideoCommandResult(0, "ffmpeg", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "ffprobe", Vector("-version")) -> CozyVideo
+                .VideoCommandResult(0, "ffprobe", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("--version")) -> CozyVideo
+                .VideoCommandResult(0, "v22.0.0", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "require.resolve('@remotion/renderer')")) -> CozyVideo
+                .VideoCommandResult(0, "/node_modules/@remotion/renderer", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "require.resolve('playwright')")) -> CozyVideo
+                .VideoCommandResult(0, "/node_modules/playwright", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "const fs = require('fs'); const { chromium } = require('playwright'); const p = chromium.executablePath(); if (!fs.existsSync(p)) process.exit(1); console.log(p)")) -> CozyVideo
+                .VideoCommandResult(0, "/container/chromium\n", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "python3", Vector("--version")) -> CozyVideo
+                .VideoCommandResult(0, "Python 3.12", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "python3", Vector("-c", "import PIL; print(PIL.__version__)")) -> CozyVideo
+                .VideoCommandResult(0, "11.0.0", "")
             ),
             httpResults = Map(
               "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(
@@ -3583,6 +3754,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with the selected Docker tools")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3591,6 +3763,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the selected tools are available in Docker while VOICEVOX remains missing and host executables are unused")
           ((out.contains("toolMode: docker")) shouldBe true)
           ((out.contains("docker-image: available (docker)")) shouldBe true)
           ((out.contains(
@@ -3604,14 +3777,16 @@ final class CozyVideoSpec
             "voicevox: missing"
           )) shouldBe true)
           ((out.contains("host.docker.internal")) shouldBe true)
-          ((out.contains("ffmpeg: unchecked (docker)")) shouldBe true)
-          ((out.contains("remotion-node: unchecked (docker)")) shouldBe true)
-          ((out.contains("playwright: unchecked (docker)")) shouldBe true)
+          ((out.contains("ffmpeg: available (docker)")) shouldBe true)
+          out should include("ffprobe: available (docker)")
+          ((out.contains("remotion-node: available (docker)")) shouldBe true)
+          ((out.contains("playwright: available (docker)")) shouldBe true)
           ((out.contains("whisper-cpp: unchecked (docker)")) shouldBe true)
-          ((out.contains("python-pillow: unchecked (docker)")) shouldBe true)
+          ((out.contains("python-pillow: available (docker)")) shouldBe true)
           ((!probe.commands.exists(
             _.headOption.contains("ffmpeg")
           )) shouldBe true)
+          probe.commands.exists(_.headOption.contains("ffprobe")) shouldBe false
           ((!probe.commands.exists(
             _.headOption.contains("node")
           )) shouldBe true)
@@ -4054,10 +4229,14 @@ final class CozyVideoSpec
               |]
               |""".stripMargin
           )
+          Vector("01.wav", "02.wav", "03.wav").foreach { filename =>
+            _write_bytes(dir.resolve("build/audio/intro").resolve(filename), _wav_bytes(1.0))
+          }
           _write(
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -4076,14 +4255,18 @@ final class CozyVideoSpec
             runner
           )
           val manifest = parser.parse(Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)).toOption.get
-          val videomanifesthash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(dir.resolve("build/manifest.json"))).map("%02x".format(_)).mkString
 
           Then("the deterministic evidence manifest and its extracted frames describe the review timing")
           out should include("Cozy Video Review Evidence")
           manifest.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.review-evidence.v1")
           manifest.hcursor.get[String]("status").toOption shouldBe Some("validated")
           manifest.hcursor.downField("videoManifest").get[String]("path").toOption shouldBe Some(dir.resolve("build/manifest.json").toAbsolutePath.normalize().toString)
-          manifest.hcursor.downField("videoManifest").get[String]("sha256").toOption shouldBe Some(videomanifesthash)
+          _json_keys(manifest).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
+          manifest.hcursor.downField("projectFile").focus shouldBe Some(Json.obj("path" -> Json.fromString(project.toString)))
+          manifest.hcursor.downField("finalVideo").focus shouldBe Some(Json.obj("path" -> Json.fromString(dir.resolve("build/final.mp4").toString)))
+          manifest.hcursor.downField("parts").downArray.get[String]("propsPath").toOption shouldBe Some(dir.resolve("target/cozy-video/remotion/intro/props.json").toString)
+          manifest.hcursor.downField("parts").downArray.get[String]("audioManifestPath").toOption shouldBe Some(dir.resolve("build/audio/intro/manifest.json").toString)
+          manifest.hcursor.downField("parts").downArray.downField("partManifest").focus shouldBe Some(Json.Null)
           manifest.hcursor.downField("videoManifest").get[String]("status").toOption shouldBe Some("validated")
           manifest.hcursor.downField("renderer").get[Int]("fps").toOption shouldBe Some(10)
           manifest.hcursor.downField("parts").downArray.downField("scenes").focus.flatMap(_.asArray).map(_.size) shouldBe Some(3)
@@ -4101,8 +4284,8 @@ final class CozyVideoSpec
         }
       }
 
-      "keeps requested and effective tail timing distinct while binding review evidence to current audio-manifest contents" in {
-        _with_temp_dir("cozy-video-review-evidence-tail-currentness-part-5") { dir =>
+      "keeps requested and effective tail timing distinct through nonsemantic audio formatting" in {
+        _with_temp_dir("cozy-video-review-evidence-tail-formatting-part-5") { dir =>
           Given("a rendered part whose legacy requested tail differs from generated effective audio timing")
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
@@ -4122,11 +4305,12 @@ final class CozyVideoSpec
           val audiocontents =
             """[{"sceneId":"scene","speaker":"narrator","file":"01.wav","leadSilence":0.0,"audioDuration":0.2,"targetDuration":2.0,"tailSilence":1.8}]"""
           _write(audiomanifest, audiocontents)
-          val audiohash = MessageDigest.getInstance("SHA-256").digest(audiocontents.getBytes(StandardCharsets.UTF_8)).map("%02x".format(_)).mkString
+          _write_bytes(dir.resolve("build/audio/intro/01.wav"), _wav_bytes(0.2))
           _write(
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 0, "contentFrames": 20, "summaryStartFrame": 20, "summaryFrames": 0, "finalPageStartFrame": 20, "finalPageHoldFrames": 0, "totalFrames": 20},
               |  "scenes": [{"id":"scene","startFrame":0,"durationFrames":20,"leadInFrames":0,"sectionTransitionFrames":0,"audioDurationFrames":2,"requestedTailSilenceSeconds":0.8,"effectiveTailSilenceSeconds":1.8,"effectiveTailSilenceFrames":18}]
               |}
@@ -4134,7 +4318,7 @@ final class CozyVideoSpec
           )
           _write(
             dir.resolve("build/parts/intro.manifest.json"),
-            s"""{"audioManifestSha256":"$audiohash"}"""
+            Json.obj("partId" -> Json.fromString("intro"), "audioManifestPath" -> Json.fromString(audiomanifest.toString)).noSpaces
           )
           val runner = ReviewEvidenceRunner()
 
@@ -4151,25 +4335,55 @@ final class CozyVideoSpec
           evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(1.8)
           evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("speech"), Some("tail")))
           evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downN(1).get[Int]("absoluteFrame").toOption shouldBe Some(2)
-          evidence.hcursor.downField("parts").downArray.downField("partManifest").get[String]("audioManifestSha256").toOption shouldBe Some(audiohash)
+          evidence.hcursor.downField("parts").downArray.downField("partManifest").focus shouldBe Some(Json.obj("path" -> Json.fromString(dir.resolve("build/parts/intro.manifest.json").toString)))
+          _json_keys(evidence).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
+          evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downArray.get[Int]("absoluteFrame").toOption shouldBe Some(0)
+          save.resolve("frames/part-001-scene-001-scene-speech.png") should be_regular_file
+          save.resolve("frames/part-001-scene-001-scene-tail.png") should be_regular_file
           runner.commands.size shouldBe 2
 
-          And("the generated audio manifest changes after rendering")
+          Given("the same actual audio timing serialized with one extra trailing LF")
           _write(audiomanifest, audiocontents + "\n")
-          val stalerunner = ReviewEvidenceRunner()
+          val formattedrunner = ReviewEvidenceRunner()
+          val formattedsave = dir.resolve("review-formatted")
 
-          When("Cozy attempts evidence generation with the stale part-manifest digest")
-          val stale = intercept[RuntimeException] {
+          When("Cozy writes fresh review evidence after the nonsemantic audio formatting change")
+          CozyVideo.reviewEvidence(
+            CozyVideo.ReviewEvidenceConfig(project, formattedsave, toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            formattedrunner
+          )
+          val formatted = parser.parse(_read(formattedsave.resolve("review-manifest.json"))).toOption.get
+          val formattedscene = formatted.hcursor.downField("parts").downArray.downField("scenes").downArray
+
+          Then("the evidence remains validated with the same requested and effective timing and two extracted frames")
+          formatted.hcursor.get[String]("status").toOption shouldBe Some("validated")
+          formattedscene.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
+          formattedscene.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(1.8)
+          formattedscene.downField("effectiveTiming").get[Int]("durationFrames").toOption shouldBe Some(20)
+          formattedscene.downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[Int]("absoluteFrame").toOption)) shouldBe Some(Vector(Some(0), Some(2)))
+          formatted.hcursor.downField("parts").downArray.downField("partManifest").focus shouldBe Some(Json.obj("path" -> Json.fromString(dir.resolve("build/parts/intro.manifest.json").toString)))
+          _json_keys(formatted).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
+          formattedrunner.commands should have size 2
+          formattedsave.resolve("frames/part-001-scene-001-scene-speech.png") should be_regular_file
+          formattedsave.resolve("frames/part-001-scene-001-scene-tail.png") should be_regular_file
+
+          Given("actual audio tail silence changes from 1.8 to 2.8 seconds while the rendered props retain their previous timing")
+          _write(audiomanifest, audiocontents.replace("\"tailSilence\":1.8", "\"tailSilence\":2.8"))
+          val mismatchrunner = ReviewEvidenceRunner()
+
+          When("Cozy attempts review evidence with the real audio timing mismatch")
+          val mismatch = intercept[RuntimeException] {
             CozyVideo.reviewEvidence(
-              CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review-stale"), toolMode = Some("host")),
+              CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review-mismatch"), toolMode = Some("host")),
               CozyVideo.VideoToolRegistry(Vector.empty),
-              stalerunner
+              mismatchrunner
             )
           }
 
-          Then("the stale artifact is rejected before frame extraction")
-          stale.getMessage should include("Part manifest audioManifestSha256 does not match")
-          stalerunner.commands shouldBe empty
+          Then("the actual timing mismatch is rejected before any frame extraction")
+          mismatch.getMessage should include("timing does not match audio manifest")
+          mismatchrunner.commands shouldBe empty
         }
       }
 
@@ -4252,10 +4466,14 @@ final class CozyVideoSpec
               |]
               |""".stripMargin
           )
+          Vector("01.wav", "02.wav", "03.wav").foreach { filename =>
+            _write_bytes(dir.resolve("build/audio/intro").resolve(filename), _wav_bytes(1.0))
+          }
           _write(
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -4275,7 +4493,6 @@ final class CozyVideoSpec
           )
           val manifest = parser.parse(Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)).toOption.get
           val manifesttext = Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)
-          val expectedhash = MessageDigest.getInstance("SHA-256").digest(Array[Byte](1, 2, 3, 4)).map("%02x".format(_)).mkString
           val finalmount = s"${finalvideo.toAbsolutePath.normalize()}:/review-input/final.mp4:ro"
           val savemount = s"${save.toAbsolutePath.normalize()}:/review-output:rw"
 
@@ -4303,7 +4520,8 @@ final class CozyVideoSpec
           Files.exists(dir.resolve("target/cozy-video/review-evidence/input/final.mp4")) shouldBe false
           Files.exists(dir.resolve("target/cozy-video/review-evidence/frames/part-001-scene-001-first-scene-speech.png")) shouldBe false
           manifest.hcursor.downField("finalVideo").get[String]("path").toOption shouldBe Some(finalvideo.toAbsolutePath.normalize().toString)
-          manifest.hcursor.downField("finalVideo").get[String]("sha256").toOption shouldBe Some(expectedhash)
+          manifest.hcursor.downField("finalVideo").focus shouldBe Some(Json.obj("path" -> Json.fromString(finalvideo.toAbsolutePath.normalize().toString)))
+          _json_keys(manifest).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
           manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downArray.get[String]("path").toOption shouldBe Some("frames/part-001-scene-001-first-scene-speech.png")
           manifesttext should not include "/review-input"
           manifesttext should not include "/review-output"
@@ -4370,12 +4588,13 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-ffmpeg-failure-part-5") { dir =>
           Given("a complete review-evidence project and a failing ffmpeg runner")
           val project = dir.resolve("video_project.json")
+          _write_bytes(dir.resolve("build/audio/intro/01.wav"), _wav_bytes(1.0))
           _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val extraction = intercept[RuntimeException] {
@@ -4391,12 +4610,13 @@ final class CozyVideoSpec
         _with_temp_dir("cozy-video-review-evidence-missing-output-part-5") { dir =>
           Given("a complete review-evidence project and a runner without PNG output")
           val project = dir.resolve("video_project.json")
+          _write_bytes(dir.resolve("build/audio/intro/01.wav"), _wav_bytes(1.0))
           _write(project, """{"output":"build/final.mp4","renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"intro","type":"dialogue","script":"script.json"}]}""")
           _write(dir.resolve("script.json"), _script_json)
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val absent = intercept[RuntimeException] {
@@ -4567,7 +4787,7 @@ final class CozyVideoSpec
         }
       }
 
-      "keeps colliding top-frame part ids in distinct files with matching hashes" in {
+      "keeps colliding top-frame part ids in distinct indexed files with distinct actual contents" in {
         _with_temp_dir("cozy-video-review-evidence-top-frame-collision-part-5") { dir =>
           Given("two reviewable parts whose sanitized ids collide")
           val project = dir.resolve("video_project.json")
@@ -4578,14 +4798,15 @@ final class CozyVideoSpec
           CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), ReviewEvidenceRunner(distinctOutput = true))
           val topframes = parser.parse(_read(save.resolve("review-manifest.json"))).toOption.get.hcursor.downField("frames").focus.flatMap(_.asArray).map(_.toVector).getOrElse(Vector.empty)
 
-          Then("each top frame has a stable indexed path and matches its recorded hash")
+          Then("each top frame has a distinct indexed path with its actual generated contents and no local digest")
           val paths = topframes.map(_.hcursor.get[String]("path").toOption.get)
           paths shouldBe Vector("frames/opening-part-001-a-b.png", "frames/opening-part-002-a-b.png")
           paths.distinct should have size 2
+          Files.readAllBytes(save.resolve(paths.head)).toVector should not be (Files.readAllBytes(save.resolve(paths(1))).toVector)
           topframes.foreach { frame =>
             val path = frame.hcursor.get[String]("path").toOption.get
-            val expectedhash = frame.hcursor.get[String]("sha256").toOption.get
-            MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(save.resolve(path))).map("%02x".format(_)).mkString shouldBe expectedhash
+            save.resolve(path) should be_regular_file
+            frame.hcursor.downField("sha256").focus shouldBe None
           }
         }
       }
@@ -4596,7 +4817,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props and audio evidence")
@@ -4616,7 +4837,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props timing against the audio manifest")
@@ -4637,7 +4858,8 @@ final class CozyVideoSpec
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("first", "second"))
           _write(dir.resolve("build/audio/first/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":0.4,"targetDuration":0.4,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write_bytes(dir.resolve("build/audio/first/01.wav"), _wav_bytes(0.4))
+          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates the first part's scene bounds")
@@ -4651,31 +4873,206 @@ final class CozyVideoSpec
         }
       }
 
-      "rejects a stale validated project video manifest before frame extraction" in {
-        _with_temp_dir("cozy-video-review-evidence-stale-video-manifest-part-5") { dir =>
-          Given("a complete project whose validated video manifest has a stale final hash")
+      "rejects invalid validated project video records before frame extraction" in {
+        _with_temp_dir("cozy-video-review-evidence-invalid-video-record-part-5") { dir =>
+          Given("a complete review fixture with its original valid final video record")
           val project = dir.resolve("video_project.json")
           val finalvideo = dir.resolve("build/final.mp4")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", finalvideo)
-          _write(finalvideo.getParent.resolve("manifest.json"), s"""{"status":"validated","outputPath":"${finalvideo.toAbsolutePath.normalize()}","finalVideoSha256":"stale","encoding":{"policy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null}}""")
-          val runner = ReviewEvidenceRunner()
+          val manifest = finalvideo.getParent.resolve("manifest.json")
+          val original = parser.parse(_read(manifest)).toOption.get
 
-          When("Cozy validates provenance before extracting frames")
-          val error = intercept[RuntimeException] {
-            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+          Given("the final record declares planned status instead of validated status")
+          _write(manifest, original.deepMerge(Json.obj("status" -> Json.fromString("planned"))).noSpaces)
+          val statusrunner = ReviewEvidenceRunner()
+
+          When("Cozy checks the final record before extracting frames")
+          val statuserror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), statusrunner)
           }
 
-          Then("the stale manifest is rejected before the runner")
-          error.getMessage should include("finalVideoSha256 does not match final video")
-          runner.commands shouldBe empty
+          Then("the unvalidated status is rejected before the runner")
+          statuserror.getMessage should include("not validated")
+          statusrunner.commands shouldBe empty
+
+          Given("the restored valid record points to a different final output path")
+          _write(manifest, original.deepMerge(Json.obj("outputPath" -> Json.fromString(dir.resolve("build/other.mp4").toString))).noSpaces)
+          val pathrunner = ReviewEvidenceRunner()
+
+          When("Cozy checks the declared final output path")
+          val patherror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), pathrunner)
+          }
+
+          Then("the output path mismatch is rejected before the runner")
+          patherror.getMessage should include("outputPath does not match")
+          pathrunner.commands shouldBe empty
+
+          Given("the restored valid record declares encoding CRF 31 while the plan requires 32")
+          _write(manifest, original.deepMerge(Json.obj("encoding" -> Json.obj("crf" -> Json.fromInt(31)))).noSpaces)
+          val encodingrunner = ReviewEvidenceRunner()
+
+          When("Cozy checks the final record against planned effective encoding")
+          val encodingerror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), encodingrunner)
+          }
+
+          Then("the actual CRF mismatch is rejected before the runner")
+          encodingerror.getMessage should include("crf does not match")
+          encodingrunner.commands shouldBe empty
+
+          Given("the final record file contains malformed JSON")
+          _write(manifest, "{")
+          val malformedrunner = ReviewEvidenceRunner()
+
+          When("Cozy parses the required project video manifest")
+          val malformederror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), malformedrunner)
+          }
+
+          Then("the invalid record format is rejected before the runner")
+          malformederror.getMessage should include("Invalid project video manifest")
+          malformedrunner.commands shouldBe empty
+
+          Given("the required final record is absent")
+          Files.delete(manifest)
+          val missingrunner = ReviewEvidenceRunner()
+
+          When("Cozy requires the validated project video manifest")
+          val missingerror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), missingrunner)
+          }
+
+          Then("the missing required record is rejected before the runner")
+          missingerror.getMessage should include("Missing validated project video manifest")
+          missingrunner.commands shouldBe empty
         }
       }
+
+      "preserves optional part-manifest direct-file JSON and symlink safety" in {
+        _with_temp_dir("cozy-video-review-evidence-part-manifest-safety") { dir =>
+          Given("a complete review fixture with a direct valid JSON part manifest")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
+          val partmanifest = dir.resolve("build/parts/intro.manifest.json")
+          val contents = Json.obj("partId" -> Json.fromString("intro"), "audioManifestPath" -> Json.fromString(dir.resolve("build/audio/intro/manifest.json").toString)).noSpaces
+          _write(partmanifest, contents)
+          val validrunner = ReviewEvidenceRunner()
+
+          When("Cozy validates the optional direct part record and extracts review frames")
+          CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), validrunner)
+          val evidence = parser.parse(_read(save.resolve("review-manifest.json"))).toOption.get
+
+          Then("the validated review projects exactly the part record path and writes the actual frames")
+          evidence.hcursor.get[String]("status").toOption shouldBe Some("validated")
+          evidence.hcursor.downField("parts").downArray.downField("partManifest").focus shouldBe Some(Json.obj("path" -> Json.fromString(partmanifest.toString)))
+          validrunner.commands should have size 2
+          save.resolve("frames/opening-part-001-intro.png") should be_regular_file
+          save.resolve("frames/part-001-scene-001-scene-speech.png") should be_regular_file
+          _json_keys(evidence).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
+
+          Given("the optional part record exists but its JSON is malformed")
+          _write(partmanifest, "{")
+          val malformedrunner = ReviewEvidenceRunner()
+
+          When("Cozy parses that part record before frame extraction")
+          val malformederror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review-malformed"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), malformedrunner)
+          }
+
+          Then("the invalid part record is rejected before any runner command")
+          malformederror.getMessage should include("Invalid part manifest")
+          malformedrunner.commands shouldBe empty
+
+          Given("the optional part record path is a symbolic link to a valid untouched target")
+          Files.delete(partmanifest)
+          val target = dir.resolve("part-manifest-target.json")
+          _write(target, contents)
+          val targetbytes = Files.readAllBytes(target).toVector
+          Files.createSymbolicLink(partmanifest, target)
+          val symlinkrunner = ReviewEvidenceRunner()
+
+          When("Cozy requires the optional part record to be a direct regular file")
+          val symlinkerror = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review-symlink"), toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), symlinkrunner)
+          }
+
+          Then("the symbolic link is rejected before extraction and its target bytes remain exact")
+          symlinkerror.getMessage should include("direct regular file")
+          symlinkrunner.commands shouldBe empty
+          Files.readAllBytes(target).toVector shouldBe targetbytes
+        }
+      }
+
+      "writes actual review output across nonsemantic audio formatting and key order" in {
+        Given("four JSON whitespace variants and both original and reversed audio object field orders")
+        val property = Prop.forAll(Gen.choose(0, 3), Gen.oneOf(false, true)) { (variant, reversefields) =>
+          _with_temp_dir("cozy-video-review-evidence-audio-formatting-property") { dir =>
+            Given("a fresh complete review fixture whose actual audio JSON has the selected nonsemantic representation")
+            val project = dir.resolve("video_project.json")
+            val finalvideo = dir.resolve("build/final.mp4")
+            val save = dir.resolve("review")
+            _write_review_evidence_fixture(dir, "build/final.mp4", finalvideo)
+            val audiopath = dir.resolve("build/audio/intro/manifest.json")
+            val entries = parser.parse(_read(audiopath)).toOption.get.asArray.get
+            val audio = Json.fromValues(entries.map { entry =>
+              if (reversefields) Json.fromFields(entry.asObject.get.toVector.reverse) else entry
+            })
+            val text = variant match {
+              case 0 => audio.noSpaces
+              case 1 => audio.spaces2
+              case 2 => "\n" + audio.noSpaces + "\n"
+              case 3 => "\n" + audio.spaces2 + "\n\n"
+            }
+            _write(audiopath, text)
+            val runner = ReviewEvidenceRunner()
+
+            When("Cozy writes actual review evidence from the parsed audio semantics")
+            CozyVideo.reviewEvidence(CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")), CozyVideo.VideoToolRegistry(Vector.empty), runner)
+            val evidence = parser.parse(_read(save.resolve("review-manifest.json"))).toOption.get
+            val part = evidence.hcursor.downField("parts").downArray
+            val scene = part.downField("scenes").downArray
+            val topframes = evidence.hcursor.downField("frames").focus.flatMap(_.asArray).get
+            val sceneframes = scene.downField("frames").focus.flatMap(_.asArray).get
+
+            Then("the actual validated evidence retains scene timing and audio path with exactly two regular extracted frames and no local digest fields")
+            evidence.hcursor.get[String]("status").toOption shouldBe Some("validated")
+            part.get[String]("id").toOption shouldBe Some("intro")
+            scene.get[String]("id").toOption shouldBe Some("scene")
+            scene.downField("effectiveTiming").get[Int]("durationFrames").toOption shouldBe Some(10)
+            scene.downField("effectiveTiming").get[Int]("leadInFrames").toOption shouldBe Some(0)
+            scene.downField("absoluteTiming").get[Int]("startFrame").toOption shouldBe Some(1)
+            part.get[String]("audioManifestPath").toOption shouldBe Some(audiopath.toString)
+            part.downField("partManifest").focus shouldBe Some(Json.Null)
+            topframes should have size 1
+            sceneframes should have size 1
+            (topframes ++ sceneframes).foreach { frame =>
+              frame.hcursor.get[String]("status").toOption shouldBe Some("validated")
+              save.resolve(frame.hcursor.get[String]("path").toOption.get) should be_regular_file
+            }
+            runner.commands should have size 2
+            runner.commands.foreach(command => command.args should contain("ffmpeg"))
+            _json_keys(evidence).intersect(Set("sha256", "propsSha256", "audioManifestSha256")) shouldBe empty
+          }
+          true
+        }
+
+        When("the actual review-output property is checked across at least fifty generated representations")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("every generated representation produces the required semantic evidence and actual artifacts")
+        check.passed shouldBe true
+        check.succeeded should be >= 50
+      }
+
     }
 
     "demo replay" which {
       "video demo-script generates replay script from selector event log and transcript" in {
         _with_temp_dir("cozy-video-demo-script-events") { dir =>
+          Given("a recorded video with ordered selector events and a timed transcript note")
           val input = dir.resolve("demo.mp4")
           val events = dir.resolve("events.json")
           val transcript = dir.resolve("transcript.json")
@@ -4705,6 +5102,7 @@ final class CozyVideoSpec
           |""".stripMargin
           )
 
+          When("Cozy derives the replay script from those declared sources")
           val out = CozyVideo.demoScript(
             CozyVideo.DemoScriptConfig(
               input,
@@ -4714,6 +5112,7 @@ final class CozyVideoSpec
             )
           )
 
+          Then("the generated script preserves source paths, viewport, manual-review state and ordered operations without a local source digest")
           ((out.contains("Cozy Video Demo Script")) shouldBe true)
           ((out.contains("manualReview: true")) shouldBe true)
           val json = parser.parse(_read(save)).toOption.get
@@ -4751,11 +5150,14 @@ final class CozyVideoSpec
               .toOption
               .contains("Open the start page")
           )) shouldBe true)
-          ((json.hcursor
-            .downField("sourceSha256")
-            .as[String]
-            .toOption
-            .exists(_.nonEmpty)) shouldBe true)
+          json.hcursor.downField("sourceSha256").focus shouldBe None
+          json.hcursor.get[String]("sourceVideo").toOption shouldBe Some(input.toString)
+          json.hcursor.downField("sources").get[String]("events").toOption shouldBe Some(events.toString)
+          json.hcursor.downField("sources").get[String]("transcript").toOption shouldBe Some(transcript.toString)
+          steps should have size 6
+          steps(1).hcursor.get[String]("selector").toOption shouldBe Some("#start")
+          steps(1).hcursor.get[Int]("timestampMs").toOption shouldBe Some(250)
+          steps.last.hcursor.get[String]("kind").toOption shouldBe Some("note")
         }
       }
 
@@ -4870,6 +5272,7 @@ final class CozyVideoSpec
 
       "video replay dry-runs and executes generated Playwright plans" in {
         _with_temp_dir("cozy-video-replay") { dir =>
+          Given("a canonical replay script with source video, viewport and two ordered browser operations")
           val script = dir.resolve("build/demo-script.json")
           val output = dir.resolve("build/replay.webm")
           _write(
@@ -4877,7 +5280,6 @@ final class CozyVideoSpec
             """{
           |  "schema": "cozy.video.replay-script.v1",
           |  "sourceVideo": "demo.mp4",
-          |  "sourceSha256": "abc123",
           |  "manualReview": false,
           |  "viewport": {"width": 1280, "height": 720},
           |  "steps": [
@@ -4887,6 +5289,7 @@ final class CozyVideoSpec
           |}
           |""".stripMargin
           )
+          When("Cozy describes the Docker Playwright plan without executing it")
           val dryrun = CozyVideo.replay(
             CozyVideo.ReplayConfig(
               script,
@@ -4896,7 +5299,15 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry(Vector.empty),
             ReplayRunner()
           )
+          Then("the dry-run preserves the selected tool and command plan")
+          dryrun should include("Cozy Video Replay Dry-Run")
+          dryrun should include("'docker' 'run' '--rm'")
+          dryrun should include("replay.playwright")
+
+          Given("the same script and a host runner that creates the requested WebM artifact")
           val runner = ReplayRunner()
+
+          When("Cozy executes the host Playwright plan")
           val execute = CozyVideo.replay(
             CozyVideo.ReplayConfig(
               script,
@@ -4908,9 +5319,7 @@ final class CozyVideoSpec
             runner
           )
 
-          ((dryrun.contains("Cozy Video Replay Dry-Run")) shouldBe true)
-          ((dryrun.contains("'docker' 'run' '--rm'")) shouldBe true)
-          ((dryrun.contains("replay.playwright")) shouldBe true)
+          Then("the actual WebM and manifest retain source, operations and tool evidence without source digest metadata")
           ((execute.contains("Cozy Video Replay")) shouldBe true)
           ((execute.contains("toolMode: host")) shouldBe true)
           ((runner.commands.size == 1) shouldBe true)
@@ -4923,7 +5332,15 @@ final class CozyVideoSpec
             dir.resolve("target/cozy-video/replay/demo-script/manifest.json")
           )
           ((manifest.contains("cozy.video.replay-manifest.v1")) shouldBe true)
-          ((manifest.contains("abc123")) shouldBe true)
+          val record = parser.parse(manifest).toOption.get
+          record.hcursor.downField("sourceSha256").focus shouldBe None
+          record.hcursor.get[String]("scriptFile").toOption shouldBe Some(script.toString)
+          record.hcursor.get[String]("sourceVideo").toOption shouldBe Some("demo.mp4")
+          record.hcursor.get[Boolean]("manualReview").toOption shouldBe Some(false)
+          record.hcursor.get[Int]("stepCount").toOption shouldBe Some(2)
+          record.hcursor.get[String]("outputVideo").toOption shouldBe Some(output.toString)
+          record.hcursor.get[String]("toolMode").toOption shouldBe Some("host")
+          record.hcursor.downField("commands").downArray.get[String]("name").toOption shouldBe Some("replay.playwright")
           ((manifest.contains("replay.playwright")) shouldBe true)
         }
       }
@@ -5016,6 +5433,7 @@ final class CozyVideoSpec
 
       "video rdf includes replay script and replay manifest provenance" in {
         _with_temp_dir("cozy-video-rdf-replay") { dir =>
+          Given("a project with a canonical replay script and its actual replay manifest")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -5026,7 +5444,6 @@ final class CozyVideoSpec
             """{
           |  "schema": "cozy.video.replay-script.v1",
           |  "sourceVideo": "demo.mp4",
-          |  "sourceSha256": "abc123",
           |  "manualReview": false,
           |  "steps": [
           |    {"kind": "goto", "url": "http://example.test/"},
@@ -5046,6 +5463,7 @@ final class CozyVideoSpec
           |""".stripMargin
           )
 
+          When("Cozy projects replay actions and provenance into RDF artifacts")
           CozyVideo.rdf(
             CozyVideo.RdfConfig(
               dir.resolve("video_project.json"),
@@ -5053,12 +5471,17 @@ final class CozyVideoSpec
             )
           )
 
+          Then("Turtle and JSON-LD retain replay source and selector provenance without a source digest predicate")
           val turtle = _read(dir.resolve("rdf/video.ttl"))
           ((turtle.contains("cozy-video:VideoReplay")) shouldBe true)
           ((turtle.contains("cozy-video:VideoReplayStep")) shouldBe true)
-          ((turtle.contains(
-            "cozy-video:sourceSha256 \"abc123\""
-          )) shouldBe true)
+          turtle should not include "cozy-video:sourceSha256"
+          turtle should include("cozy-video:sourceVideo \"demo.mp4\"")
+          val jsonld = parser.parse(_read(dir.resolve("rdf/video.jsonld"))).toOption.get
+          jsonld.noSpaces should not include "sourceSha256"
+          jsonld.noSpaces should include("demo.mp4")
+          dir.resolve("rdf/video.ttl") should be_regular_file
+          dir.resolve("rdf/video.jsonld") should be_regular_file
           ((turtle.contains("cozy-video:selector \"#start\"")) shouldBe true)
           ((turtle.contains(
             "cozy-video:artifactKind \"replay-manifest\""
@@ -5090,8 +5513,7 @@ final class CozyVideoSpec
               yamlpkg,
               dir.resolve("publication"),
               dir.resolve("warehouse"),
-              None,
-              force = false
+              None
             )
           )
 
@@ -5130,8 +5552,7 @@ final class CozyVideoSpec
               jsonpkg,
               dir.resolve("publication"),
               dir.resolve("warehouse"),
-              Some("0.2.0"),
-              force = false
+              Some("0.2.0")
             )
           )
 
@@ -5162,8 +5583,7 @@ final class CozyVideoSpec
                 pkg,
                 dir.resolve("publication"),
                 dir.resolve("warehouse"),
-                None,
-                force = false
+                None
               )
             )
           }
@@ -5214,8 +5634,7 @@ final class CozyVideoSpec
               pkg,
               publication,
               warehouse,
-              None,
-              force = false
+              None
             ),
             RecordingVoicevoxClient(),
             runner
@@ -5424,23 +5843,6 @@ final class CozyVideoSpec
             result.workspaceRoot.resolve("source/assets/legacy/nested-overlay.svg")
           ) should include("legacy overlay")
 
-          And(
-            "existing release artifacts are protected unless force is supplied"
-          )
-          val exists = intercept[RuntimeException] {
-            CozyVideoPublisher.publish(
-              CozyVideoPublisher.PublishVideoConfig(
-                pkg,
-                publication,
-                warehouse,
-                None,
-                force = false
-              ),
-              RecordingVoicevoxClient(),
-              PublishingRunner()
-            )
-          }
-          exists.getMessage should include("already exists")
         }
       }
 
@@ -5476,7 +5878,6 @@ final class CozyVideoSpec
               publication,
               warehouse,
               None,
-              force = false,
               Some(repository)
             ),
             RecordingVoicevoxClient(),
@@ -5538,8 +5939,7 @@ final class CozyVideoSpec
               pkg,
               publication,
               warehouse,
-              None,
-              force = false
+              None
             ),
             RecordingVoicevoxClient(),
             PublishingRunner()
@@ -5636,8 +6036,9 @@ final class CozyVideoSpec
     )
     _write(dir.resolve("script.json"), _script_json)
     partids.foreach { id =>
+      _write_bytes(dir.resolve(s"build/audio/$id/01.wav"), _wav_bytes(1.0))
       _write(dir.resolve(s"build/audio/$id/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
     }
   }
 
@@ -5647,13 +6048,16 @@ final class CozyVideoSpec
     "width" -> Json.fromInt(100),
     "height" -> Json.fromInt(50),
     "crf" -> Json.fromInt(32),
-    "x264Preset" -> Json.Null
+    "x264Preset" -> Json.Null,
+    "qualityProfile" -> Json.fromString("standard"),
+    "audioBitrate" -> Json.fromString("128k"),
+    "origins" -> Json.obj("qualityProfile" -> Json.fromString("default"), "fps" -> Json.fromString("explicit"),
+      "width" -> Json.fromString("explicit"), "height" -> Json.fromString("explicit"), "crf" -> Json.fromString("default"),
+      "x264Preset" -> Json.fromString("default"), "audioBitrate" -> Json.fromString("default"))
   ))): Unit = {
-    val hash = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(finalvideo)).map("%02x".format(_)).mkString
     val json = Json.obj(
       "status" -> Json.fromString("validated"),
-      "outputPath" -> Json.fromString(finalvideo.toAbsolutePath.normalize().toString),
-      "finalVideoSha256" -> Json.fromString(hash)
+      "outputPath" -> Json.fromString(finalvideo.toAbsolutePath.normalize().toString)
     ).deepMerge(encoding.map(x => Json.obj("encoding" -> x)).getOrElse(Json.obj()))
     _write(
       finalvideo.getParent.resolve("manifest.json"),
@@ -5680,6 +6084,14 @@ final class CozyVideoSpec
 }
 
 object CozyVideoSpec {
+  private def _docker_tool_command(projectroot: Path, image: String, tool: String, args: Vector[String]): Vector[String] =
+    Vector("docker", "run", "--rm", "-v", s"$projectroot:/workspace", "-w", "/workspace", image, tool) ++ args
+
+  private def _json_keys(json: Json): Set[String] =
+    json.asObject.map { fields =>
+      fields.keys.toSet ++ fields.values.flatMap(_json_keys).toSet
+    }.orElse(json.asArray.map(values => values.flatMap(_json_keys).toSet)).getOrElse(Set.empty)
+
   private def _decode_renderer(configuration: String): Either[io.circe.Error, CozyVideo.VideoRenderer] =
     parser.decode[CozyVideo.VideoRenderer](configuration)(CozyVideo.VideoRenderer.decoder)
 
@@ -5895,6 +6307,13 @@ object CozyVideoSpec {
           )
         if (args.contains("ffmpeg"))
           Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        if (args.contains("node") && args.exists(_.endsWith("render.mjs"))) {
+          val script = args.find(_.endsWith("render.mjs")).map(_command_path(cwd, _)).get
+          val props = parser.parse(Files.readString(script.getParent.getParent.resolve("props.json"), StandardCharsets.UTF_8)).toOption.get
+          val output = _command_path(cwd, props.hcursor.get[String]("outputPath").toOption.get)
+          Files.createDirectories(output.getParent)
+          Files.write(output, Array[Byte](0, 0, 0, 0))
+        }
         CozyVideo.VideoCommandResult(0, "ok", "")
       }
     }
@@ -5919,7 +6338,7 @@ object CozyVideoSpec {
         else
           CozyVideo.VideoCommandResult(
             0,
-            """{"format":{"duration":"1.000"},"streams":[]}""",
+            """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video","duration_ts":18000,"time_base":"1/18000","duration":"1.000","start_time":"0"}]}""",
             ""
           )
       } else {
@@ -5952,10 +6371,10 @@ object CozyVideoSpec {
           .find(_.endsWith("render.mjs"))
           .map(_command_path(cwd, _))
           .get
-        Files.write(
-          script.getParent.getParent.resolve("rendered.mp4"),
-          Array[Byte](0, 0, 0, 0)
-        )
+        val props = parser.parse(Files.readString(script.getParent.getParent.resolve("props.json"), StandardCharsets.UTF_8)).toOption.get
+        val output = _command_path(cwd, props.hcursor.get[String]("outputPath").toOption.get)
+        Files.createDirectories(output.getParent)
+        Files.write(output, Array[Byte](0, 0, 0, 0))
         CozyVideo.VideoCommandResult(0, "node ok", "")
       } else if (args.contains("ffprobe")) {
         Files.createDirectories(cwd.resolve("build"))
@@ -5971,7 +6390,7 @@ object CozyVideoSpec {
         )
         CozyVideo.VideoCommandResult(
           0,
-          """{"format":{"duration":"1.000"},"streams":[]}""",
+          """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video","duration_ts":18000,"time_base":"1/18000","duration":"1.000","start_time":"0"}]}""",
           ""
         )
       } else {

@@ -1,7 +1,7 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import java.util.regex.Pattern
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
@@ -12,7 +12,8 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiJarPackager {
@@ -26,6 +27,7 @@ private[cozy] object ComponentApiJarPackager {
   private[cozy] def _build_api_jar(mainjar: Path, descriptor: Path, save: Path): Unit = {
     val contract = _parse_descriptor(descriptor)
     val coordinate = _require_contract(contract, descriptor.toString)
+    _require_output_ownership(save, Vector(mainjar, descriptor))
     if (contract.provided.isEmpty) {
       Files.deleteIfExists(save)
     } else {
@@ -106,6 +108,16 @@ private[cozy] object ComponentApiJarPackager {
     coordinate
   }
 
+  private def _require_output_ownership(save: Path, inputs: Vector[Path]): Unit = {
+    val output = save.toAbsolutePath.normalize()
+    if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Component API output must be a regular file, not a symbolic link or nonregular leaf: $output")
+    inputs.map(_.toAbsolutePath.normalize()).foreach { input =>
+      if (output == input || (Files.exists(output) && Files.exists(input) && Files.isSameFile(output, input)))
+        RAISE.invalidArgumentFault(s"Component API output cannot alias its selected input: output=$output input=$input")
+    }
+  }
+
   private def _write_api_jar(mainjar: Path, save: Path, publictypes: Vector[PublicType]): Unit = {
     val patterns = publictypes.flatMap(_.artifactPatterns).distinct
     val matchers = patterns.map(_glob_pattern)
@@ -127,22 +139,16 @@ private[cozy] object ComponentApiJarPackager {
         RAISE.invalidArgumentFault(s"Component API descriptor selected no artifacts from ${mainjar}")
 
       Option(save.getParent).foreach(Files.createDirectories(_))
-      val temporary = Files.createTempFile(save.getParent, save.getFileName.toString, ".tmp")
+      val output = new ZipOutputStream(Files.newOutputStream(save))
       try {
-        val output = new ZipOutputStream(Files.newOutputStream(temporary))
-        try {
-          _write_entry(output, "META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n\n".getBytes(StandardCharsets.UTF_8))
-          selected.foreach { entry =>
-            val input = source.getInputStream(entry)
-            try _write_entry(output, entry.getName, input.readAllBytes())
-            finally input.close()
-          }
-        } finally {
-          output.close()
+        _write_entry(output, "META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n\n".getBytes(StandardCharsets.UTF_8))
+        selected.foreach { entry =>
+          val input = source.getInputStream(entry)
+          try _write_entry(output, entry.getName, input.readAllBytes())
+          finally input.close()
         }
-        Files.move(temporary, save, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
       } finally {
-        Files.deleteIfExists(temporary)
+        output.close()
       }
     } finally {
       source.close()

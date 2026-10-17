@@ -4,7 +4,7 @@
 
 - [ ] Freeze versioned Flutter Target Policy schema and identity.
 - [ ] Keep theme/design tokens and concrete target choices below Logical UI.
-- [ ] Map Phase 50 compact/medium/expanded intent to concrete Flutter thresholds.
+- [ ] Map Phase 50.1 compact/medium/expanded intent to concrete Flutter thresholds.
 - [ ] Freeze Flutter navigation and feedback realization strategy.
 - [ ] Freeze admitted widget-role mapping and platform adaptation policy.
 - [ ] Reject stale or incompatible Policy identities.
@@ -16,7 +16,7 @@
   controls, data/edit bindings, action bindings, target UI-local state,
   validation/feedback, responsive arrangement, localization/accessibility, and
   target adaptation.
-- [ ] Bind exact accepted Phase 50 Logical UI and target Policy identities.
+- [ ] Bind exact accepted Phase 50.1 Logical UI and target Policy identities.
 - [ ] Preserve reverse provenance to Logical UI screen/interaction, UI UseCase
   Step, and Component/Operation/constraint identity.
 - [ ] Reject plans that redefine domain/server authority or bypass Aggregate
@@ -33,7 +33,7 @@
 - [ ] Run `flutter analyze`.
 - [ ] Add focused generator/widget tests.
 
-## Equivalence with Phase 50 behavior
+## Equivalence with Phase 50.1 behavior
 
 - [ ] Preserve SalesOrder screen/navigation coverage.
 - [ ] Preserve confirm action binding to public Operation.

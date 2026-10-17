@@ -10,19 +10,16 @@ import cozy.runtime.CozyCliArgs
 import io.circe.{Decoder, HCursor, Json => CJson}
 import org.smartdox.metadata.PublishMetadata.VideoStatus
 import play.api.libs.json.{Json => PJson, JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
 /*
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -35,12 +32,11 @@ private[cozy] object CozyVideoPublisher {
     saveDir: Path,
     warehouseDir: Path,
     version: Option[String],
-    force: Boolean,
     repositoryDir: Option[Path] = None
   )
   object PublishVideoConfig {
     def create(args: List[String]): PublishVideoConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_video_package, _p_save, _p_warehouse, _p_version, _p_force)(_normalize_property_args(args))
+      val parsed = CozyCliArgs.parseStrict(_p_video_package, _p_save, _p_warehouse, _p_version)(_normalize_property_args(args))
       val packagedir = parsed.argument("video-package-dir").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing video package directory for publish-video")
       )
@@ -48,8 +44,7 @@ private[cozy] object CozyVideoPublisher {
         packagedir,
         parsed.requiredPathProperty("save"),
         parsed.requiredPathProperty("warehouse"),
-        parsed.property("version"),
-        parsed.flag("force")
+        parsed.property("version")
       )
     }
   }
@@ -196,62 +191,18 @@ private[cozy] object CozyVideoPublisher {
     metadataPublication: Option[CozyPublicationCompiler.MetadataPublication] = None
   )
 
-  final case class DestinationDisposition(
-    state: String,
-    forceRequired: Boolean,
-    forceRequested: Boolean
-  )
-
-  /* Immutable, canonical evidence for every package-owned input that the
-   * publisher copies into a workspace or interprets while assembling the
-   * project.  The explicit state also makes an optional semantic asset's
-   * absent/present transition observable without discovering outside the
-   * resolved package root. */
-  final case class ProducerSource(
-    path: String,
-    state: String,
-    sha256: Option[String]
-  )
-
-  final case class ProducerSourceEvidence(sources: Vector[ProducerSource])
-
-  /* The command-wide preflight value: resolution has completed, its final
-   * repository destination has been examined, but neither rendering nor
-   * artifact/registry mutation has begun. */
+  /* Resolution selects the package and repository destination before rendering. */
   final case class PublicationPlan(
     config: PublishVideoConfig,
     video: ResolvedVideoPackage,
-    target: Path,
-    destination: DestinationDisposition,
-    producerSources: ProducerSourceEvidence
+    target: Path
   )
 
   private[cozy] final case class PreparedPublication(
     result: PublishVideoResult,
     sourceArtifact: Path,
-    sidecars: Vector[(Path, Path)],
-    force: Boolean
+    sidecars: Vector[(Path, Path)]
   )
-
-  private final case class ArtifactAdmission(
-    source: Path,
-    target: Path,
-    sourcehash: String,
-    destinationhash: Option[String],
-    disposition: ArtifactDisposition
-  )
-
-  private final case class StagedArtifactAdmission(
-    admission: ArtifactAdmission,
-    temporary: Path
-  )
-
-  private sealed trait ArtifactDisposition
-  private object ArtifactDisposition {
-    case object Create extends ArtifactDisposition
-    case object Reuse extends ArtifactDisposition
-    case object Replace extends ArtifactDisposition
-  }
 
   def publish(args: List[String]): Unit =
     publish(PublishVideoConfig.create(args), CozyVideo.VoicevoxClient.default, CozyVideo.VideoProcessRunner.default)
@@ -276,32 +227,9 @@ private[cozy] object CozyVideoPublisher {
       RAISE.invalidArgumentFault("Video publication configuration must be defined")
     val video = resolve(config)
     val target = _repository_artifact_path(config, video.warehousePath)
-    PublicationPlan(
-      config,
-      video,
-      target,
-      _destination_disposition(target, config.force),
-      _producer_source_evidence(video)
-    )
-  }
-
-  /* Re-check the resolved destination immediately before either dry-run
-   * reporting or rendering.  Planning never creates a directory or hashes an
-   * output that has not been rendered. */
-  private[cozy] def validatePublicationPlan(plan: PublicationPlan): PublicationPlan = {
-    if (plan == null || plan.config == null || plan.video == null || plan.target == null ||
-      plan.destination == null || plan.producerSources == null)
-      RAISE.invalidArgumentFault("Video publication plan must be defined")
-    val target = _repository_artifact_path(plan.config, plan.video.warehousePath)
-    if (target != plan.target.toAbsolutePath.normalize())
-      RAISE.invalidArgumentFault("Video publication plan target does not match its resolved package")
-    val destination = _destination_disposition(target, plan.config.force)
-    if (destination.forceRequired && !destination.forceRequested)
-      RAISE.invalidArgumentFault(s"Video warehouse artifact already exists: $target. Use --force to replace it.")
-    val evidence = _producer_source_evidence(plan.video)
-    if (evidence != plan.producerSources)
-      RAISE.invalidArgumentFault(s"Video publication producer sources changed after planning: ${plan.video.packageDir}")
-    plan.copy(target = target, destination = destination)
+    _validate_producer_sources(video)
+    _validate_artifact_destination(target)
+    PublicationPlan(config, video, target)
   }
 
   /* Rendering is deliberately separated from artifact admission.  The
@@ -312,16 +240,15 @@ private[cozy] object CozyVideoPublisher {
     voicevox: CozyVideo.VoicevoxClient,
     runner: CozyVideo.VideoProcessRunner
   ): (PublicationPlan, Path, Path) = {
-    if (plan == null || plan.config == null || plan.video == null)
+    if (plan == null || plan.config == null || plan.video == null || plan.target == null)
       RAISE.invalidArgumentFault("Video publication plan must be defined")
     if (voicevox == null || runner == null)
       RAISE.invalidArgumentFault("Video publication renderer dependencies must be defined")
-    val validated = validatePublicationPlan(plan)
-    val video = validated.video
+    val video = plan.video
     val workspace = _prepare_workspace(video)
     val projectfile = _write_video_project(video, workspace)
     _run_video_pipeline(video, projectfile, voicevox, runner)
-    (validated, workspace, projectfile)
+    (plan, workspace, projectfile)
   }
 
   private[cozy] def preparePublication(
@@ -334,10 +261,10 @@ private[cozy] object CozyVideoPublisher {
     val source = rendered._2.resolve("build/final.mp4").normalize()
     if (!Files.isRegularFile(source))
       RAISE.invalidArgumentFault(s"Video build did not create final output: $source")
-    val target = validatePublicationPlan(plan).target
+    val target = plan.target
     val sidecars = _sidecars(video, rendered._2, target)
     val result = _prepare_metadata(plan.config, video, rendered._2, rendered._3, target, source, sidecars)
-    PreparedPublication(result, source, sidecars, plan.config.force)
+    PreparedPublication(result, source, sidecars)
   }
 
   private[cozy] def admitPublication(prepared: PreparedPublication): PublishVideoResult =
@@ -351,27 +278,17 @@ private[cozy] object CozyVideoPublisher {
       RAISE.invalidArgumentFault("Prepared video artifact admission must be defined")
     if (beforeFirstInstall == null)
       RAISE.invalidArgumentFault("Video publication beforeFirstInstall callback must not be null")
-    val admissions = _artifact_admissions(prepared)
-    val temporaries = ArrayBuffer.empty[Path]
+    val candidates = _artifact_candidates(prepared)
     try {
-      val staged = _stage_artifact_admissions(admissions, temporaries)
       beforeFirstInstall()
-      _install_artifact_admissions(staged, temporaries)
+      candidates.foreach { case (source, target) =>
+        Files.createDirectories(target.getParent)
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+      }
       prepared.result
     } catch {
-      case e: AtomicMoveNotSupportedException =>
-        RAISE.invalidArgumentFault(s"Video publication requires atomic move: ${e.getMessage}")
       case e: java.io.IOException =>
-        RAISE.invalidArgumentFault(s"Video publication artifact staging or installation failed: ${e.getMessage}")
-      case e: UnsupportedOperationException =>
-        RAISE.invalidArgumentFault(s"Video publication artifact installation is unsupported: ${e.getMessage}")
-    } finally {
-      temporaries.foreach { path =>
-        try Files.deleteIfExists(path)
-        catch {
-          case NonFatal(_) => ()
-        }
-      }
+        RAISE.invalidArgumentFault(s"Video publication artifact copy failed: ${e.getMessage}")
     }
   }
 
@@ -453,22 +370,19 @@ private[cozy] object CozyVideoPublisher {
       ArticleMediaBinding(identity, locale, status)
     }
 
-  private def _producer_source_evidence(video: ResolvedVideoPackage): ProducerSourceEvidence = {
+  private def _validate_producer_sources(video: ResolvedVideoPackage): Unit = {
     val packagedir = video.packageDir.toAbsolutePath.normalize()
     val root = _package_source_root(packagedir)
-    val primary = Vector(
-      _producer_source_file(root, _package_relative_producer_path(packagedir, root, video.descriptorFile, "descriptor"), "descriptor"),
-      _producer_source_file(root, video.articlePath, "article")
-    )
-    val scripts = (Vector(video.scriptPath) ++ video.descriptor.parts.flatMap { part =>
+    _producer_source_file(root, _package_relative_producer_path(packagedir, root, video.descriptorFile, "descriptor"), "descriptor")
+    _producer_source_file(root, video.articlePath, "article")
+    (Vector(video.scriptPath) ++ video.descriptor.parts.flatMap { part =>
       part.script.toVector ++ part.steps.toVector
-    }).distinct.sorted.map(_producer_source_file(root, _, "video script or steps"))
-    val trees = Vector("assets", "conf/cozy", ".cozy").flatMap(_producer_source_tree(root, _))
-    val resolved = video.assets.map(_resolved_producer_source(packagedir, root, _))
-    val semantic = video.descriptor.assets.toVector.flatMap(_.semantic.toVector.sortBy(_._1)).map { case (id, entry) =>
+    }).distinct.foreach(_producer_source_file(root, _, "video script or steps"))
+    Vector("assets", "conf/cozy", ".cozy").foreach(_producer_source_tree(root, _))
+    video.assets.foreach(_resolved_producer_source(packagedir, root, _))
+    video.descriptor.assets.toVector.flatMap(_.semantic).foreach { case (id, entry) =>
       _semantic_producer_source(root, id, entry)
     }
-    ProducerSourceEvidence(_unique_producer_sources(primary ++ scripts ++ trees ++ resolved ++ semantic))
   }
 
   private def _package_source_root(packagedir: Path): Path = {
@@ -510,7 +424,7 @@ private[cozy] object CozyVideoPublisher {
     _relative_path(relative.toString, s"$label producer source")
   }
 
-  private def _producer_source_file(root: Path, value: String, label: String): ProducerSource = {
+  private def _producer_source_file(root: Path, value: String, label: String): Unit = {
     val relative = _relative_path(value, label)
     val candidate = root.resolve(relative).normalize()
     if (!candidate.startsWith(root))
@@ -521,10 +435,10 @@ private[cozy] object CozyVideoPublisher {
     val resolved = candidate.toRealPath()
     if (!resolved.startsWith(root))
       RAISE.invalidArgumentFault(s"Video $label source real path escapes its package: $value")
-    ProducerSource(root.relativize(candidate).toString.replace('\\', '/'), "file", Some(_sha256(candidate)))
+
   }
 
-  private def _semantic_producer_source(root: Path, id: String, entry: CozyVideoAssets.Entry): ProducerSource = {
+  private def _semantic_producer_source(root: Path, id: String, entry: CozyVideoAssets.Entry): Unit = {
     val relative = _relative_path(entry.path, s"semantic video asset $id")
     val candidate = root.resolve(relative).normalize()
     if (!candidate.startsWith(root))
@@ -534,10 +448,10 @@ private[cozy] object CozyVideoPublisher {
     else if (entry.required)
       RAISE.invalidArgumentFault(s"Missing semantic video asset: $candidate")
     else
-      ProducerSource(relative, "optional-missing", None)
+      ()
   }
 
-  private def _resolved_producer_source(packagedir: Path, root: Path, asset: CozyVideoAssets.Resolved): ProducerSource = {
+  private def _resolved_producer_source(packagedir: Path, root: Path, asset: CozyVideoAssets.Resolved): Unit = {
     val candidate = asset.path.toAbsolutePath.normalize()
     val relative = _package_relative_producer_path(packagedir, root, candidate, s"resolved publication asset ${asset.role.key}")
     if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS))
@@ -545,27 +459,28 @@ private[cozy] object CozyVideoPublisher {
     else if (asset.required)
       RAISE.invalidArgumentFault(s"Missing resolved video publication asset: $candidate")
     else
-      ProducerSource(relative.replace('\\', '/'), "optional-missing", None)
+      ()
   }
 
-  private def _producer_source_tree(root: Path, relative: String): Vector[ProducerSource] = {
+  private def _producer_source_tree(root: Path, relative: String): Unit = {
     val directory = root.resolve(relative).normalize()
     if (!directory.startsWith(root))
       RAISE.invalidArgumentFault(s"Video producer source tree escapes its package: $relative")
     if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS))
-      Vector(ProducerSource(relative, "absent", None))
+      ()
     else if (Files.isSymbolicLink(directory))
       RAISE.invalidArgumentFault(s"Video producer source tree must not be a symbolic link: $directory")
     else if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS))
-      Vector(ProducerSource(relative, "not-directory", None))
+      ()
     else {
+      _validate_direct_source_path(root, directory, "producer source tree")
       val stream = Files.walk(directory)
-      try stream.iterator().asScala.toVector.sortBy(_.toString).map { path =>
+      try stream.iterator().asScala.foreach { path =>
         val normalized = path.toAbsolutePath.normalize()
         if (Files.isSymbolicLink(normalized))
           RAISE.invalidArgumentFault(s"Video producer source tree must not contain symbolic links: $normalized")
         if (Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
-          ProducerSource(root.relativize(normalized).toString.replace('\\', '/'), "directory", None)
+          ()
         else if (Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS))
           _producer_source_file(root, root.relativize(normalized).toString, "producer source tree")
         else
@@ -585,16 +500,6 @@ private[cozy] object CozyVideoPublisher {
     }
     if (Files.isSymbolicLink(candidate))
       RAISE.invalidArgumentFault(s"Video $label source must not be a symbolic link: $candidate")
-  }
-
-  private def _unique_producer_sources(values: Vector[ProducerSource]): Vector[ProducerSource] = {
-    val grouped = values.groupBy(_.path).toVector.sortBy(_._1)
-    grouped.map { case (path, sources) =>
-      val distinct = sources.distinct
-      if (distinct.size != 1)
-        RAISE.invalidArgumentFault(s"Video producer source identity is ambiguous: $path")
-      distinct.head
-    }
   }
 
   private def _run_video_pipeline(
@@ -722,7 +627,9 @@ private[cozy] object CozyVideoPublisher {
       renderer.height.map("height" -> PJson.toJson(_)),
       renderer.crf.map("crf" -> PJson.toJson(_)),
       renderer.x264Preset.map("x264Preset" -> PJson.toJson(_)),
-      renderer.effectProfile.map("effectProfile" -> PJson.toJson(_))
+      renderer.effectProfile.map("effectProfile" -> PJson.toJson(_)),
+      renderer.qualityProfile.map(profile => "qualityProfile" -> PJson.toJson(profile.name)),
+      renderer.audioBitrate.map("audioBitrate" -> PJson.toJson(_))
     ).flatten)
   }
 
@@ -787,7 +694,7 @@ private[cozy] object CozyVideoPublisher {
   private def _project_relative(root: Path, path: Path): String =
     root.toAbsolutePath.normalize().relativize(path.toAbsolutePath.normalize()).toString
 
-  private def _artifact_admissions(prepared: PreparedPublication): Vector[ArtifactAdmission] = {
+  private def _artifact_candidates(prepared: PreparedPublication): Vector[(Path, Path)] = {
     val main = prepared.sourceArtifact.toAbsolutePath.normalize() -> prepared.result.warehouseArtifact.toAbsolutePath.normalize()
     val candidates = main +: Option(prepared.sidecars).getOrElse(
       RAISE.invalidArgumentFault("Prepared video artifact sidecars must be defined")
@@ -813,15 +720,8 @@ private[cozy] object CozyVideoPublisher {
       if (Option(target.getParent).forall(_ != parent))
         RAISE.invalidArgumentFault(s"Video publication artifacts must share one repository parent: $target")
       _validate_direct_artifact_source(source)
-      val destinationhash = _artifact_destination_hash(target)
-      val sourcehash = _sha256(source)
-      val disposition = destinationhash match {
-        case None => ArtifactDisposition.Create
-        case Some(hash) if hash == sourcehash => ArtifactDisposition.Reuse
-        case Some(_) if prepared.force => ArtifactDisposition.Replace
-        case Some(_) => RAISE.invalidArgumentFault(s"Video publication artifact differs; use --force to replace: $target")
-      }
-      ArtifactAdmission(source, target, sourcehash, destinationhash, disposition)
+      _validate_artifact_destination(target)
+      source -> target
     }
   }
 
@@ -829,13 +729,12 @@ private[cozy] object CozyVideoPublisher {
     if (source == null || Files.isSymbolicLink(source) || !Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Video publication artifact source must be a direct regular non-symlink file: $source")
 
-  private def _artifact_destination_hash(target: Path): Option[String] = {
-    if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-      None
-    else if (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
+  private def _validate_artifact_destination(target: Path): Unit = {
+    if (target == null)
+      RAISE.invalidArgumentFault("Video publication artifact destination must be defined")
+    if (Files.exists(target, LinkOption.NOFOLLOW_LINKS) &&
+      (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)))
       RAISE.invalidArgumentFault(s"Video publication artifact destination must be absent or a direct regular non-symlink file: $target")
-    else
-      Some(_sha256(target))
   }
 
   private def _validate_artifact_parent(parent: Path): Unit = {
@@ -857,73 +756,6 @@ private[cozy] object CozyVideoPublisher {
       if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) &&
         (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)))
         RAISE.invalidArgumentFault(s"Video publication artifact parent must be a direct directory: $normalized")
-    }
-  }
-
-  private def _stage_artifact_admissions(
-    admissions: Vector[ArtifactAdmission],
-    temporaries: ArrayBuffer[Path]
-  ): Vector[StagedArtifactAdmission] = {
-    admissions.collect {
-      case admission if admission.disposition != ArtifactDisposition.Reuse =>
-        val parent = admission.target.getParent
-        Files.createDirectories(parent)
-        _validate_artifact_parent(parent)
-        val temporary = Files.createTempFile(parent, s".${admission.target.getFileName}.cozy-video.", ".tmp")
-        temporaries += temporary
-        _copy_and_force_artifact(admission.source, temporary)
-        if (_sha256(temporary) != admission.sourcehash)
-          RAISE.invalidArgumentFault(s"Video temporary publication hash differs: $temporary")
-        StagedArtifactAdmission(admission, temporary)
-    }
-  }
-
-  private def _copy_and_force_artifact(source: Path, temporary: Path): Unit = {
-    val input = FileChannel.open(source, StandardOpenOption.READ)
-    val output = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-    try {
-      val buffer = ByteBuffer.allocate(8192)
-      while (input.read(buffer) >= 0) {
-        buffer.flip()
-        while (buffer.hasRemaining)
-          output.write(buffer)
-        buffer.clear()
-      }
-      output.force(true)
-    } finally {
-      try input.close()
-      finally output.close()
-    }
-  }
-
-  private def _install_artifact_admissions(
-    staged: Vector[StagedArtifactAdmission],
-    temporaries: ArrayBuffer[Path]
-  ): Unit = {
-    staged.foreach { artifact =>
-      try {
-        artifact.admission.disposition match {
-          case ArtifactDisposition.Create =>
-            Files.createLink(artifact.admission.target, artifact.temporary)
-            Files.delete(artifact.temporary)
-          case ArtifactDisposition.Replace =>
-            Files.move(
-              artifact.temporary,
-              artifact.admission.target,
-              StandardCopyOption.ATOMIC_MOVE,
-              StandardCopyOption.REPLACE_EXISTING
-            )
-          case ArtifactDisposition.Reuse => ()
-        }
-        temporaries -= artifact.temporary
-      } catch {
-        case e: AtomicMoveNotSupportedException =>
-          RAISE.invalidArgumentFault(s"Video publication requires atomic move: ${e.getMessage}")
-        case e: java.io.IOException =>
-          RAISE.invalidArgumentFault(s"Video publication artifact installation failed: ${e.getMessage}")
-        case e: UnsupportedOperationException =>
-          RAISE.invalidArgumentFault(s"Video publication hard-link installation is unsupported: ${e.getMessage}")
-      }
     }
   }
 
@@ -954,19 +786,6 @@ private[cozy] object CozyVideoPublisher {
       RAISE.invalidArgumentFault(s"Video warehouse artifact target escapes the configured repository: $warehousepath")
     _validate_existing_target_path(normalizedroot, target)
     target
-  }
-
-  private def _destination_disposition(target: Path, force: Boolean): DestinationDisposition = {
-    if (target == null)
-      RAISE.invalidArgumentFault("Video warehouse artifact target must be defined")
-    if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-      DestinationDisposition("missing", forceRequired = false, forceRequested = force)
-    else if (Files.isSymbolicLink(target))
-      RAISE.invalidArgumentFault(s"Video warehouse artifact target must not be a symbolic link: $target")
-    else if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
-      RAISE.invalidArgumentFault(s"Video warehouse artifact target must be a direct regular file when it exists: $target")
-    else
-      DestinationDisposition("existing-regular-file", forceRequired = true, forceRequested = force)
   }
 
   private def _safe_repository_relative_path(value: String): Path = {
@@ -1084,6 +903,26 @@ private[cozy] object CozyVideoPublisher {
       case Some(JsString(value)) if Set("superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo").contains(value) => ()
       case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.x264Preset is malformed: $manifest")
     }
+    val jointfields = Set("qualityProfile", "audioBitrate", "origins")
+    if (jointfields.exists(encoding.value.contains)) {
+      encoding.value.get("qualityProfile") match {
+        case Some(JsString(value)) if CozyVideoQuality.decode(value).isDefined => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.qualityProfile is missing or malformed: $manifest")
+      }
+      encoding.value.get("audioBitrate") match {
+        case Some(JsString(value)) if CozyVideoQuality.normalizeAudioBitrate(CJson.fromString(value)) == Right(value) => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.audioBitrate is missing or malformed: $manifest")
+      }
+      val names = Set("qualityProfile", "fps", "width", "height", "crf", "x264Preset", "audioBitrate")
+      val sources = Set("default", "legacy-policy", "quality-profile", "explicit")
+      encoding.value.get("origins") match {
+        case Some(value: JsObject) if value.keys.toSet == names && value.values.forall {
+          case JsString(source) => sources.contains(source)
+          case _ => false
+        } => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.origins is missing or malformed: $manifest")
+      }
+    }
     encoding
   }
 
@@ -1115,9 +954,7 @@ private[cozy] object CozyVideoPublisher {
         "articlePath" -> video.articlePath,
         "sourcePackage" -> _source_package_path(video.packageDir),
         "descriptorPath" -> video.descriptorFile.getFileName.toString,
-        "descriptorSha256" -> _sha256(video.descriptorFile),
         "scriptPath" -> video.scriptPath,
-        "scriptSha256" -> _sha256(video.script),
         "renderer" -> video.renderer,
         "toolMode" -> video.toolMode,
         "encoding" -> encoding,
@@ -1131,7 +968,6 @@ private[cozy] object CozyVideoPublisher {
           "sitePublicPath" -> video.publicPath,
           "repositoryPublicPath" -> video.repositoryPublicPath,
           "file" -> artifact.toString,
-          "sha256" -> _sha256(artifactsource),
           "size" -> Files.size(artifactsource)
         )
       ) ++ JsObject(optional))
@@ -1164,8 +1000,7 @@ private[cozy] object CozyVideoPublisher {
         "publicPath" -> video.repositoryPublicPath,
         "sitePublicPath" -> video.publicPath,
         "repositoryPublicPath" -> video.repositoryPublicPath,
-        "size" -> Files.size(artifactsource),
-        "sha256" -> _sha256(artifactsource)
+        "size" -> Files.size(artifactsource)
       ),
       "sidecars" -> _video_sidecars_json(video, sidecars)
     )
@@ -1292,8 +1127,7 @@ private[cozy] object CozyVideoPublisher {
             "sitePublicPath" -> video.publicPath,
             "name" -> artifact.getFileName.toString,
             "expected" -> false,
-            "size" -> Files.size(artifactsource),
-            "sha256" -> _sha256(artifactsource)
+            "size" -> Files.size(artifactsource)
           ) +: _video_repository_sidecar_files(video, sidecars)
         )
       )
@@ -1336,8 +1170,7 @@ private[cozy] object CozyVideoPublisher {
       "sitePublicPath" -> video.publicPath,
       "name" -> target.getFileName.toString,
       "expected" -> false,
-      "size" -> Files.size(source),
-      "sha256" -> _sha256(source)
+      "size" -> Files.size(source)
     )
   }
 
@@ -1442,7 +1275,6 @@ private[cozy] object CozyVideoPublisher {
   private val _p_save = spec.Parameter.propertyFileOption("save")
   private val _p_warehouse = spec.Parameter.propertyFileOption("warehouse")
   private val _p_version = spec.Parameter.property("version")
-  private val _p_force = spec.Parameter("force", spec.Parameter.SwitchKind)
 
   private def _copy(source: Path, target: Path): Unit = {
     Files.createDirectories(target.getParent)
@@ -1474,20 +1306,4 @@ private[cozy] object CozyVideoPublisher {
       }
     }
 
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
-  }
 }

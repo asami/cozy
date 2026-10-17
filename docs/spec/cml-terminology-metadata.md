@@ -98,8 +98,8 @@ preferred labels and Term preferred labels have separate authority.
 
 Reference relation, profile, context, preferred label, source, boundary, origin,
 derived rule ID, and ordered source vector remain complete literal core facts.
-Source SHA-256 is supplied provenance; this supplier computes no digest,
-currentness, identity, equivalence, synonym resolution, I/O, or lookup fallback.
+Source attribution carries the declared authority, project-relative path and
+optional positive line. This supplier performs no source I/O or lookup fallback.
 
 ## Publication and strict wire contract
 
@@ -264,8 +264,7 @@ are exactly the four Foundation reasons with strict detail; label language is a
 nonnull None/Some(strict text). Derived requires a strict rule and a nonempty
 nonnull vector of valid sources. Source authority is strict text, path is a
 nonempty project-relative POSIX path without controls, scheme, backslash,
-leading slash or empty/dot/dot-dot segments, digest is 64 literal lowercase
-hex characters, and line is None or a positive Some(Int).
+leading slash or empty/dot/dot-dot segments, and line is None or a positive Some(Int).
 
 Shape does not certify residency, Local endpoint registration, source-authority
 cross-field agreement, or record/reference membership. A structurally valid

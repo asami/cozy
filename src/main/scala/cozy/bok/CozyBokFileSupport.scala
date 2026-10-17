@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -66,6 +66,7 @@ private[cozy] trait CozyBokFileSupport {
   private[bok] def _clear_build_target(config: BuildConfig): Unit = {
     val projectroot = config.project.toAbsolutePath.normalize
     val targetroot = projectroot.resolve("target").normalize
+    val inputroots = _build_input_roots(config, projectroot, targetroot)
     if (!targetroot.startsWith(projectroot))
       RAISE.invalidArgumentFault("BoK build target escapes its project root")
     if (Files.exists(targetroot, LinkOption.NOFOLLOW_LINKS)) {
@@ -73,19 +74,27 @@ private[cozy] trait CozyBokFileSupport {
       val cozybok = targetroot.resolve("cozy-bok").normalize
       if (!cozybok.startsWith(targetroot))
         RAISE.invalidArgumentFault("BoK build target cache escapes its target root")
-      _cleanup_build_target_children(targetroot, cozybok)
+      _cleanup_build_target_children(targetroot, cozybok, inputroots)
     }
   }
 
-  private def _cleanup_build_target_children(targetroot: Path, cozybok: Path): Unit =
+  private def _build_input_roots(config: BuildConfig, projectroot: Path, targetroot: Path): Vector[Path] = {
+    val siepaths = _load_config(config.project).values.toVector.collect {
+      case (key, value) if key.startsWith("bok.projects.") && key.endsWith(".sie.path") =>
+        val path = Paths.get(value)
+        if (path.isAbsolute) path.normalize else projectroot.resolve(path).normalize
+    }
+    (Vector(targetroot.resolve("cozy-bok/bibliography/cache")) ++ siepaths)
+      .filter(_.startsWith(targetroot)).distinct
+  }
+
+  private def _cleanup_build_target_children(targetroot: Path, cozybok: Path, inputroots: Vector[Path]): Unit =
     _direct_children(targetroot, "BoK build target").foreach { child =>
-      if (child == cozybok && Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(child))
-        _cleanup_cozy_bok_target(child)
-      else
-        _delete_build_target_child(targetroot, child)
+      if (child == cozybok)
+        _cleanup_cozy_bok_target(child, inputroots)
     }
 
-  private def _cleanup_cozy_bok_target(cozybok: Path): Unit = {
+  private def _cleanup_cozy_bok_target(cozybok: Path, inputroots: Vector[Path]): Unit = {
     _require_direct_directory(cozybok, "BoK build target cache")
     val articlemedia = cozybok.resolve("article-media").normalize
     if (!articlemedia.startsWith(cozybok))
@@ -94,9 +103,21 @@ private[cozy] trait CozyBokFileSupport {
       if (child == articlemedia && Files.exists(child, LinkOption.NOFOLLOW_LINKS)) {
         _require_direct_directory(child, "BoK article-media snapshot cache")
       } else {
-        _delete_build_target_child(cozybok, child)
+        _cleanup_build_output_child(cozybok, child, inputroots)
       }
     }
+  }
+
+  private def _cleanup_build_output_child(parent: Path, child: Path, inputroots: Vector[Path]): Unit = {
+    if (inputroots.exists(input => child.startsWith(input)))
+      ()
+    else if (inputroots.exists(_.startsWith(child))) {
+      if (!Files.isSymbolicLink(child) && Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS))
+        _direct_children(child, "BoK build input ancestor").foreach { nested =>
+          _cleanup_build_output_child(child, nested, inputroots)
+        }
+    } else
+      _delete_build_target_child(parent, child)
   }
 
   private def _direct_children(parent: Path, label: String): Vector[Path] = {

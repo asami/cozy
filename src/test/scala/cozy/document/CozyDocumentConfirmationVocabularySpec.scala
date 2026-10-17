@@ -10,7 +10,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationVocabularySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -30,6 +31,7 @@ final class CozyDocumentConfirmationVocabularySpec extends AnyWordSpec with Matc
         documentvocabulary.chrome.pageHeading shouldBe "文書確認"
         documentvocabulary.chrome.flowHeading shouldBe "ステップ間の構造"
         documentvocabulary.chrome.structureHeading shouldBe "ステップ内の構造"
+        documentvocabulary.chrome.identitiesHeading shouldBe "主張ID監査"
         documentvocabulary.logicalPatterns("causal-chain") shouldBe "因果連鎖"
         documentvocabulary.logicalPatterns("sequence") shouldBe "順序"
         documentvocabulary.nodeRoles("step") shouldBe "ステップ"
@@ -59,6 +61,8 @@ final class CozyDocumentConfirmationVocabularySpec extends AnyWordSpec with Matc
         resource should not include "application-modeling"
         resource should not include "アプリケーションモデリング"
         resource should not include "ユースケースから実現モデルへ"
+        resource should not include "coreIdentityLabel"
+        resource should not include "outputIdentityLabel"
       }
     }
 

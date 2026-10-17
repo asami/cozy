@@ -7,7 +7,7 @@ import CmlStructureMetadata._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlStructureMetadataCodec {
@@ -89,16 +89,22 @@ private[cozy] object CmlStructureMetadataCodec {
     }
 
   private def _record(catalog: Catalog, value: JsValue, path: String): Result[ElementRecord] = {
-    val core = CmlSemanticMetadata.build(catalog, Json.obj()) match {
-      case Right(envelope) => CmlSemanticMetadata.toJson(envelope).value.get("elements") match {
-        case Some(JsArray(records)) => records.zip(catalog.elements)
-        case _ => Vector.empty
+    val admitted = CmlSemanticMetadata.build(catalog, Json.obj()).toOption.flatMap { envelope =>
+      val root = CmlSemanticMetadata.toJson(envelope)
+      root.value.get("elements") match {
+        case Some(JsArray(records)) => catalog.elements.indices.find { index =>
+          val candidate = root + ("elements" -> JsArray(records.updated(index, value)))
+          CmlSemanticMetadata.read(candidate) match {
+            case Right(decoded) => decoded.catalog.elements(index) == catalog.elements(index)
+            case Left(_) => false
+          }
+        }.map(catalog.elements(_))
+        case _ => None
       }
-      case Left(_) => Vector.empty
     }
-    core.find { case (json, _) => json == value } match {
-      case Some((_, record)) => Right(record)
-      case None => Left(_diagnostic(InvalidCoreBinding, path, "The embedded Structure record does not exactly match admitted core JSON."))
+    admitted match {
+      case Some(record) => Right(record)
+      case None => Left(_diagnostic(InvalidCoreBinding, path, "The embedded Structure record does not match admitted typed core facts."))
     }
   }
 

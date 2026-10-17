@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaArticleScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -20,12 +20,12 @@ final class CozyMediaArticleScaffoldSpec extends AnyWordSpec with Matchers with 
         Given("an absent package destination and canonical separate-token command values")
         val target = root.resolve("article-media")
 
-        When("Cozy scaffolds an article media package through canonical separate-token options")
+        When("Cozy directly creates an article media source package through canonical separate-token options")
         val result = CozyMediaArticleScaffold.execute(List(
           "article-example", "--profile", "business", "--language", "en", "--save", target.toString
         ))
 
-        Then("the authored sources, review state, template directory, and deterministic output directories exist")
+        Then("the new destination contains the authored sources, review state, template directory, and deterministic output directories")
         Vector(
           "article.dox", "brief.json", "media.yaml", "infographic/infographic.svg",
           "presentation/slide-ir.yaml", "review/state.yaml", "review/manifest.json",
@@ -83,7 +83,7 @@ final class CozyMediaArticleScaffoldSpec extends AnyWordSpec with Matchers with 
         When("Cozy attempts the same scaffold")
         val failure = intercept[RuntimeException](CozyMediaArticleScaffold.scaffold("article-example", "business", "en", target))
 
-        Then("the existing destination remains protected")
+        Then("the existing destination remains unchanged without merging the scaffold")
         failure.getMessage should include("already exists")
         Files.isDirectory(target) shouldBe true
       }

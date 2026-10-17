@@ -4,7 +4,14 @@ Phase status: CLOSED
 Updated: 2026-09-30
 Ledger for: [Phase 71](phase-71.md)
 Primary owner: Cozy
-Repository-full validation: aggregate-deferred to PHASE-71.4
+Repository-full validation: deferred-not-run; current aggregate owner PHASE-71.7
+
+Ownership update (2026-10-05): see [Phase 71.7](phase-71.7.md).
+Earlier text naming 71.4 is historical. Closed items and their evidence remain
+unchanged; this transfers pending full validation without claiming it passed.
+
+Current remaining work follows the [2026-10-08 main-route-first plan](phase-71.md#current-series-execution-plan--2026-10-08).
+This link changes no closed checklist item or historical evidence.
 
 P710-F03 (slice P710-F03A) is accepted and committed at
 `23de0b0b867e3f4d271c9b794b81baef65fb2d14`. P710-01 (slice P710-01A) is

@@ -105,8 +105,8 @@ Classification core records (two traits, two powertypes, four powertype-kind nod
 three generalizations, two trait realizations and three dimensions), one distinct
 Term and the Classification child. Total: 22 core records, two Terms; projection
 counts: 2/2/3/2/3. All new names are `共有`. Source authority is
-`classification.example`, path `src/main/cml/classification-handoff.cml`, digest
-64 lowercase `a` characters, and explicit lines 7–22. This is caller-admitted
+`classification.example`, path `src/main/cml/classification-handoff.cml`,
+and explicit lines 7–22. This is caller-admitted
 synthetic source attribution, not verification of a real CML file or currentness.
 
 Declared order entity has generalizations to local order aggregate and unresolved

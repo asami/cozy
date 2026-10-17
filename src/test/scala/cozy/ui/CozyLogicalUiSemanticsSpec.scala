@@ -9,28 +9,27 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 2, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Logical UI semantic catalogs" should {
-    "classify every projected screen region and interaction while preserving exact projection identity" in {
+    "classify every projected screen region and interaction through the supplied projection" in {
       Given("one normalized Logical UI projection and complete typed screen semantics")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
 
       When("the semantic projection is normalized against the supplied screen projection")
       val resultvalue = CozyLogicalUiSemantics.project(projectionvalue, inputvalue)
 
-      Then("each exact screen, region, interaction pattern, and UI state is retained under the supplied projection identity")
+      Then("each exact screen, region, interaction pattern, and UI state is retained as normalized typed semantics")
       val normalizedvalue = _right(resultvalue)
-      normalizedvalue.projectionIdentity shouldBe projectionvalue.identity
       normalizedvalue.input.screens.map(_.screenId).toSet shouldBe projectionvalue.input.screens.map(_.id).toSet
       normalizedvalue.input.screens.head.regions.map(_.display.id).toSet shouldBe Set("collection", "detail")
       normalizedvalue.input.screens.head.interactions.map(_.pattern.id).toSet shouldBe Set("navigate", "select", "input", "command", "observe")
       normalizedvalue.input.screens.head.interactionStates.map(_.state.id).toSet shouldBe Set("idle", "pending", "succeeded", "failed")
-      normalizedvalue.identity should startWith("sha256:")
       CozyLogicalUiSemantics.schema shouldBe "cozy.logical-ui-semantics.v1"
     }
   }
@@ -39,8 +38,8 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     "bind Datatype, Value multiplicity, Aggregate invariant, Operation DbC, Powertype, and StateMachine without source discovery" in {
       Given("a projection and explicit semantic bindings for the complete public Component vocabulary")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val semanticvalue = _right(CozyLogicalUiSemantics.project(projectionvalue, _valid_semantics_input(projectionvalue)))
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val semanticvalue = _right(CozyLogicalUiSemantics.project(projectionvalue, _valid_semantics_input()))
 
       When("the typed semantic projection exposes its explicit Component and constraint bindings")
       val bindingsvalue = semanticvalue.input.componentBindings
@@ -80,8 +79,8 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     "keep validation authorities distinct and preserve the whole constraint identity in feedback associations" in {
       Given("typed local, contextual, and server-authoritative constraints plus exact feedback associations")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
 
       When("the semantic validation classifications and feedback links are projected")
       val resultvalue = _right(CozyLogicalUiSemantics.project(projectionvalue, inputvalue))
@@ -107,8 +106,8 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     "reject a null multiplicity element with a structured diagnostic" in {
       Given("a valid semantic input with one Value multiplicity element replaced by null")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
       val malformedvalue = inputvalue.copy(componentBindings = inputvalue.componentBindings.map(item =>
         if (item.role == ValueRole) item.copy(multiplicity = Some(null: Multiplicity)) else item
       ))
@@ -120,13 +119,12 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
       _left(resultvalue).code shouldBe "LUI43_SEMANTICS_MULTIPLICITY_INVALID"
     }
 
-    "fail closed for unknown identity, incomplete coverage, incompatible patterns, unadmitted bindings, invalid multiplicity, and incompatible constraint categories" in {
+    "fail closed for incomplete coverage, incompatible patterns, unadmitted bindings, invalid multiplicity, and incompatible constraint categories" in {
       Given("one valid semantic input and independently malformed variants")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
       val missingvalue = inputvalue.copy(screens = Vector.empty)
-      val unknownvalue = inputvalue.copy(projectionIdentity = "sha256:" + "0" * 64)
       val incompatiblevalue = inputvalue.copy(screens = inputvalue.screens.map(screen => screen.copy(
         interactions = screen.interactions.map(item => if (item.interactionId == "navigate") item.copy(pattern = InputPattern) else item)
       )))
@@ -136,7 +134,6 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
 
       When("each malformed semantic value is submitted to the closed projection boundary")
       val missingresult = CozyLogicalUiSemantics.project(projectionvalue, missingvalue)
-      val unknownresult = CozyLogicalUiSemantics.project(projectionvalue, unknownvalue)
       val incompatibleresult = CozyLogicalUiSemantics.project(projectionvalue, incompatiblevalue)
       val unknownbindingresult = CozyLogicalUiSemantics.project(projectionvalue, unknownbindingvalue)
       val multiplicityresult = CozyLogicalUiSemantics.project(projectionvalue, multiplicityvalue)
@@ -144,7 +141,6 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
 
       Then("the exact semantic diagnostics identify the violated authority boundary")
       _left(missingresult).code shouldBe "LUI43_SEMANTICS_SCREEN_COVERAGE"
-      _left(unknownresult).code shouldBe "LUI43_SEMANTICS_PROJECTION_IDENTITY_INVALID"
       _left(incompatibleresult).code shouldBe "LUI43_SEMANTICS_INTERACTION_PATTERN_INVALID"
       _left(unknownbindingresult).code shouldBe "LUI43_SEMANTICS_COMPONENT_BINDING_INVALID"
       _left(multiplicityresult).code shouldBe "LUI43_SEMANTICS_MULTIPLICITY_INVALID"
@@ -156,8 +152,8 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     "separate domain, Workflow, and UI states and require a mapped non-system step with matching Operation and StateMachine roles" in {
       Given("one explicit transition action over a normal UI step, domain states, opaque Workflow state, and UI lifecycle state")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
       val transitionvalue = inputvalue.transitionActions.head
 
       When("the transition admission is projected without executing any state machine or workflow")
@@ -180,9 +176,9 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     "admit Workflow as a typed screen subject and retain pattern and state domains separately" in {
       Given("a mapped Workflow screen with its exact public semantic binding, existing Purpose/Display/Interaction selections, and opaque Workflow state evidence")
       val candidatevalue = _right(CozyLogicalUi.candidate(_workflow_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _workflow_projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue).copy(componentBindings =
-        _valid_semantics_input(projectionvalue).componentBindings :+ ComponentSemanticBinding(WorkflowRole, _workflow_binding)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _workflow_projection()))
+      val inputvalue = _valid_semantics_input().copy(componentBindings =
+        _valid_semantics_input().componentBindings :+ ComponentSemanticBinding(WorkflowRole, _workflow_binding)
       )
 
       When("semantic bindings and equivalent vector orderings are normalized without Workflow execution")
@@ -204,21 +200,21 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
       transitionvalue.from shouldBe DomainStateReference(_state_machine_binding, "draft")
       transitionvalue.workflowState shouldBe Some(WorkflowStateReference("sales-order-workflow", "awaiting"))
       transitionvalue.interactionState shouldBe SucceededInteractionState
-      resultvalue.identity shouldBe permutedvalue.identity
+      resultvalue.input shouldBe permutedvalue.input
     }
   }
 
-  "Cozy Logical UI semantic identity" should {
+  "Cozy Logical UI semantic normalization" should {
     "remain deterministic for every admitted semantic vector permutation" in {
       Given("a valid semantic input and a ScalaCheck generator selecting canonical or reversed vectors")
       val candidatevalue = _right(CozyLogicalUi.candidate(_candidate_input))
-      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection(candidatevalue)))
-      val inputvalue = _valid_semantics_input(projectionvalue)
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _projection()))
+      val inputvalue = _valid_semantics_input()
       val property = Prop.forAll(Gen.oneOf(true, false)) { reverse =>
         val value = if (reverse) _reverse_semantics(inputvalue) else inputvalue
         CozyLogicalUiSemantics.project(projectionvalue, value) match {
           case Right(result) =>
-            result.identity == _right(CozyLogicalUiSemantics.project(projectionvalue, inputvalue)).identity &&
+            result.input == _right(CozyLogicalUiSemantics.project(projectionvalue, inputvalue)).input &&
               result.canonicalContent == _right(CozyLogicalUiSemantics.project(projectionvalue, inputvalue)).canonicalContent
           case Left(_) => false
         }
@@ -227,7 +223,7 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
       When("the semantic vectors are normalized repeatedly")
       val propertyresult = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), property)
 
-      Then("canonical content and semantic identity remain equal for equivalent structural orderings")
+      Then("normalized typed input and canonical content remain equal for equivalent structural orderings")
       propertyresult.passed shouldBe true
     }
   }
@@ -309,7 +305,6 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
 
   private val _step = UiUseCaseStep(_ui_use_case, "confirm", NormalPath)
   private val _projection_input_template = UseCaseScreenProjection(
-    "unbound",
     Vector(_valid_use_cases),
     Vector(_step),
     Vector(_screen),
@@ -317,17 +312,16 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     Vector(AggregateBoundary(_aggregate_binding, _aggregate_binding, Vector(_aggregate_binding, _entity_binding), Vector(_operation_binding)))
   )
 
-  private def _projection(candidatevalue: LogicalUiCandidate): UseCaseScreenProjection =
-    _projection_input_template.copy(candidateIdentity = candidatevalue.identity)
+  private def _projection(): UseCaseScreenProjection = _projection_input_template
 
-  private def _workflow_projection(candidatevalue: LogicalUiCandidate): UseCaseScreenProjection = {
-    val projectionvalue = _projection(candidatevalue)
+  private def _workflow_projection(): UseCaseScreenProjection = {
+    val projectionvalue = _projection()
     projectionvalue.copy(screens = projectionvalue.screens.map(screen =>
       screen.copy(subject = ScreenSubject(WorkflowRole, _workflow_binding))
     ))
   }
 
-  private def _valid_semantics_input(projectionvalue: LogicalUiProjection): LogicalUiSemanticsInput = {
+  private def _valid_semantics_input(): LogicalUiSemanticsInput = {
     val screenvalue = ScreenSemantics(
       "order-detail",
       ConfirmPurpose,
@@ -357,7 +351,6 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
       )
     )
     LogicalUiSemanticsInput(
-      projectionvalue.identity,
       Vector(screenvalue),
       Vector(
         ComponentSemanticBinding(EntityRole, _entity_binding),

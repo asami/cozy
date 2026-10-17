@@ -2,6 +2,9 @@
 
 Status: normative for Phase 58.2, Step P582-04, Slice P582-04A
 
+Phase 71.1 supersedes only hash-derived presentation assertions: Summary
+output is one-pass and digest-free while source semantic admission remains.
+
 This specification defines the implementation-facing contract for the
 package-private v2 Summary confirmation projection.
 
@@ -9,7 +12,7 @@ package-private v2 Summary confirmation projection.
 
 `CozySummaryConfirmationProjectionV2.render` MUST accept exactly an already
 admitted `CozyDocumentDescriptionV2.ValidatedSummary` and caller-supplied
-typed `Vocabulary`, returning `Rendered(html, identity)`. It MUST NOT load,
+typed `Vocabulary`, returning `Rendered(html)`. It MUST NOT load,
 mutate, repair, or convert Summary, Document, or Core data, and MUST NOT call
 or adapt a v1 renderer.
 
@@ -131,12 +134,10 @@ primary inspector sections and complete audit evidence MUST stay unchanged.
 
 The primary status MUST say only that explicit selected Summary sources are
 current/admitted and have no unresolved selected references. It MUST NOT say
-complete coverage or imply all-Core coverage. Core, Document, Summary, and
-output identities MUST be collapsed secondary disclosure.
-
-The output identity MUST be SHA-256 of deterministic HTML with only the
-self-disclosing output-identity value normalized to empty. Returned and
-disclosed identities MUST match. The artifact MUST have no external resource,
+complete coverage or imply all-Core coverage. The output MUST not disclose
+Core, Document, Summary, or output digests, emit an output-identity attribute,
+or compute a hash. Equal semantic typed inputs MUST produce identical HTML
+regardless of legacy nested source digest metadata. The artifact MUST have no external resource,
 network action, canvas, fixed authored coordinate, or pointer-only dependency.
 
 ## Typed text tags and endpoint connections
@@ -172,10 +173,10 @@ emphasis requirement; it introduces no renderer inference or physical layout.
 
 `CozySummaryConfirmationProjectionV2Spec` MUST use `AnyWordSpec`, adjacent
 Given/When/Then clauses, and `should` matchers. It MUST exercise deterministic
-self-disclosing identity and escaping; ordered native selection and associated
+digest-free output and escaping; ordered native selection and associated
 panels; the one selected 16:9 semantic explanation; exact source, retained,
 and omission evidence; authored-only typed Relation and Flow edges including
-inverse direction; selective admitted primary status with secondary identities;
+inverse direction; selective admitted primary status without digest disclosures;
 desktop self-contained accessibility markup; three-section readable primary
 evidence, collapsed exact audit, exact omission labels, and rejection of
 missing generic wording. Its fixtures use only strict v2 model data and test-local

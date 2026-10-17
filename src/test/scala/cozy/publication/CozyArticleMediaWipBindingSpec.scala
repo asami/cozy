@@ -2,19 +2,19 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata.{PdfDocumentReference, VideoPresentation, VideoStatus}
-import play.api.libs.json.{JsArray, JsObject, JsString, Json}
+import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object CozyArticleMediaWipBindingFixture {
@@ -113,43 +113,62 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
       }
 
       "reject missing, stale, or role-incompatible PDF evidence before registry planning" in {
-        Given("PDF evidence cases with missing review state, stale output, or an incompatible resource role")
-        val missing = _with_pdf_fixture("pdf-missing") { fixture =>
-          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
-          When("the WIP binding planner evaluates the missing PDF review-state evidence")
-          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
-        }
-        val stale = _with_pdf_fixture("pdf-stale") { fixture =>
-          _write(fixture.root.resolve("output/article-ja.pdf"), "%PDF-1.7\nstale")
-          When("the WIP binding planner evaluates the stale PDF output evidence")
-          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
-        }
-        val incompatible = _with_pdf_fixture("pdf-incompatible", kind = "infographic") { fixture =>
-          When("the WIP binding planner evaluates the incompatible PDF resource role")
-          _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
-        }
+        _with_pdf_fixture("pdf-missing") { fixture =>
+          Given("an accepted Japanese article PDF whose review state is missing")
+          val state = fixture.root.resolve("target/cozy-media/pdf-review-state.json")
+          Files.delete(state)
 
-        Then("the binding fails before a WIP registry update for every invalid boundary")
-        missing.getMessage should include("pdf-review-state")
-        stale.getMessage should include("receipt.v2")
-        incompatible.getMessage should include("requires kind document")
+          When("the WIP binding planner evaluates the missing PDF review-state evidence")
+          val error = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+
+          Then("ordinary PDF currentness rejects the missing state before registry planning")
+          error.getMessage should include("PDF review currentness")
+          error.getMessage should include("article-pdf-ja")
+          error.getMessage should include(state.toString)
+          error.getMessage should include("producer prebuilt")
+          error.getMessage should include(s"cozy media build ${fixture.descriptor} --target article-pdf-ja")
+        }
+        _with_pdf_fixture("pdf-stale") { fixture =>
+          Given("an accepted Japanese article PDF whose output has changed")
+          val pdf = fixture.root.resolve("output/article-ja.pdf")
+          _write(pdf, "%PDF-1.7\nstale")
+
+          When("the WIP binding planner evaluates the stale PDF output evidence")
+          val error = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+
+          Then("ordinary receipt currentness identifies the actual prebuilt output and next build before registry planning")
+          error.getMessage should include("Media receipt currentness")
+          error.getMessage should include("article-pdf-ja")
+          error.getMessage should include(pdf.toString)
+          error.getMessage should include("producer prebuilt")
+          error.getMessage should include(s"cozy media build ${fixture.descriptor} --target article-pdf-ja")
+        }
+        _with_pdf_fixture("pdf-incompatible", kind = "infographic") { fixture =>
+          Given("an article PDF resource declared with the incompatible infographic kind")
+
+          When("the WIP binding planner evaluates the incompatible PDF resource role")
+          val error = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("article-pdf-ja"))))
+
+          Then("the document-kind requirement rejects the resource before registry planning")
+          error.getMessage should include("requires kind document")
+        }
       }
 
       "reject missing configured SmartDox authority and invalid video evidence before a plan" in {
         Given("a descriptor project that is not smartdox-site and bad production variants")
         _with_fixture("gates", projectkind = "other-site") { fixture =>
-          When("the four selectors and exact production digest are checked")
+          When("the four selectors and completed production render are checked")
           val kind = _failure(CozyArticleMediaWipBinding.plan(_config(fixture)))
           _write(fixture.config, _project_config("smartdox-site", "other"))
           val sitekind = _failure(CozyArticleMediaWipBinding.plan(_config(fixture)))
           _write(fixture.config, _project_config())
-          _write(fixture.productionja, _production("ja", "A" * 64))
-          val digest = _failure(CozyArticleMediaWipBinding.plan(_config(fixture)))
+          _write(fixture.productionja, _production("ja", status = "pending"))
+          val render = _failure(CozyArticleMediaWipBinding.plan(_config(fixture)))
 
-          Then("project kind, configured site kind, and render SHA grammar remain mandatory")
+          Then("project kind, configured site kind, and completed rendering remain mandatory")
           kind.getMessage should include("project.kind smartdox-site")
           sitekind.getMessage should include("configured smartdox site-kind")
-          digest.getMessage should include("render sha256")
+          render.getMessage should include("render status must be completed")
         }
       }
 
@@ -157,13 +176,13 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
         Given("a valid package whose separate evidence is made invalid in turn")
         _with_fixture("evidence") { fixture =>
           When("production and source evidence is re-read")
-          _write(fixture.productionja, _production("ja", _sha256(fixture.sourceja), category = "other"))
+          _write(fixture.productionja, _production("ja", category = "other"))
           val identity = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-          _write(fixture.productionja, _production("en", _sha256(fixture.sourceja)))
+          _write(fixture.productionja, _production("en"))
           val language = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-          _write(fixture.productionja, _production("ja", _sha256(fixture.sourceja), qa = "pending"))
+          _write(fixture.productionja, _production("ja", qa = "pending"))
           val qa = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-          _write(fixture.productionja, _production("ja", _sha256(fixture.sourceja)))
+          _write(fixture.productionja, _production("ja"))
           Files.move(fixture.sourceja, fixture.sourceja.resolveSibling("video-ja.webm"))
 
           val media = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
@@ -201,46 +220,7 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
       }
     }
 
-    "isolate current WIP tuple state" which {
-      "admit a fresh tuple and then only the exact installed WIP repeat" in {
-        Given("a fresh plan, its exact planned pair, and matching installed bytes")
-        _with_fixture("repeat") { fixture =>
-          val fresh = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          val candidate = fresh.candidates.head
-          val strict = fresh.registry.articles.head.strict
-          val integrity = candidate.integrity.get
-          _write_bundle(fixture.publication, "publication", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
-          Files.copy(fixture.sourceja, fixture.website.resolve("ja/development-process/videos/example.mp4"), StandardCopyOption.REPLACE_EXISTING)
-
-          When("the exact plan is repeated with current output bytes")
-          val repeat = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write(fixture.website.resolve("ja/development-process/videos/example.mp4"), "stale")
-          val stale = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-
-          Then("only the exact digest-matching WIP tuple is reusable")
-          fresh.registry.videoStates(("development-process/example", "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.Fresh
-          repeat.registry.videoStates(("development-process/example", "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.ExactRepeat
-          stale.getMessage should include("repeat destination digest")
-        }
-      }
-
-      "reject a pre-existing destination for a fresh tuple without mutation" in {
-        Given("an empty WIP registry tuple with a direct destination that was not installed by WIP")
-        _with_fixture("fresh-destination") { fixture =>
-          val destination = fixture.website.resolve("ja/development-process/videos/example.mp4")
-          Files.copy(fixture.sourceja, destination)
-          val destinationbytes = Files.readAllBytes(destination).toVector
-
-          When("the fresh WIP plan is built")
-          val error = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-
-          Then("planning rejects the ambiguous direct MP4 and leaves registry and destination bytes unchanged")
-          error.getMessage should include("Article-media WIP fresh destination must be absent")
-          _direct_names(fixture.publication) shouldBe Vector.empty
-          Files.readAllBytes(destination).toVector shouldBe destinationbytes
-        }
-      }
-
+    "validate selected WIP ownership" which {
       "reject an external or malformed existing video tuple without overwriting it" in {
         Given("a configured registry containing an external production video")
         _with_fixture("external") { fixture =>
@@ -265,25 +245,6 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
         }
       }
 
-      "revalidate full descriptor, source, production, root, and registry evidence" in {
-        Given("a complete fresh plan")
-        _with_fixture("drift") { fixture =>
-          val plan = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write(fixture.sourceja, "changed source")
-
-          When("captured source evidence changes before revalidation")
-          val source = _failure(CozyArticleMediaWipBinding.revalidate(plan))
-          _write(fixture.sourceja, "ja source")
-          _write(fixture.productionja, _production("ja", _sha256(fixture.sourceja)))
-          val restored = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write_bundle(fixture.publication, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("changed" -> true))))
-          val registry = _failure(CozyArticleMediaWipBinding.revalidate(restored))
-
-          Then("both file and complete registry snapshots are rechecked")
-          source.getMessage should include("render sha256 differs")
-          registry.getMessage should include("evidence has changed")
-        }
-      }
     }
   }
 
@@ -317,8 +278,8 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
       _write(root.resolve("profile/images/summary-ja.png"), "summary")
       _write(sourceja, "ja source")
       _write(sourceen, "en source")
-      _write(productionja, _production("ja", _sha256(sourceja)))
-      _write(productionen, _production("en", _sha256(sourceen)))
+      _write(productionja, _production("ja"))
+      _write(productionen, _production("en"))
       Files.createDirectories(publication)
       Files.createDirectories(website.resolve("ja/development-process/videos"))
       Files.createDirectories(website.resolve("en/development-process/videos"))
@@ -448,18 +409,17 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
 
   private def _production(
     language: String,
-    sha256: String,
     category: String = "development-process",
     article: String = "example",
-    qa: String = "technical-and-visual-qa-passed"
+    qa: String = "technical-and-visual-qa-passed",
+    status: String = "completed"
   ): String =
     s"""{
        |  "category": "$category",
        |  "article": "$article",
        |  "language": "$language",
        |  "render": {
-       |    "status": "completed",
-       |    "sha256": "$sha256",
+       |    "status": "$status",
        |    "qa": {"status": "$qa"},
        |    "listeningReview": {"status": "pending"}
        |  }
@@ -491,11 +451,6 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
     Files.write(path, value.getBytes(StandardCharsets.UTF_8))
   }
 
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(Files.readAllBytes(path))
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 
   private def _delete(path: Path): Unit = {
     if (Files.exists(path)) {

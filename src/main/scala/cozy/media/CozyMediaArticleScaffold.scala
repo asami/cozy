@@ -5,13 +5,11 @@ import org.goldenport.cli.spec
 import cozy.runtime.CozyCliArgs
 import io.circe.Json
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, Path, StandardCopyOption}
-import scala.collection.JavaConverters._
-import scala.util.control.NonFatal
+import java.nio.file.{Files, Path}
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaArticleScaffold {
@@ -38,27 +36,17 @@ private[cozy] object CozyMediaArticleScaffold {
     if (Files.exists(destination)) _invalid(s"Article scaffold destination already exists: $destination")
     val parent = Option(destination.getParent).getOrElse(_invalid("Article scaffold destination requires a parent directory"))
     if (!Files.isDirectory(parent)) _invalid(s"Article scaffold destination parent must exist: $parent")
-    val temporary = Files.createTempDirectory(parent, ".cozy-media-scaffold-")
-    try {
-      _write(temporary.resolve("article.dox"), s"$slug\n${"=" * slug.length}\n\nA new article media package.\n")
-      _write(temporary.resolve("brief.json"), Json.obj("knowledge" -> Json.fromString(slug), "language" -> Json.fromString(language)).spaces2 + "\n")
-      _write(temporary.resolve("media.yaml"), _media_yaml(slug, profile, language))
-      _write(temporary.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"900\"><title>Article infographic</title></svg>\n")
-      _write(temporary.resolve("presentation/slide-ir.yaml"), _slide_ir(slug, language))
-      _write(temporary.resolve("review/manifest.json"), _scaffold_review(slug, language))
-      CozyMediaReviewState.scaffold(temporary.resolve("review/state.yaml"))
-      Files.createDirectories(temporary.resolve("presentation/template"))
-      Files.createDirectories(temporary.resolve("target/cozy-media/slides"))
-      Files.createDirectories(temporary.resolve("target/cozy-media/rendered"))
-      try Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE)
-      catch {
-        case _: AtomicMoveNotSupportedException => _invalid(s"Article scaffold atomic installation is not supported: $destination")
-      }
-    } catch {
-      case e: Throwable =>
-        _delete_temporary(temporary)
-        throw e
-    }
+    Files.createDirectory(destination)
+    _write(destination.resolve("article.dox"), s"$slug\n${"=" * slug.length}\n\nA new article media package.\n")
+    _write(destination.resolve("brief.json"), Json.obj("knowledge" -> Json.fromString(slug), "language" -> Json.fromString(language)).spaces2 + "\n")
+    _write(destination.resolve("media.yaml"), _media_yaml(slug, profile, language))
+    _write(destination.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"900\"><title>Article infographic</title></svg>\n")
+    _write(destination.resolve("presentation/slide-ir.yaml"), _slide_ir(slug, language))
+    _write(destination.resolve("review/manifest.json"), _scaffold_review(slug, language))
+    CozyMediaReviewState.scaffold(destination.resolve("review/state.yaml"))
+    Files.createDirectories(destination.resolve("presentation/template"))
+    Files.createDirectories(destination.resolve("target/cozy-media/slides"))
+    Files.createDirectories(destination.resolve("target/cozy-media/rendered"))
   }
 
   private def _media_yaml(slug: String, profile: String, language: String): String =
@@ -156,12 +144,6 @@ private[cozy] object CozyMediaArticleScaffold {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, value, StandardCharsets.UTF_8)
   }
-
-  private def _delete_temporary(path: Path): Unit =
-    if (Files.exists(path))
-      Files.walk(path).iterator.asScala.toVector.sortBy(_.toString.length).reverse.foreach { item =>
-        try Files.deleteIfExists(item) catch { case NonFatal(_) => () }
-      }
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }

@@ -7,7 +7,8 @@ import cozy.video.CozyVideoPublisher
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  5, 2026
+ *  version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaVideoRegistration {
@@ -64,9 +65,12 @@ private[cozy] object CozyArticleMediaVideoRegistration {
     if (artifact != evidence.artifactPath)
       _invalid("Article-media video registration evidence artifact does not match the publication result warehouse artifact")
     val record = evidence.integrity.record
+    val declared = record.artifact.getOrElse(
+      _invalid("Article-media video registration declared artifact must be defined")
+    )
     if (record.articleIdentity != binding.articleIdentity || record.locale != binding.locale ||
-      record.role != CozyArticleMediaIntegrity.Role.Video || record.artifact.identity != video.name ||
-      record.artifact.version != video.version)
+      record.role != CozyArticleMediaIntegrity.Role.Video || declared.identity != video.name ||
+      declared.version != video.version)
       _invalid("Article-media video registration evidence is not bound to the resolved video result")
     if (binding.status == VideoStatus.Published &&
       record.publicationState != CozyArticleMediaIntegrity.PublicationState.Published)

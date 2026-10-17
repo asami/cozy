@@ -1,0 +1,143 @@
+# COMPONENT
+
+## SampleComponent
+
+### PACKAGE
+
+dart.api
+
+### SERVICE
+
+#### Catalog
+
+# VALUE
+
+## SharedRequest
+package = dart.api
+input-kind = QUERY
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| class | string | 1 |
+| some-key | string | ? |
+| tags | string | * |
+
+## SharedResponse
+package = dart.api
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| value | string | 1 |
+| count | int | 1 |
+
+## DeclaredFailure
+package = dart.api
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| code | string | 1 |
+| message | string | 1 |
+
+# SERVICE
+
+## Catalog
+
+### OPERATION
+
+#### lookup
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+dart.api.SharedRequest
+
+##### OUTPUT
+###### TYPE
+dart.api.SharedResponse
+
+#### class
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+dart.api.SharedRequest
+
+##### OUTPUT
+###### TYPE
+dart.api.SharedResponse
+
+#### inline
+
+##### TYPE
+COMMAND
+
+##### INPUT
+
+###### VALUE
+InlineRequest
+
+###### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| text | string | 1 |
+
+##### OUTPUT
+
+###### VALUE
+InlineResponse
+
+###### ATTRIBUTE
+
+| name | type | multiplicity |
+| --- | --- | --- |
+| accepted | boolean | 1 |
+
+#### ping
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+void
+
+##### OUTPUT
+###### TYPE
+void
+
+#### refresh
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+void
+
+##### OUTPUT
+###### TYPE
+dart.api.SharedResponse
+
+#### consume
+
+##### TYPE
+QUERY
+
+##### INPUT
+###### TYPE
+dart.api.SharedRequest
+
+##### OUTPUT
+###### TYPE
+void

@@ -2,6 +2,9 @@
 
 Status: normative for Phase 58.2, Step P582-04, Slice P582-04A
 
+Phase 71.1 supersedes only output hash/disclosure behavior. Current source
+bindings are intentionally pending later same-Phase loader removal.
+
 This design defines the bounded presentation seam for an admitted v2 Summary
 confirmation workspace. It consumes a strict
 `CozyDocumentDescriptionV2.ValidatedSummary`; it neither loads, repairs,
@@ -115,8 +118,8 @@ prescribed edge-kind marks and provenance attributes extend diagram markup.
 The primary status is deliberately selective: it says only that the selected,
 explicit Summary sources are current/admitted and have no unresolved selected
 references. It neither claims complete coverage nor makes a loader diagnostic.
-Core, Document, Summary, and output identities are collapsed secondary
-disclosure.
+Core, Document, Summary, and output digests are not presentation data and are
+not disclosed.
 
 ## Deterministic safe artifact
 
@@ -127,10 +130,10 @@ coordinate, or pointer-only control. Equal typed inputs render byte-identical
 HTML. The desktop sample layout is the acceptance reference for this pass;
 responsive behavior is not an acceptance priority.
 
-The returned SHA-256 identity is calculated from the deterministic document
-with only every self-disclosing output-identity value normalized to empty.
-The final disclosure and `Rendered.identity` therefore match without a
-recursive hash dependency.
+The renderer makes one deterministic pass from admitted semantic inputs. It
+does not compute an output hash, normalize an output-identity placeholder, or
+return `Rendered.identity`; legacy nested source digest metadata is not a
+presentation input.
 
 ## Endpoint and tag refinement
 
@@ -157,3 +160,10 @@ This renderer changes no v1 model, v2 loader, sibling Document renderer,
 export route, CLI, HTTP/SPI surface, locale resource, Article 9 source, Core
 model, or author-controlled physical-layout representation. It has no output
 route and adds no production vocabulary.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 removes hash fields from the input Summary model;
+the renderer continues to consume semantic Core/Document/Summary IDs and
+authored selections only. No presentation, interaction, output, or vocabulary
+contract is changed.

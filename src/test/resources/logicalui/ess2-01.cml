@@ -1,0 +1,77 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# LOGICAL-UI
+component = "Domain"
+producerId = "cozy.logical-ui-generated.v1"
+sourceId = "ess2-01"
+sourceRevision = "ess2-01-cml-1"
+
+## LIST
+screenId = "collecting-resources"
+definitionRevision = "ess-definition-1"
+viewBindingId = "ess.reference"
+title = "Collecting Resources"
+detailTarget = "capture-detail"
+
+### ITEM-FIELDS
+
+#### FIELD
+id = "title"
+label = "Title"
+role = "title"
+bindingId = "ess.title"
+allowedKinds = ["text"]
+
+#### FIELD
+id = "stage"
+label = "Capture stage"
+role = "status"
+bindingId = "ess.stage"
+allowedKinds = ["text"]
+
+## DETAIL
+screenId = "capture-detail"
+definitionRevision = "ess-definition-1"
+viewBindingId = "ess.reference"
+title = "Capture Detail"
+
+### SECTIONS
+
+#### SECTION
+id = "main"
+
+##### FIELDS
+
+###### FIELD
+id = "title"
+label = "Title"
+role = "title"
+bindingId = "ess.title"
+allowedKinds = ["text"]
+
+###### FIELD
+id = "stage"
+label = "Capture stage"
+role = "status"
+bindingId = "ess.stage"
+allowedKinds = ["text"]
+
+###### FIELD
+id = "description"
+label = "Description"
+role = "description"
+bindingId = "ess.description"
+allowedKinds = ["text"]
+
+### ACTIONS
+
+#### ACTION
+id = "request-review"
+label = "Request Review"
+bindingId = "ess.request-review"

@@ -3,285 +3,297 @@ package cozy.archive
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipInputStream, ZipOutputStream}
 
 import scala.collection.JavaConverters._
 
 import cozy.Cozy
+import org.scalacheck.{Gen, Prop, Test}
+import play.api.libs.json.{JsObject, Json}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 20, 2026
- * @version Aug. 21, 2026
+ *  version Aug. 21, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
+object SubcomponentReleasePackagingSpec {
+  private final case class Fixture(
+    parentproject: Path,
+    parentcar: Path,
+    childcars: Vector[Path],
+    composition: Path
+  )
+}
+
 final class SubcomponentReleasePackagingSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
-  "RSC03-AC-01 deterministic parent/child CAR and payload packaging with exact post-package integrity evidence" in {
-    _with_temp_dir("rsc03-ac01") { root =>
-      Given("a complete parent CAR and independently identified Documentation, SourceCode, and external-platform presentation CARs")
-      val fixture = _fixture(root)
-      val first = root.resolve("package-first.car")
-      val firstintegrity = root.resolve("package-first.integrity")
-      val second = root.resolve("package-second.car")
-      val secondintegrity = root.resolve("package-second.integrity")
+  import SubcomponentReleasePackagingSpec.Fixture
 
-      When("the public package-subcomponent-release command is invoked twice with the same complete release")
-      Cozy.main(_package_arguments(fixture, first, firstintegrity, childcars = fixture.childcars))
-      Cozy.main(_package_arguments(fixture, second, secondintegrity, childcars = fixture.childcars))
+  "Subcomponent release" should {
+    "package and publish semantic parent/child delivery" which {
+      "reject package source aliases and a symbolic canonical publication leaf" in {
+        Vector("hard", "symbolic").foreach { kind =>
+          _with_temp_dir(s"rsc03-output-ownership-$kind") { root =>
+            Given(s"a complete release fixture with a $kind package output alias to its parent CAR")
+            val fixture = _fixture(root)
+            val output = root.resolve("selected-release.car")
+            if (kind == "hard") Files.createLink(output, fixture.parentcar)
+            else Files.createSymbolicLink(output, fixture.parentcar)
 
-      Then("both package CARs and their exact post-package integrity evidence are byte-equivalent")
-      Files.isRegularFile(first) shouldBe true
-      Files.isRegularFile(second) shouldBe true
-      Files.isRegularFile(firstintegrity) shouldBe true
-      Files.isRegularFile(secondintegrity) shouldBe true
-      Files.readAllBytes(first).toVector shouldBe Files.readAllBytes(second).toVector
-      Files.readString(firstintegrity, StandardCharsets.UTF_8) shouldBe
-        Files.readString(secondintegrity, StandardCharsets.UTF_8)
-      val integrity = Files.readString(firstintegrity, StandardCharsets.UTF_8)
-      integrity should include(_parent_id)
-      integrity should include(_documentation_id)
-      integrity should include(_source_code_id)
-      integrity should include(_web_presentation_id)
-      integrity should include(_composition_schema)
-      integrity should include(_sha256(fixture.composition))
-      integrity should include(_parent_signature)
-      integrity should include(_documentation_signature)
-      integrity should include(_source_code_signature)
-      integrity should include(_web_presentation_signature)
-      integrity should include(_sha256(fixture.parentcar))
-      fixture.childcars.map(_sha256).foreach(digest => integrity should include(digest))
-      val packaged = _zip_texts(first).mkString("\n")
-      packaged should include(_composition_schema)
-      packaged should include(_documentation_role)
-      packaged should include(_source_code_role)
-      packaged should include(_web_presentation_role)
-      packaged should include("\"fixtureExtension\":{\"accepted\":true}")
-      packaged should include(_documentation_payload_marker)
-      packaged should include(_source_code_payload_marker)
-      packaged should include(_web_presentation_payload_marker)
-    }
-  }
+            When("the package command admits the selected output")
+            val error = intercept[Throwable] {
+              Cozy.main(_package_arguments(fixture, output, childcars = fixture.childcars))
+            }
 
-  "RSC03-AC-02 incomplete or invalid required membership is never repository-visible" in {
-    _with_temp_dir("rsc03-ac02") { root =>
-      Given("a complete release already admitted to an isolated warehouse and two invalid required-membership candidates")
-      val fixture = _fixture(root)
-      val baseline = root.resolve("baseline.car")
-      val baselineintegrity = root.resolve("baseline.integrity")
-      val warehouse = root.resolve("warehouse")
-      Cozy.main(_package_arguments(fixture, baseline, baselineintegrity, childcars = fixture.childcars))
-      Cozy.main(_publish_arguments(fixture, baseline, baselineintegrity, warehouse))
-      val before = _tree_bytes(warehouse)
-      val candidates = Vector(
-        ("incomplete", Vector(fixture.childcars(0)), Vector(_documentation_id, _source_code_id)),
-        ("invalid", fixture.childcars, Vector(_documentation_id, "org.goldenport.cncf.phase58.RscMissing"))
-      )
-
-      When("the public package-subcomponent-release command evaluates each incomplete or invalid membership")
-      candidates.foreach { case (label, childcars, requiredchildren) =>
-        val output = root.resolve(s"$label.car")
-        val integrity = root.resolve(s"$label.integrity")
-        val error = intercept[Throwable] {
-          Cozy.main(_package_arguments(fixture, output, integrity, requiredchildren, childcars))
+            Then("the package output is rejected with its selected path and ownership diagnostic")
+            error.getMessage should include("package-subcomponent-release output")
+            error.getMessage should include(output.toString)
+            if (kind == "hard") error.getMessage should include("selected admitted inputs")
+            else error.getMessage should include("symbolic link or nonregular leaf")
+          }
         }
 
-        Then("the candidate is rejected atomically and cannot alter repository visibility")
-        error.getMessage should not be empty
-        Files.exists(output) shouldBe false
-        Files.exists(integrity) shouldBe false
-        _tree_bytes(warehouse) shouldBe before
+        _with_temp_dir("rsc03-publish-output-ownership") { root =>
+          Given("a complete fixture with an ordinary selected release destination")
+          val fixture = _fixture(root)
+          val release = root.resolve("selected-release.car")
+          When("the package command creates the selected release")
+          Cozy.main(_package_arguments(fixture, release, childcars = fixture.childcars))
+          Then("the release is available for publication")
+          Files.isRegularFile(release) shouldBe true
+
+          Given("a canonical publication destination linked to that selected release")
+          val warehouse = root.resolve("warehouse")
+          val coordinate = CozyComponentReleaseCoordinateCodec.admit(_namespace, "RscParent", _version, "release fixture")
+          val destination = warehouse.resolve("repository/subcomponent-release").resolve(coordinate.groupPath).
+            resolve(coordinate.mavenArtifactId).resolve(coordinate.version).
+            resolve(s"${coordinate.mavenArtifactId}-${coordinate.version}.release.car")
+          Files.createDirectories(destination.getParent)
+          Files.createSymbolicLink(destination, release)
+
+          When("the publish command admits its canonical destination")
+          val error = intercept[Throwable] {
+            Cozy.main(_publish_arguments(fixture, release, warehouse))
+          }
+
+          Then("publication rejects the symbolic output with its selected path diagnostic")
+          error.getMessage should include("publish-subcomponent-release output")
+          error.getMessage should include("symbolic link or nonregular leaf")
+          error.getMessage should include(destination.toString)
+        }
       }
-    }
-  }
 
-  "RSC03-AC-04 duplicate logical resources and JSON object fields are rejected atomically at package time" in {
-    _with_temp_dir("rsc03-ac04") { root =>
-      Given("a valid RSC-02 composition and hostile variants with a duplicate logical resource or duplicate schema field")
-      val fixture = _fixture(root)
-      val hostile = _hostile_compositions(root, fixture)
+      "RSC03-AC-01 deterministic parent/child CAR and payload packaging" in {
+        _with_temp_dir("rsc03-ac01") { root =>
+          Given("a complete parent CAR and independently identified Documentation, SourceCode, and external-platform presentation CARs")
+          val fixture = _fixture(root)
+          val first = root.resolve("package-first.car")
+          val second = root.resolve("package-second.car")
 
-      When("the public package-subcomponent-release command evaluates each hostile composition")
-      hostile.foreach { case (label, compositionpath) =>
-        val output = root.resolve(s"$label.car")
-        val integrity = root.resolve(s"$label.integrity")
-        val error = intercept[Throwable] {
-          Cozy.main(
-            _package_arguments(
-              fixture,
-              output,
-              integrity,
-              childcars = fixture.childcars,
-              compositionpath = Some(compositionpath)
-            )
+          When("the public package-subcomponent-release command is invoked twice with the same complete release")
+          Cozy.main(_package_arguments(fixture, first, childcars = fixture.childcars))
+          Cozy.main(_package_arguments(fixture, second, childcars = fixture.childcars))
+
+          Then("both release CARs contain equivalent canonical metadata and actual payloads")
+          Files.isRegularFile(first) shouldBe true
+          Files.isRegularFile(second) shouldBe true
+          val expectedbytes = Files.readAllBytes(first).toVector
+          expectedbytes shouldBe Files.readAllBytes(second).toVector
+          val manifest = Json.parse(_zip_entry_text(first, "release-manifest.json")).as[JsObject]
+          manifest.keys shouldBe Set("schemaVersion", "publishedAt", "parent", "children", "composition")
+          (manifest \ "schemaVersion").as[String] shouldBe "cozy.subcomponent-release.v1"
+          (manifest \ "publishedAt").as[String] shouldBe _published_at
+          (manifest \ "parent").as[JsObject].keys shouldBe Set("archivePath", "canonicalId", "coordinate")
+          (manifest \ "parent" \ "canonicalId").as[String] shouldBe _parent_id
+          (manifest \ "children").as[Vector[JsObject]].foreach { child =>
+            child.keys shouldBe Set("archivePath", "canonicalId", "coordinate")
+          }
+          (manifest \ "children").as[Vector[JsObject]].map(child => (child \ "canonicalId").as[String]) shouldBe
+            Vector(_documentation_id, _source_code_id, _web_presentation_id)
+          (manifest \ "composition").as[JsObject] shouldBe Json.obj(
+            "archivePath" -> "composition.json",
+            "schema" -> _composition_schema,
+            "membershipKind" -> "parent-child"
           )
+          val copiedcomposition = _zip_entry_text(first, "composition.json")
+          copiedcomposition shouldBe Files.readString(fixture.composition, StandardCharsets.UTF_8)
+          val packaged = _zip_texts(first).mkString("\n")
+          packaged should include(_composition_schema)
+          packaged should include(_documentation_role)
+          packaged should include(_source_code_role)
+          packaged should include(_web_presentation_role)
+          packaged should include("\"fixtureExtension\":{\"accepted\":true}")
+          packaged should include(_documentation_payload_marker)
+          packaged should include(_source_code_payload_marker)
+          packaged should include(_web_presentation_payload_marker)
+          val expectedpaths = Vector(
+            "composition.json",
+            s"payload/children/${_documentation_id}.car",
+            s"payload/children/${_source_code_id}.car",
+            s"payload/children/${_web_presentation_id}.car",
+            "payload/parent.car",
+            "release-manifest.json"
+          )
+          _zip_entry_names(first) shouldBe expectedpaths
+
+          Given("generated permutations of all three actual child CAR inputs")
+          val permutations = Gen.oneOf(fixture.childcars.permutations.toVector)
+          val permuted = root.resolve("package-permuted.car")
+          When("fifty generated child-input permutations are packaged through the public command")
+          val result = Test.check(
+            Test.Parameters.default.withMinSuccessfulTests(50),
+            Prop.forAll(permutations) { childcars =>
+              Cozy.main(_package_arguments(fixture, permuted, childcars = childcars))
+              val contents = _zip_texts(permuted).mkString("\n")
+              Files.readAllBytes(permuted).toVector == expectedbytes &&
+                _zip_entry_names(permuted) == expectedpaths &&
+                contents.contains(_documentation_payload_marker) &&
+                contents.contains(_source_code_payload_marker) &&
+                contents.contains(_web_presentation_payload_marker)
+            }
+          )
+          Then("every permutation preserves canonical ZIP order and the actual parent/child payload content")
+          result.passed shouldBe true
         }
-
-        Then("the hostile composition is rejected before either package output becomes visible")
-        error.getMessage should not be empty
-        Files.exists(output) shouldBe false
-        Files.exists(integrity) shouldBe false
-      }
-    }
-  }
-
-  "RSC03-AC-05 hostile composition archives are rejected before warehouse mutation" in {
-    _with_temp_dir("rsc03-ac05") { root =>
-      Given("a valid release archive and hostile copies that replace only composition.json")
-      val fixture = _fixture(root)
-      val validrelease = root.resolve("valid-release.car")
-      val validintegrity = root.resolve("valid-release.integrity")
-      Cozy.main(_package_arguments(fixture, validrelease, validintegrity, childcars = fixture.childcars))
-      val hostile = _hostile_compositions(root, fixture).map { case (label, compositionpath) =>
-        label -> _replace_zip_entry(validrelease, root.resolve(s"$label-release.car"), "composition.json", Files.readString(compositionpath))
       }
 
-      When("publish-subcomponent-release re-reads each hostile archive")
-      hostile.foreach { case (label, release) =>
-        val warehouse = root.resolve(s"$label-warehouse")
-        val before = _tree_bytes(warehouse)
-        val error = intercept[Throwable] {
-          Cozy.main(_publish_arguments(fixture, release, validintegrity, warehouse))
+      "RSC03-AC-02 incomplete or invalid required membership is rejected" in {
+        _with_temp_dir("rsc03-ac02") { root =>
+          Given("a complete release fixture and two incomplete or invalid required-membership candidates")
+          val fixture = _fixture(root)
+          val candidates = Vector(
+            ("incomplete", Vector(fixture.childcars(0)), Vector(_documentation_id, _source_code_id)),
+            ("invalid", fixture.childcars, Vector(_documentation_id, "org.goldenport.cncf.phase58.RscMissing"))
+          )
+          candidates.foreach { case (label, childcars, requiredchildren) =>
+            val output = root.resolve(s"$label.car")
+            When(s"the public package-subcomponent-release command evaluates $label required membership")
+            val error = intercept[Throwable] {
+              Cozy.main(_package_arguments(fixture, output, requiredchildren, childcars))
+            }
+            Then("the candidate is rejected with a required-membership diagnostic")
+            error.getMessage should include("required")
+          }
         }
-
-        Then("the hostile composition is rejected before the isolated warehouse changes")
-        error.getMessage should not be empty
-        _tree_bytes(warehouse) shouldBe before
-      }
-    }
-  }
-
-  "RSC03-AC-04 duplicate release-manifest fields are rejected before warehouse visibility" in {
-    _with_temp_dir("rsc03-ac04-release-manifest") { root =>
-      Given("a valid release archive whose release manifest repeats its schemaVersion field")
-      val fixture = _fixture(root)
-      val release = root.resolve("valid-release.car")
-      val integrity = root.resolve("valid-release.integrity")
-      val warehouse = root.resolve("warehouse")
-      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
-      val hostile = _replace_zip_entry(
-        release,
-        root.resolve("duplicate-release-manifest.car"),
-        "release-manifest.json",
-        _duplicate_json_field(_zip_entry_text(release, "release-manifest.json"), "schemaVersion")
-      )
-      val before = _tree_bytes(warehouse)
-
-      When("publish-subcomponent-release receives the duplicate-field release manifest")
-      val error = intercept[Throwable] {
-        Cozy.main(_publish_arguments(fixture, hostile, integrity, warehouse))
       }
 
-      Then("it rejects the manifest deterministically before the warehouse becomes visible")
-      error.getMessage should include("contains duplicate JSON object field")
-      _tree_bytes(warehouse) shouldBe before
-    }
-  }
-
-  "RSC03-AC-04 duplicate integrity fields are rejected before warehouse visibility" in {
-    _with_temp_dir("rsc03-ac04-integrity") { root =>
-      Given("a valid release and integrity evidence whose schemaVersion field is repeated")
-      val fixture = _fixture(root)
-      val release = root.resolve("valid-release.car")
-      val integrity = root.resolve("valid-release.integrity")
-      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
-      _write(
-        integrity,
-        _duplicate_json_field(Files.readString(integrity, StandardCharsets.UTF_8), "schemaVersion")
-      )
-      val warehouse = root.resolve("warehouse")
-      val before = _tree_bytes(warehouse)
-
-      When("publish-subcomponent-release receives the duplicate-field integrity evidence")
-      val error = intercept[Throwable] {
-        Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
+      "RSC03-AC-04 duplicate logical resources and JSON object fields are rejected at package time" in {
+        _with_temp_dir("rsc03-ac04") { root =>
+          Given("a valid RSC-02 composition and hostile variants with a duplicate logical resource or duplicate schema field")
+          val fixture = _fixture(root)
+          val hostile = _hostile_compositions(root, fixture)
+          hostile.foreach { case (label, compositionpath) =>
+            val output = root.resolve(s"$label.car")
+            When(s"the public package-subcomponent-release command evaluates $label composition")
+            val error = intercept[Throwable] {
+              Cozy.main(_package_arguments(fixture, output, childcars = fixture.childcars, compositionpath = Some(compositionpath)))
+            }
+            Then("the hostile composition is rejected with its resource or JSON diagnostic")
+            error.getMessage should not be empty
+          }
+        }
       }
 
-      Then("it rejects the integrity evidence deterministically before the warehouse becomes visible")
-      error.getMessage should include("contains duplicate JSON object field")
-      _tree_bytes(warehouse) shouldBe before
-    }
-  }
-
-  "RSC03-AC-04 duplicate existing admission fields are rejected before warehouse visibility" in {
-    _with_temp_dir("rsc03-ac04-admission") { root =>
-      Given("an admitted release whose existing admission marker repeats its schemaVersion field")
-      val fixture = _fixture(root)
-      val release = root.resolve("valid-release.car")
-      val integrity = root.resolve("valid-release.integrity")
-      val warehouse = root.resolve("warehouse")
-      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars))
-      Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
-      val admission = _warehouse_admission(warehouse)
-      _write(
-        admission,
-        _duplicate_json_field(Files.readString(admission, StandardCharsets.UTF_8), "schemaVersion")
-      )
-      val before = _tree_bytes(warehouse)
-
-      When("publish-subcomponent-release rechecks the duplicate-field existing admission marker")
-      val error = intercept[Throwable] {
-        Cozy.main(_publish_arguments(fixture, release, integrity, warehouse))
+      "RSC03-AC-05 hostile composition archives are rejected during publication" in {
+        _with_temp_dir("rsc03-ac05") { root =>
+          Given("a complete release fixture and hostile compositions")
+          val fixture = _fixture(root)
+          val validrelease = root.resolve("valid-release.car")
+          val compositions = _hostile_compositions(root, fixture)
+          When("the valid release is packaged and composition.json is replaced by each hostile variant")
+          Cozy.main(_package_arguments(fixture, validrelease, childcars = fixture.childcars))
+          val hostile = compositions.map { case (label, compositionpath) =>
+            label -> _replace_zip_entry(validrelease, root.resolve(s"$label-release.car"), "composition.json", Files.readString(compositionpath))
+          }
+          Then("the generated release contains the original valid composition")
+          _zip_entry_text(validrelease, "composition.json") shouldBe Files.readString(fixture.composition)
+          hostile.foreach { case (label, release) =>
+            Given(s"the $label composition variant in the selected release archive")
+            val warehouse = root.resolve(s"$label-warehouse")
+            When("publish-subcomponent-release parses the selected hostile archive")
+            val error = intercept[Throwable] {
+              Cozy.main(_publish_arguments(fixture, release, warehouse))
+            }
+            Then("the hostile composition is rejected with a parsing or resource diagnostic")
+            error.getMessage should not be empty
+          }
+        }
       }
 
-      Then("it rejects the marker deterministically without changing warehouse visibility")
-      error.getMessage should include("contains duplicate JSON object field")
-      _tree_bytes(warehouse) shouldBe before
-    }
-  }
+      "RSC03-AC-04 duplicate release-manifest fields are rejected during publication" in {
+        _with_temp_dir("rsc03-ac04-release-manifest") { root =>
+          Given("a complete release fixture")
+          val fixture = _fixture(root)
+          val release = root.resolve("valid-release.car")
+          val warehouse = root.resolve("warehouse")
+          When("the valid release is packaged")
+          Cozy.main(_package_arguments(fixture, release, childcars = fixture.childcars))
+          Then("the generated release manifest identifies its actual schema")
+          _zip_entry_text(release, "release-manifest.json") should include("cozy.subcomponent-release.v1")
+          Given("a selected release manifest that repeats its schemaVersion field")
+          val hostile = _replace_zip_entry(
+            release,
+            root.resolve("duplicate-release-manifest.car"),
+            "release-manifest.json",
+            _duplicate_json_field(_zip_entry_text(release, "release-manifest.json"), "schemaVersion")
+          )
+          When("publish-subcomponent-release receives the duplicate-field release manifest")
+          val error = intercept[Throwable] {
+            Cozy.main(_publish_arguments(fixture, hostile, warehouse))
+          }
+          Then("it rejects the manifest with the duplicate-field diagnostic")
+          error.getMessage should include("contains duplicate JSON object field")
+        }
+      }
 
-  "RSC03-AC-02 an omitted optional composition member remains metadata-only while all required members are packaged" in {
-    _with_temp_dir("rsc03-ac02-optional") { root =>
-      Given("a canonical RSC-02 composition with two required child CARs and one optional external-platform member")
-      val fixture = _fixture(root)
-      val release = root.resolve("optional-omitted.car")
-      val integrity = root.resolve("optional-omitted.integrity")
+      "RSC03-AC-02 an omitted optional composition member remains metadata-only while all required members are packaged" in {
+        _with_temp_dir("rsc03-ac02-optional") { root =>
+          Given("a canonical RSC-02 composition with two required child CARs and one optional external-platform member")
+          val fixture = _fixture(root)
+          val release = root.resolve("optional-omitted.car")
+          When("the public package-subcomponent-release command receives exactly the required child CARs")
+          Cozy.main(_package_arguments(fixture, release, childcars = fixture.childcars.take(2)))
+          Then("the optional member remains in copied composition metadata but is absent from the payload archive")
+          Files.isRegularFile(release) shouldBe true
+          val packaged = _zip_texts(release).mkString("\n")
+          packaged should include(_web_presentation_id)
+          packaged should include(_web_presentation_role)
+          packaged should not include (_web_presentation_payload_marker)
+        }
+      }
 
-      When("the public package-subcomponent-release command receives exactly the required child CARs")
-      Cozy.main(_package_arguments(fixture, release, integrity, childcars = fixture.childcars.take(2)))
-
-      Then("the optional member remains in copied composition metadata but is absent from the payload archive")
-      Files.isRegularFile(release) shouldBe true
-      Files.isRegularFile(integrity) shouldBe true
-      val packaged = _zip_texts(release).mkString("\n")
-      packaged should include(_web_presentation_id)
-      packaged should include(_web_presentation_role)
-      packaged should not include (_web_presentation_payload_marker)
-      Files.readString(integrity, StandardCharsets.UTF_8) should not include (_web_presentation_id)
-    }
-  }
-
-  "RSC03-AC-03 local/remote publication, repeated-build, and source/archive evidence remain equivalent" in {
-    _with_temp_dir("rsc03-ac03") { root =>
-      Given("a complete release fixture and two isolated local warehouse roots standing in for local and remote publication")
-      val fixture = _fixture(root)
-      val first = root.resolve("release-first.car")
-      val firstintegrity = root.resolve("release-first.integrity")
-      val second = root.resolve("release-second.car")
-      val secondintegrity = root.resolve("release-second.integrity")
-      val localwarehouse = root.resolve("local-warehouse")
-      val remotewarehouse = root.resolve("remote-warehouse")
-
-      When("the release is packaged repeatedly and published through each isolated warehouse boundary")
-      Cozy.main(_package_arguments(fixture, first, firstintegrity, childcars = fixture.childcars))
-      Cozy.main(_package_arguments(fixture, second, secondintegrity, childcars = fixture.childcars))
-      Cozy.main(_publish_arguments(fixture, first, firstintegrity, localwarehouse))
-      Cozy.main(_publish_arguments(fixture, second, secondintegrity, remotewarehouse))
-
-      Then("repeated package bytes, integrity evidence, and local/remote publication bytes remain equivalent")
-      Files.readAllBytes(first).toVector shouldBe Files.readAllBytes(second).toVector
-      Files.readString(firstintegrity, StandardCharsets.UTF_8) shouldBe
-        Files.readString(secondintegrity, StandardCharsets.UTF_8)
-      val localbytes = _tree_bytes(localwarehouse)
-      val remotebytes = _tree_bytes(remotewarehouse)
-      localbytes should not be empty
-      localbytes shouldBe remotebytes
-      localbytes.values.toVector should contain(Files.readAllBytes(first).toVector)
+      "RSC03-AC-03 local/remote-root publication and repeated-build payloads remain equivalent" in {
+        _with_temp_dir("rsc03-ac03") { root =>
+          Given("a complete release fixture and two isolated local warehouse roots standing in for local and remote publication")
+          val fixture = _fixture(root)
+          val first = root.resolve("release-first.car")
+          val second = root.resolve("release-second.car")
+          val localwarehouse = root.resolve("local-warehouse")
+          val remotewarehouse = root.resolve("remote-warehouse")
+          When("the release is packaged repeatedly and copied through each isolated warehouse boundary")
+          Cozy.main(_package_arguments(fixture, first, childcars = fixture.childcars))
+          Cozy.main(_package_arguments(fixture, second, childcars = fixture.childcars))
+          Cozy.main(_publish_arguments(fixture, first, localwarehouse))
+          Cozy.main(_publish_arguments(fixture, second, remotewarehouse))
+          Then("repeated package bytes and local/remote-root publication bytes and actual payloads remain equivalent")
+          Files.readAllBytes(first).toVector shouldBe Files.readAllBytes(second).toVector
+          val localbytes = _tree_bytes(localwarehouse)
+          val remotebytes = _tree_bytes(remotewarehouse)
+          localbytes should not be empty
+          localbytes shouldBe remotebytes
+          localbytes.values.toVector should contain(Files.readAllBytes(first).toVector)
+          val published = _zip_texts(localbytes.values.head.toArray).mkString("\n")
+          published should include(_documentation_payload_marker)
+          published should include(_source_code_payload_marker)
+          published should include(_web_presentation_payload_marker)
+        }
+      }
     }
   }
 
@@ -298,18 +310,7 @@ final class SubcomponentReleasePackagingSpec
   private val _documentation_role = "Documentation"
   private val _source_code_role = "SourceCode"
   private val _web_presentation_role = "ExternalPlatformPresentation"
-  private val _parent_signature = "cGFyZW50LXNpZw=="
-  private val _documentation_signature = "ZG9jdW1lbnRhdGlvbi1zaWc="
-  private val _source_code_signature = "c291cmNlLXNpZw=="
-  private val _web_presentation_signature = "d2ViLXNpZw=="
   private val _published_at = "2026-08-20T00:00:00Z"
-
-  private final case class Fixture(
-    parentproject: Path,
-    parentcar: Path,
-    childcars: Vector[Path],
-    composition: Path
-  )
 
   private def _fixture(root: Path): Fixture = {
     val parentproject = root.resolve("parent-project")
@@ -366,14 +367,13 @@ final class SubcomponentReleasePackagingSpec
       )
     )
     val childcars = Vector(documentationcar, sourcecodecar, webpresentationcar)
-    val composition = _write(root.resolve("input/composition.json"), _composition(parentcar, childcars))
+    val composition = _write(root.resolve("input/composition.json"), _composition)
     Fixture(parentproject, parentcar, childcars, composition)
   }
 
   private def _package_arguments(
     fixture: Fixture,
     output: Path,
-    integrity: Path,
     requiredchildren: Vector[String] = Vector(
       _documentation_id,
       _source_code_id
@@ -388,7 +388,6 @@ final class SubcomponentReleasePackagingSpec
       "--parent-car", fixture.parentcar.toString,
       "--composition", selectedcomposition.toString,
       "--save", output.toString,
-      "--integrity", integrity.toString,
       "--published-at", _published_at
     ) ++ childcars.flatMap(child => Vector("--child-car", child.toString)) ++
       requiredchildren.flatMap(child => Vector("--required-child", child))).toArray
@@ -397,19 +396,17 @@ final class SubcomponentReleasePackagingSpec
   private def _publish_arguments(
     fixture: Fixture,
     release: Path,
-    integrity: Path,
     warehouse: Path
   ): Array[String] = Array(
     "publish-subcomponent-release",
     "--project-dir", fixture.parentproject.toString,
     "--warehouse", warehouse.toString,
     "--release", release.toString,
-    "--integrity", integrity.toString,
     "--published-at", _published_at
   )
 
-  private def _composition(parentcar: Path, childcars: Vector[Path]): String =
-    s"""{"schema":"${_composition_schema}","membershipKind":"parent-child","parent":${_parent_composition(parentcar)},"members":[${_member_composition("RscDocumentation", true, _documentation_role, "documentation", "documentation/README.md", childcars(0), _documentation_signature)},${_member_composition("RscSourceCode", true, _source_code_role, "source-code", "source-code/release-inputs.txt", childcars(1), _source_code_signature)},${_member_composition("RscWebPresentation", false, _web_presentation_role, "external-platform-presentation", "web-presentation/platform.json", childcars(2), _web_presentation_signature)}],"fixtureExtension":{"accepted":true}}"""
+  private def _composition: String =
+    s"""{"schema":"${_composition_schema}","membershipKind":"parent-child","parent":${_parent_composition},"members":[${_member_composition("RscDocumentation", true, _documentation_role, "documentation", "documentation/README.md")},${_member_composition("RscSourceCode", true, _source_code_role, "source-code", "source-code/release-inputs.txt")},${_member_composition("RscWebPresentation", false, _web_presentation_role, "external-platform-presentation", "web-presentation/platform.json")}],"fixtureExtension":{"accepted":true}}"""
 
   private def _hostile_compositions(root: Path, fixture: Fixture): Vector[(String, Path)] = {
     val valid = Files.readString(fixture.composition, StandardCharsets.UTF_8)
@@ -439,6 +436,20 @@ final class SubcomponentReleasePackagingSpec
     json.substring(0, closingquote + 1) + "," + fieldtext + json.substring(closingquote + 1)
   }
 
+  private def _zip_entry_names(source: Path): Vector[String] = {
+    val input = new ZipInputStream(Files.newInputStream(source))
+    val names = scala.collection.mutable.ArrayBuffer.empty[String]
+    try {
+      var entry = input.getNextEntry
+      while (entry != null) {
+        names += entry.getName
+        input.closeEntry()
+        entry = input.getNextEntry
+      }
+    } finally input.close()
+    names.toVector
+  }
+
   private def _zip_entry_text(source: Path, target: String): String = {
     val input = new ZipInputStream(Files.newInputStream(source))
     var value: Option[String] = None
@@ -452,14 +463,6 @@ final class SubcomponentReleasePackagingSpec
       }
     } finally input.close()
     value.getOrElse(sys.error(s"zip entry not found: $target"))
-  }
-
-  private def _warehouse_admission(warehouse: Path): Path = {
-    val stream = Files.walk(warehouse)
-    try stream.iterator().asScala.find(_.getFileName.toString == "admission.json").getOrElse(
-      sys.error(s"warehouse admission marker not found: $warehouse")
-    )
-    finally stream.close()
   }
 
   private def _replace_zip_entry(source: Path, destination: Path, target: String, content: String): Path = {
@@ -487,22 +490,20 @@ final class SubcomponentReleasePackagingSpec
     destination
   }
 
-  private def _parent_composition(parentcar: Path): String =
-    s"""{"componentId":"${_parent_id}","logicalRelease":"${_version}","primaryCar":${_car_composition("primary", "RscParent", parentcar, _parent_signature)}}"""
+  private def _parent_composition: String =
+    s"""{"componentId":"${_parent_id}","logicalRelease":"${_version}","primaryCar":${_car_composition("primary", "RscParent")}}"""
 
   private def _member_composition(
     id: String,
     required: Boolean,
     role: String,
     resource: String,
-    path: String,
-    car: Path,
-    signature: String
+    path: String
   ): String =
-    s"""{"componentId":"${_namespace}.${id}","logicalRelease":"${_version}","required":${required},"role":"${role}","implementationTechnology":"CAR","logicalResource":"https://example.test/phase58/${resource}","logicalPath":"${path}","subcomponentCar":${_car_composition("subcomponent", id, car, signature)},"payload":{"authoritative":false,"executable":false},"authorization":{"state":"not-granted"},"integrity":{"state":"verified"},"availability":{"state":"available"},"deployment":{"platform":"external-platform","mode":"external","requiresExplicitPlatformAction":true,"authority":{"activation":false,"operation":false,"mcp":false,"disclosure":false,"deployment":false}},"access":{"visibility":"public"},"disclosure":{"mode":"metadata-only"},"license":{"spdx":"Apache-2.0"},"media":{"type":"application/vnd.cozy.car"},"profile":{"id":"phase58"}}"""
+    s"""{"componentId":"${_namespace}.${id}","logicalRelease":"${_version}","required":${required},"role":"${role}","implementationTechnology":"CAR","logicalResource":"https://example.test/phase58/${resource}","logicalPath":"${path}","subcomponentCar":${_car_composition("subcomponent", id)},"payload":{"authoritative":false,"executable":false},"authorization":{"state":"not-granted"},"integrity":{"state":"verified"},"availability":{"state":"available"},"deployment":{"platform":"external-platform","mode":"external","requiresExplicitPlatformAction":true,"authority":{"activation":false,"operation":false,"mcp":false,"disclosure":false,"deployment":false}},"access":{"visibility":"public"},"disclosure":{"mode":"metadata-only"},"license":{"spdx":"Apache-2.0"},"media":{"type":"application/vnd.cozy.car"},"profile":{"id":"phase58"}}"""
 
-  private def _car_composition(classification: String, id: String, car: Path, signature: String): String =
-    s"""{"classification":"${classification}","artifact":{"coordinate":"org.example:${_physical_artifact(id)}-car:0.1.0","sha256":"${_sha256(car)}","signature":"${signature}","repository":"https://repository.example.test/releases","physicalPath":"input/${id}.car"},"provenance":{"logicalSource":"git:phase58","physicalSource":"build:phase58","physicalPath":"src/main/cozy/${id}.cml"}}"""
+  private def _car_composition(classification: String, id: String): String =
+    s"""{"classification":"${classification}","artifact":{"coordinate":"org.example:${_physical_artifact(id)}-car:0.1.0","repository":"https://repository.example.test/releases","physicalPath":"input/${id}.car"},"provenance":{"logicalSource":"git:phase58","physicalSource":"build:phase58","physicalPath":"src/main/cozy/${id}.cml"}}"""
 
   private def _physical_artifact(id: String): String =
     id.foldLeft("") { (result, character) =>
@@ -544,9 +545,6 @@ final class SubcomponentReleasePackagingSpec
     } finally input.close()
     texts.toVector
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _tree_bytes(root: Path): Map[String, Vector[Byte]] = {
     if (!Files.isDirectory(root)) Map.empty

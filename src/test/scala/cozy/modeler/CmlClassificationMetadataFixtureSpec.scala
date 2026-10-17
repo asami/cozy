@@ -12,7 +12,7 @@ import CmlClassificationTopology.{TopologyLink, Generalization, TraitRealization
 
 /*
  * @since   Oct. 3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlClassificationMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -191,7 +191,6 @@ class CmlClassificationMetadataFixtureSpec extends AnyWordSpec with Matchers wit
   private val _order = ModelElementId("structure.example", "entity:order")
   private val _audited = ModelElementId("classification.example", "trait:audited")
   private val _source_path = "src/main/cml/classification-handoff.cml"
-  private val _digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   private val _absences = Vector(
     Absent(NotDeclared, "No Classification reference is declared."),
     Absent(NotRepresented, "The Classification reference is not represented."),
@@ -212,7 +211,7 @@ class CmlClassificationMetadataFixtureSpec extends AnyWordSpec with Matchers wit
     val records = declarations.map { case (kind, id, line) => ElementRecord(
       if (absent && id == "trait:audited") Absent(NotRepresented, "No stable trait identity is represented.")
       else Present(ModelElementId("classification.example", id)), kind, "共有",
-      SourceAttribution("classification.example", _source_path, _digest, Some(line)),
+      SourceAttribution("classification.example", _source_path, Some(line)),
       Absent(NotDeclared, "No semantic references are declared.")) }
     def _endpoint_(ordinal: Int, id: String, model: String = "classification.example", boundary: ReferenceBoundary = Local): Presence[ModelReference] =
       if (absent) _absences(ordinal % 4) else Present(ModelReference(ModelElementId(model, id), boundary))
@@ -236,7 +235,7 @@ class CmlClassificationMetadataFixtureSpec extends AnyWordSpec with Matchers wit
       PowertypeClassificationProjection(records(14), _endpoint_(1, "entity:order", "structure.example"), _endpoint_(2, "powertype:category")),
       PowertypeClassificationProjection(records(15), _endpoint_(2, "entity:order", "structure.example"), _endpoint_(3, "powertype:status")))
     Expected(baseline.catalog.elements ++ records, baseline.catalog.terms :+ TermRecord(
-      TermId("classification.example", "trait:audited"), SourceAttribution("classification.example", _source_path, _digest, Some(7))),
+      TermId("classification.example", "trait:audited"), SourceAttribution("classification.example", _source_path, Some(7))),
       traits, powertypes, generalizations, realizations, dimensions, records(0))
   }
   private def _permutation(size: Int): Gen[Vector[Int]] =

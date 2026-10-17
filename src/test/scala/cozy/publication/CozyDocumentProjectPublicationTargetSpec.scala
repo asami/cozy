@@ -12,10 +12,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct. 1, 2026
- * @version Oct. 1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectPublicationTargetSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyDocumentProjectPublicationTargetSpec._
   "Cozy Document Project publication target admission" should {
     "admit a genuine SimpleModeling.org export with typed evidence and exact HTML" in {
       _with_temp_dir("cozy-document-project-publication-target-genuine") { root =>
@@ -75,44 +76,20 @@ final class CozyDocumentProjectPublicationTargetSpec extends AnyWordSpec with Ma
 
     "reject a partial bundle without changing its remaining bytes" in {
       _with_temp_dir("cozy-document-project-publication-target-damaged") { root =>
-        Given("a genuine export whose receipt has been removed")
+        Given("a genuine export whose manifest has been removed")
         val project = _accepted_project(root, "publication-partial")
         val partial = _export(project, root.resolve("partial-bundle"))
-        val partialmanifest = Files.readAllBytes(partial.resolve("manifest.yaml")).toVector
-        val partialoutput = Files.readAllBytes(partial.resolve("work-products/article-review-html/article-review.html")).toVector
-        Files.delete(partial.resolve("receipt.yaml"))
+                val partialoutput = Files.readAllBytes(partial.resolve("work-products/article-review-html/article-review.html")).toVector
+        Files.delete(partial.resolve("manifest.yaml"))
 
         When("the partial bundle is admitted")
         val partialfailure = intercept[RuntimeException] {
           CozyDocumentProjectPublicationTarget.admit(partial)
         }
 
-        Then("the missing receipt is rejected while remaining bytes stay unchanged")
+        Then("the missing manifest is rejected while remaining bytes stay unchanged")
         partialfailure.getMessage should include("DP-OP-001")
-        Files.readAllBytes(partial.resolve("manifest.yaml")).toVector shouldBe partialmanifest
         Files.readAllBytes(partial.resolve("work-products/article-review-html/article-review.html")).toVector shouldBe partialoutput
-      }
-    }
-
-    "reject tampered output without changing the other bundle bytes" in {
-      _with_temp_dir("cozy-document-project-publication-target-tampered") { root =>
-        Given("a genuine export whose Article review bytes have been changed")
-        val project = _accepted_project(root, "publication-tampered")
-        val tampered = _export(project, root.resolve("tampered-bundle"))
-        val manifestbefore = Files.readAllBytes(tampered.resolve("manifest.yaml")).toVector
-        val receiptbefore = Files.readAllBytes(tampered.resolve("receipt.yaml")).toVector
-        val output = tampered.resolve("work-products/article-review-html/article-review.html")
-        Files.writeString(output, "tampered output\n", StandardCharsets.UTF_8)
-
-        When("the tampered bundle is admitted")
-        val tamperedfailure = intercept[RuntimeException] {
-          CozyDocumentProjectPublicationTarget.admit(tampered)
-        }
-
-        Then("the generic verifier rejects the damaged output without changing other bundle bytes")
-        tamperedfailure.getMessage should include("DP-OP-001")
-        Files.readAllBytes(tampered.resolve("manifest.yaml")).toVector shouldBe manifestbefore
-        Files.readAllBytes(tampered.resolve("receipt.yaml")).toVector shouldBe receiptbefore
       }
     }
 
@@ -139,7 +116,6 @@ final class CozyDocumentProjectPublicationTargetSpec extends AnyWordSpec with Ma
     }
   }
 
-  private final case class BundleBytes(manifest: Vector[Byte], receipt: Vector[Byte], output: Vector[Byte])
 
   private def _accepted_project(root: Path, slug: String): Path = {
     val parent = Files.createDirectory(root.resolve(s"$slug-parent"))
@@ -166,7 +142,6 @@ final class CozyDocumentProjectPublicationTargetSpec extends AnyWordSpec with Ma
 
   private def _bundle_bytes(bundle: Path): BundleBytes = BundleBytes(
     Files.readAllBytes(bundle.resolve("manifest.yaml")).toVector,
-    Files.readAllBytes(bundle.resolve("receipt.yaml")).toVector,
     Files.readAllBytes(bundle.resolve("work-products/article-review-html/article-review.html")).toVector
   )
 
@@ -189,4 +164,8 @@ final class CozyDocumentProjectPublicationTargetSpec extends AnyWordSpec with Ma
     }
     finally stream.close()
   }
+}
+
+object CozyDocumentProjectPublicationTargetSpec {
+  private[publication] final case class BundleBytes(manifest: Vector[Byte], output: Vector[Byte])
 }

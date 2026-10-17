@@ -1013,7 +1013,10 @@ export function DialogueVideo({ characters, sections, scenes, fps, effectProfile
   const leadInFrames = Number(scene.leadInFrames || 0);
   const speechLocalFrame = Math.max(0, localFrame - leadInFrames);
   const speechStarted = localFrame >= leadInFrames;
-  const speechDurationFrames = scene.audioDuration ? Math.max(1, Math.round(Number(scene.audioDuration) * effectiveFps)) : scene.durationFrames;
+  const suppliedAudioFrames = Number(scene.audioDurationFrames);
+  const speechDurationFrames = Number.isFinite(suppliedAudioFrames) && suppliedAudioFrames > 0
+    ? suppliedAudioFrames
+    : scene.audioDuration ? Math.max(1, Math.ceil(Number(scene.audioDuration) * effectiveFps)) : scene.durationFrames;
   const speechActive = speechStarted && speechLocalFrame < speechDurationFrames;
   const effect = scene.effects || {};
   const activeCharacter = scene.speaker ? characters[scene.speaker] : null;

@@ -14,7 +14,7 @@ import org.goldenport.realm.Realm
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
  *  version Sep. 28, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -23,7 +23,8 @@ class ScalaGenerator(
   compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty,
   workflows: Vector[WorkflowDefinition] = Vector.empty,
   generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf,
-  failureModels: Vector[ComponentFailureModel] = Vector.empty
+  failureModels: Vector[ComponentFailureModel] = Vector.empty,
+  logicalUi: Option[Realm] = None
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -33,8 +34,10 @@ class ScalaGenerator(
   }
 
   def generate(p: MPackage): STree = {
+    ModelGenerationTarget.requireLogicalUiInput(logicalUi)
     generationTarget match {
       case ModelGenerationTarget.Library =>
+        ModelGenerationTarget.requireLibraryLogicalUi(logicalUi)
         ModelGenerationTarget.requireLibraryGeneratorInput(model, compositeStateMachines, workflows, failureModels)
         STree(_transformer.transform(model).realm)
       case ModelGenerationTarget.Cncf =>
@@ -84,6 +87,7 @@ class ScalaGenerator(
     val generatedrealm = realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
     val withcandidateadmission = candidateadmissionproducerabi.fold(generatedrealm)(generatedrealm + _)
     val withprovidedapi = providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _)
-    STree(if (failureModels.isEmpty) withprovidedapi else withprovidedapi + FailureModelAbiGenerator.generate(failureModels))
+    val withfailuremodel = if (failureModels.isEmpty) withprovidedapi else withprovidedapi + FailureModelAbiGenerator.generate(failureModels)
+    STree(logicalUi.fold(withfailuremodel)(withfailuremodel + _))
   }
 }

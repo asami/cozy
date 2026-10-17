@@ -266,8 +266,8 @@ declared Dynamic fixture in both modes. Seven complete `usecase.example` records
 are appended in order: requester Actor, auditor Actor, complete-order Use Case,
 observe-order Use Case, partner component, fulfillment service and payment
 external-system. Their name is `共有`, source path is
-`src/main/cml/use-case-handoff.cml`, authority is `usecase.example`, digest is
-64 literal lowercase `c` characters and lines are 43–49. Core references remain
+`src/main/cml/use-case-handoff.cml`, authority is `usecase.example`,
+and lines are 43–49. Core references remain
 Absent(NotDeclared, "No semantic references are declared."). A separate
 TermId(usecase.example, use-case:complete-order) retains the complete source at
 line 45. Each file totals 49 core records/four Terms/two Actors/two Use Cases.

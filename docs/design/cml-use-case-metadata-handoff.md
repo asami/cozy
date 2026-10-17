@@ -30,8 +30,7 @@ Terms, two Actors and two Use Cases.
 ## Exact new core and declaration facts
 
 All seven appended records have model/source authority `usecase.example`,
-name `共有`, source path `src/main/cml/use-case-handoff.cml`, and source digest
-`cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc`.
+name `共有`, and source path `src/main/cml/use-case-handoff.cml`.
 Their core references are `Absent(NotDeclared, "No semantic references are declared.")`.
 
 | Line | Kind | Qualified element component |

@@ -12,11 +12,13 @@ import cozy.archive.ComponentRepositoryIndex
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   May. 20, 2026
  *  version Jul. 21, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -89,11 +91,90 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       publiccatalog.latestStable shouldBe Some("0.1.0")
       publiccatalog.versions.head.runtime shouldBe empty
       publiccatalog.versions.head.file shouldBe Some("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
-      publiccatalog.versions.head.checksumSha256 should not be empty
+
       val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
       index.artifacts.map(_.identity) shouldBe Vector(("sar", "", "sample-application"))
       index.artifacts.head.catalog shouldBe "sar/sample-application.yaml"
     }
+  }
+
+  "public SAR publication" which {
+    "reject a symbolic or directory metadata output leaf" in {
+      Vector("symbolic", "directory").foreach { kind =>
+        _with_temp_dir(s"cozy-publish-sar-metadata-$kind") { dir =>
+          Given(s"a prebuilt SAR release with a $kind selected warehouse metadata leaf")
+          val projectdir = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          val sar = _write(dir.resolve("input/sample.sar"), "sar-body")
+          _write_project_yaml(projectdir, "sample-application")
+          val metadata = warehouse.resolve("repository/sar/sample-application/maven-metadata.xml")
+          Files.createDirectories(metadata.getParent)
+          if (kind == "symbolic") {
+            val outside = _write(dir.resolve("outside-warehouse/selected-file.xml"), "task-owned file")
+            Files.createSymbolicLink(metadata, outside)
+          } else {
+            Files.createDirectory(metadata)
+          }
+
+          When("the SAR publisher reaches the selected metadata destination")
+          val error = intercept[Throwable] {
+            CozySarPublisher.publish(List(
+              projectdir.toString,
+              "--warehouse", warehouse.toString,
+              "--name", "sample-application",
+              "--version", "0.1.0",
+              "--sar", sar.toString
+            ))
+          }
+
+          Then("publication rejects the nonregular metadata output with its selected path diagnostic")
+          error.getMessage should include("Repository publication output")
+          error.getMessage should include("symbolic link or nonregular leaf")
+          error.getMessage should include(metadata.toString)
+        }
+      }
+    }
+
+    "publishes varied actual payloads with schema1 release metadata" in {
+      Given("a generator of varied SAR payloads and public publication scenarios")
+      val payloads: Gen[Array[Byte]] = Gen.choose(1, 200).flatMap(size => Gen.listOfN(size, Gen.choose(-128, 127))).map { values =>
+        ("SAR-\u65e5\u672c\u8a9e-".getBytes(StandardCharsets.UTF_8).toVector ++ values.map(_.toByte)).toArray
+      }
+      val property = Prop.forAll(payloads) { payload =>
+        _with_temp_dir("sar-public-byte-property") { dir =>
+          Given("a SAR project and a varied actual payload containing non-ASCII bytes")
+          val project = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          _write_project_yaml(project, "sample-application")
+          val input = dir.resolve("input/sample.sar")
+          Files.createDirectories(input.getParent)
+          Files.write(input, payload)
+          When("the public SAR publisher installs the release")
+          CozySarPublisher.publish(List(project.toString, "--warehouse", warehouse.toString,
+            "--name", "sample-application", "--version", "0.1.0", "--sar", input.toString))
+          val archive = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
+          val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
+          val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
+          val admitted = ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath)
+          Then("the published payload, input, SAR schema, and discovery identity are preserved")
+
+          Files.readAllBytes(archive).toVector shouldBe payload.toVector
+          Files.readAllBytes(input).toVector shouldBe payload.toVector
+          catalog.schemaVersion shouldBe "1"
+          catalog.namespace shouldBe empty
+          catalog.id shouldBe empty
+          admitted.artifacts.map(_.identity) shouldBe Vector(("sar", "", "sample-application"))
+          admitted.artifacts.head.namespace shouldBe empty
+          admitted.artifacts.head.id shouldBe empty
+          true
+        }
+      }
+      When("ScalaCheck exercises at least fifty successful public publication trials")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+      Then("every trial preserves actual payload publication and schema1 release metadata")
+      result.passed shouldBe true
+    }
+
   }
 
   "build a snapshot SAR without adding it to a release catalog" in {
@@ -196,9 +277,10 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "snapshot-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      _materialize_release(warehouse, "0.1.0", "retained-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.1.0
@@ -246,9 +328,11 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      _materialize_release(warehouse, "0.0.9", "deprecated-release")
+      _materialize_release(warehouse, "0.1.0", "current-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.0.9
@@ -265,8 +349,6 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |    channel: stable
           |    status: active
           |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
-          |    checksum:
-          |      sha256: old
           |""".stripMargin
       )
 
@@ -283,7 +365,6 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       catalog.versions.map(_.version) shouldBe Vector("0.0.9", "0.1.0")
       catalog.versions.find(_.version == "0.0.9").flatMap(_.status) shouldBe Some("deprecated")
-      catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) should not be Some("old")
       catalog.recommended shouldBe Some("0.1.0")
       catalog.latestStable shouldBe Some("0.1.0")
       catalog.aliases shouldBe Vector("sample-old")
@@ -302,9 +383,11 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      _materialize_release(warehouse, "0.0.9", "deprecated-release")
+      _materialize_release(warehouse, "0.1.0", "current-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.0.9
@@ -320,8 +403,6 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |    channel: stable
           |    status: active
           |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
-          |    checksum:
-          |      sha256: old
           |""".stripMargin
       )
 
@@ -374,7 +455,10 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
     }
   }
 
-  private def _with_temp_dir(prefix: String)(body: Path => Unit): Unit = {
+  private def _materialize_release(warehouse: Path, version: String, text: String): Path =
+    _write(warehouse.resolve(s"repository/sar/sample-application/$version/sample-application-$version.sar"), text)
+
+  private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
     val workroot = Path.of("target/cozy-test/work/cozy-sar-publisher-spec").toAbsolutePath.normalize()
     Files.createDirectories(workroot)
     val dir = Files.createTempDirectory(workroot, s"$prefix-")

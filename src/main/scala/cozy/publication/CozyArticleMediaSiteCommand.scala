@@ -3,10 +3,12 @@ package cozy.publication
 import java.nio.file.{Files, LinkOption, Path}
 import org.goldenport.RAISE
 import scala.util.control.NonFatal
+import cozy.media.CozyMediaWarehouse
 
 /*
  * @since   Aug. 11, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteCommand {
@@ -16,7 +18,9 @@ private[cozy] object CozyArticleMediaSiteCommand {
     target: Option[String] = None,
     dryRun: Boolean = false,
     siteRoot: Option[Path] = None,
-    siteConfig: Option[Path] = None
+    siteConfig: Option[Path] = None,
+    warehouseProfile: Option[String] = None,
+    warehouseRoot: Option[Path] = None
   )
 
   object Config {
@@ -28,6 +32,8 @@ private[cozy] object CozyArticleMediaSiteCommand {
       var target: Option[String] = None
       var siteroot: Option[String] = None
       var siteconfig: Option[String] = None
+      var warehouseprofile: Option[String] = None
+      var warehouseroot: Option[String] = None
       var dryrun = false
       var index = 0
       while (index < args.size) {
@@ -64,6 +70,18 @@ private[cozy] object CozyArticleMediaSiteCommand {
               _invalid("Duplicate --dry-run")
             dryrun = true
             index += 1
+          case "--warehouse-profile" =>
+            warehouseprofile = _unique_option(warehouseprofile, _option_value(args, index, "--warehouse-profile"), "--warehouse-profile")
+            index += 2
+          case value if value.startsWith("--warehouse-profile=") =>
+            warehouseprofile = _unique_option(warehouseprofile, _exact_value(value.drop("--warehouse-profile=".length), "--warehouse-profile"), "--warehouse-profile")
+            index += 1
+          case "--warehouse-root" =>
+            warehouseroot = _unique_option(warehouseroot, _option_value(args, index, "--warehouse-root"), "--warehouse-root")
+            index += 2
+          case value if value.startsWith("--warehouse-root=") =>
+            warehouseroot = _unique_option(warehouseroot, _exact_value(value.drop("--warehouse-root=".length), "--warehouse-root"), "--warehouse-root")
+            index += 1
           case "--profile" =>
             _invalid("--profile is not supported by media register-site")
           case value if value.startsWith("--profile=") =>
@@ -85,30 +103,31 @@ private[cozy] object CozyArticleMediaSiteCommand {
       val publicationroot = publication.map(_host_path(_, "--publication")).getOrElse(
         _invalid("Missing --publication for media register-site")
       )
+      if (warehouseprofile.nonEmpty && (siteroot.nonEmpty || siteconfig.nonEmpty))
+        _invalid("--warehouse-profile does not support site context (--site-root / --site-config)")
+      if (warehouseroot.nonEmpty && warehouseprofile.isEmpty)
+        _invalid("--warehouse-root requires --warehouse-profile for media register-site")
       val sitecontext = _site_context(siteroot, siteconfig)
-      Config(descriptorfile, _direct_publication_root(publicationroot), target, dryrun, sitecontext._1, sitecontext._2)
+      Config(descriptorfile, _direct_publication_root(publicationroot), target, dryrun, sitecontext._1, sitecontext._2, warehouseprofile,
+        warehouseroot.map(CozyMediaWarehouse.requireWarehouseRoot))
     }
   }
 
   def execute(args: List[String]): String =
     execute(Config.create(args))
 
-  def execute(config: Config): String =
-    execute(config, () => ())
-
-  /* The seam lets the executable specification deterministically change
-   * admitted evidence in the narrow interval before final revalidation. */
-  private[publication] def execute(
-    config: Config,
-    beforeEvidenceRevalidation: () => Unit
-  ): String = {
+  def execute(config: Config): String = {
     if (config == null || config.descriptorFile == null || config.publicationRoot == null || config.target == null ||
-      config.siteRoot == null || config.siteConfig == null)
+      config.siteRoot == null || config.siteConfig == null || config.warehouseProfile == null || config.warehouseRoot == null)
       _invalid("Article-media site command configuration must be defined")
-    if (beforeEvidenceRevalidation == null)
-      _invalid("Article-media site command before-evidence-revalidation callback must be defined")
-    val rootevidence = CozyPublicationCompiler.captureSiteRootEvidence(config.publicationRoot)
-    val publicationroot = rootevidence.real
+    config.warehouseRoot.foreach(root => CozyMediaWarehouse.requireWarehouseRoot(if (root == null) null else root.toString))
+    if (config.warehouseRoot.nonEmpty && config.warehouseProfile.isEmpty)
+      _invalid("--warehouse-root requires --warehouse-profile for media register-site")
+    if (config.warehouseProfile.nonEmpty && (config.siteRoot.nonEmpty || config.siteConfig.nonEmpty))
+      _invalid("--warehouse-profile does not support site context (--site-root / --site-config)")
+    if (config.warehouseProfile.nonEmpty)
+      return _execute_warehouse(config)
+    val publicationroot = _direct_publication_root(config.publicationRoot)
     val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
       descriptorFile = config.descriptorFile,
       target = config.target,
@@ -118,16 +137,26 @@ private[cozy] object CozyArticleMediaSiteCommand {
     val updates = plan.candidates.map(candidate =>
       CozyArticleMediaRegistry.SiteRoleUpdate(plan.articleIdentity, candidate.variant)
     )
-    val revalidate = () => {
-      beforeEvidenceRevalidation()
-      CozyArticleMediaSiteBinding.revalidate(plan)
-      ()
-    }
     if (config.dryRun)
-      CozyArticleMediaRegistry.validateSiteReadOnly(rootevidence, updates, revalidate)
+      CozyArticleMediaRegistry.validateSiteReadOnly(publicationroot, updates)
     else
-      CozyArticleMediaRegistry.transactionExisting(rootevidence)(_.mergeSite(updates, revalidate))
+      CozyArticleMediaRegistry.transactionExisting(publicationroot)(_.mergeSite(updates))
     _render(plan, publicationroot, config.dryRun)
+  }
+
+  private def _execute_warehouse(config: Config): String = {
+    if (config.siteRoot.nonEmpty || config.siteConfig.nonEmpty)
+      _invalid("--warehouse-profile does not support site context (--site-root / --site-config)")
+    val publicationroot = _direct_publication_root(config.publicationRoot)
+    val profile = _exact_value(config.warehouseProfile.get, "--warehouse-profile")
+    val plan = CozyArticleMediaWarehouseSiteBinding.plan(CozyArticleMediaWarehouseSiteBinding.Config(
+      config.descriptorFile, profile, config.target, config.warehouseRoot
+    ))
+    val updates = plan.rows.flatMap(_.variant).map { variant =>
+      CozyArticleMediaRegistry.SiteRoleUpdate(plan.articleIdentity, variant)
+    }
+    CozyArticleMediaRegistry.mergeCurrentSite(publicationroot, updates, config.dryRun)
+    CozyArticleMediaWarehouseSiteBinding.render(plan, publicationroot, config.dryRun)
   }
 
   private def _render(

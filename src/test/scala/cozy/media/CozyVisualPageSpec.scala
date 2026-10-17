@@ -3,7 +3,8 @@ package cozy.media
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
+import io.circe.Json
+import io.circe.parser.parse
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -12,7 +13,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageSpec
@@ -78,19 +80,17 @@ final class CozyVisualPageSpec
         val resolvedset = CozyVisualPage.load(set, catalog)
         val literalresolved = Vector(literaljson, literalyaml, nestedliteralyaml).map(path => CozyVisualPage.load(path, catalog))
 
-        Then("they retain one typed graph and representation-independent canonical identities without losing literal ampersand or asterisk content")
+        Then("they retain one typed graph and canonical output without losing literal ampersand or asterisk content")
         resolved.map(_.canonicalJson).distinct shouldBe Vector(CozyVisualPage.canonicalJson(page))
-        resolved.map(_.logicalIdentities).distinct should have size 1
-        resolved.map(_.visualPageIdentities).distinct should have size 1
+        resolved.map(_.document).distinct shouldBe Vector(page)
         resolved.head.document.pages.head.logical.nodes.map(_.id) shouldBe Vector("discover", "apply")
         resolvedset.document shouldBe CozyVisualPage.PageSet("set-1", Vector(page))
-        resolvedset.documentIdentity should startWith("sha256:")
         literalresolved.map(_.canonicalJson).distinct shouldBe Vector(CozyVisualPage.canonicalJson(literalpage))
-        literalresolved.map(_.documentIdentity).distinct should have size 1
+        literalresolved.map(_.document).distinct shouldBe Vector(literalpage)
       }
     }
 
-    "prove canonical JSON and identities converge through at least thirty valid representation and key-order variations" in {
+    "normalize typed values and canonical JSON through at least thirty valid representation and key-order variations" in {
       _with_work("visual-page-property") { root =>
         Given("one valid page represented by generated JSON and YAML root-field orders")
         val catalog = _write_catalog(root)
@@ -107,8 +107,7 @@ final class CozyVisualPageSpec
           val input = _write(root.resolve("page." + (if (format == "json") "json" else "yaml")), text)
           val loaded = CozyVisualPage.load(input, catalog)
           loaded.canonicalJson == CozyVisualPage.canonicalJson(page) &&
-            loaded.logicalIdentities.head._2 == CozyVisualPage.logicalIdentity(page, _catalog()) &&
-            loaded.visualPageIdentities.head._2 == CozyVisualPage.visualPageIdentity(page, _catalog())
+            loaded.document == page && loaded.catalog == _catalog()
         })
 
         Then("all successful generated cases converge rather than retaining source key order")
@@ -117,7 +116,68 @@ final class CozyVisualPageSpec
       }
     }
 
-    "retain Relation meaning while separating compatible logical and visual identities" in {
+    "load current material declarations and ignore generated historical metadata across all representations" in {
+      _with_work("visual-page-material-metadata") { root =>
+        Given("a direct asset, source, and page graph with generated ordinary historical material metadata")
+        val catalog = _write_catalog(root)
+        _write(root.resolve("sources/research.txt"), "research")
+        val assetpath = _write(root.resolve("assets/diagram.txt"), "current diagram bytes")
+        val page = _sequence_page(assets = Vector(CozyVisualPage.Asset("diagram", "assets/diagram.txt", "text/plain")))
+        val documents = Gen.oneOf[CozyVisualPage.Document](page, CozyVisualPage.PageSet("material-pages", Vector(page)))
+        val metadata = Gen.oneOf(Json.fromString("malformed obsolete value"), Json.fromBoolean(true), Json.fromInt(17), Json.obj("ordinary" -> Json.fromString("extra")))
+        val formats = Gen.oneOf("json", "yaml", "md")
+
+        When("ScalaCheck loads at least thirty material metadata and representation cases using current file bytes")
+        val current = Vector("json", "yaml", "md").map { format =>
+          val input = _write(root.resolve("current." + format), _material_representation(page, parse(CozyVisualPage.canonicalJson(page)).toOption.get, format))
+          CozyVisualPage.load(input, catalog)
+        }
+        _write(assetpath, "different valid current diagram bytes")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(documents, metadata, formats) { (document, extra, format) =>
+          val value = _material_metadata(document, extra)
+          val input = _write(root.resolve("historical." + format), _material_representation(document, value, format))
+          val loaded = CozyVisualPage.load(input, catalog)
+          loaded.document == document && loaded.canonicalJson == CozyVisualPage.canonicalJson(document) &&
+            Vector(CozyVisualPage.parseJson(loaded.canonicalJson), CozyVisualPage.parseYaml(CozyVisualPage.canonicalYaml(loaded.document)), CozyVisualPage.parseMarkdown(CozyVisualPage.canonicalMarkdown(loaded.document))).forall(_ == document)
+        })
+
+        Then("the required IDs paths media types and graph survive, changed valid bytes are accepted, and canonical output drops every extra")
+        current.map(_.document).distinct shouldBe Vector(page)
+        check.passed shouldBe true
+        check.succeeded should be >= 30
+      }
+    }
+
+    "reject noncanonical or lossy Markdown even when material metadata is historical" in {
+      _with_work("visual-page-material-markdown") { root =>
+        Given("compact historical material metadata in a canonical page and PageSet Markdown envelope")
+        val catalog = _write_catalog(root)
+        _write(root.resolve("sources/research.txt"), "research")
+        _write(root.resolve("assets/diagram.txt"), "diagram")
+        val page = _sequence_page(assets = Vector(CozyVisualPage.Asset("diagram", "assets/diagram.txt", "text/plain")))
+        val set = CozyVisualPage.PageSet("material-pages", Vector(page))
+        val pagetext = _material_representation(page, _material_metadata(page, Json.fromString("malformed")), "md")
+        val settext = _material_representation(set, _material_metadata(set, Json.fromBoolean(false)), "md")
+        val variants = Vector(
+          pagetext.replace("assets: [{", "assets: [ {"),
+          pagetext.replace("\"id\":\"diagram\",\"path\":\"assets/diagram.txt\"", "\"path\":\"assets/diagram.txt\",\"id\":\"diagram\""),
+          pagetext.stripSuffix("\n"),
+          pagetext + "unpreserved prose\n",
+          settext.replace("\"knowledge\":", "\"pageMetadata\":true,\"knowledge\":"),
+          settext.replace("pages: [{", "pages: [ {"),
+          settext.replace("id: \"material-pages\"", "id: \"material-pages\"\nrootMetadata: true")
+        ).zipWithIndex.map { case (text, index) => _write(root.resolve(s"invalid-$index.md"), text) }
+
+        When("each noncanonical inline payload or changed Markdown envelope is loaded")
+        val failures = variants.map(input => _failure(CozyVisualPage.load(input, catalog)))
+
+        Then("every variant rejects without discarding prose changing required order or relaxing page and root grammar")
+        failures should have size variants.size
+        failures.foreach(_.getMessage should include_text("VISUAL_PAGE_"))
+      }
+    }
+
+    "retain Relation meaning while processing a compatible visual update" in {
       _with_work("visual-page-identities") { root =>
         Given("closed core pages that use next, causes, and depends-on Relations")
         val catalog = _write_catalog(root)
@@ -130,15 +190,15 @@ final class CozyVisualPageSpec
         val causalfile = _write(root.resolve("causal.json"), CozyVisualPage.canonicalJson(causal))
         val dependencyfile = _write(root.resolve("dependency.json"), CozyVisualPage.canonicalJson(dependency))
 
-        When("the semantic and projection identities are resolved")
+        When("the current semantic and visual inputs are loaded")
         val horizontalidentity = CozyVisualPage.load(horizontal, catalog)
         val verticalidentity = CozyVisualPage.load(vertical, catalog)
         val relationidentities = Vector(causalfile, dependencyfile).map(path => CozyVisualPage.load(path, catalog)) :+ horizontalidentity
 
-        Then("Relation type remains identity-bearing even where arrows share a compatible projection")
-        relationidentities.map(_.logicalIdentities.head._2).distinct should have size 3
-        horizontalidentity.logicalIdentities.head._2 shouldBe verticalidentity.logicalIdentities.head._2
-        horizontalidentity.visualPageIdentities.head._2 should not be verticalidentity.visualPageIdentities.head._2
+        Then("Relation types stay distinct and the updated compatible Visual is accepted")
+        relationidentities.map(_.document.pages.head.logical.relations.map(_.relationType)).distinct should have size 3
+        horizontalidentity.document.pages.head.logical shouldBe verticalidentity.document.pages.head.logical
+        verticalidentity.document.pages.head.visual.pattern shouldBe "flow-vertical"
       }
     }
 
@@ -189,7 +249,7 @@ final class CozyVisualPageSpec
         val catalog = _write_catalog(root)
         _write(root.resolve("sources/research.txt"), "research")
         _write(root.resolve("assets/diagram.txt"), "diagram")
-        val asset = CozyVisualPage.Asset("diagram", "assets/diagram.txt", "text/plain", _sha256(root.resolve("assets/diagram.txt")))
+        val asset = CozyVisualPage.Asset("diagram", "assets/diagram.txt", "text/plain")
         val sequence = _sequence_page(assets = Vector(asset), parameters = Vector(
           CozyVisualPage.VisualParameter("emphasisNode", CozyVisualPage.StringParameter("discover")),
           CozyVisualPage.VisualParameter("showRelationLabels", CozyVisualPage.BooleanParameter(true))
@@ -226,7 +286,12 @@ final class CozyVisualPageSpec
         val unsafe = _write(root.resolve("unsafe.json"), CozyVisualPage.canonicalJson(sequence.copy(sources = Vector(CozyVisualPage.SourceBinding("research", "../research.txt")))))
         val missing = _write(root.resolve("missing.json"), CozyVisualPage.canonicalJson(sequence.copy(sources = Vector(CozyVisualPage.SourceBinding("research", "sources/missing.txt")))))
         val missingasset = _write(root.resolve("missing-asset.json"), CozyVisualPage.canonicalJson(sequence.copy(assets = Vector(asset.copy(path = "assets/missing.txt")))))
-        val digestmismatch = _write(root.resolve("digest.json"), CozyVisualPage.canonicalJson(sequence.copy(assets = Vector(asset.copy(sha256 = "0" * 64)))))
+        val missingassetfield = _write(root.resolve("missing-asset-field.json"), CozyVisualPage.canonicalJson(sequence).replace(",\"mediaType\":\"text/plain\"", ""))
+        val wrongassettype = _write(root.resolve("wrong-asset-type.json"), CozyVisualPage.canonicalJson(sequence).replace("\"mediaType\":\"text/plain\"", "\"mediaType\":true"))
+        val duplicateassetfield = _write(root.resolve("duplicate-asset-field.json"), CozyVisualPage.canonicalJson(sequence).replace("\"mediaType\":\"text/plain\"", "\"mediaType\":\"text/plain\",\"mediaType\":\"text/plain\""))
+        val unsafeasset = _write(root.resolve("unsafe-asset.json"), CozyVisualPage.canonicalJson(sequence.copy(assets = Vector(asset.copy(path = "../diagram.txt")))))
+        Files.createSymbolicLink(root.resolve("assets/link.txt"), root.resolve("assets/diagram.txt"))
+        val symlinkasset = _write(root.resolve("symlink-asset.json"), CozyVisualPage.canonicalJson(sequence.copy(assets = Vector(asset.copy(path = "assets/link.txt")))))
         val legacy = _write(root.resolve("legacy.json"), "{\"schema\":\"cozy.slide-ir.v1\"}")
         val lossy = _write(root.resolve("lossy.md"), CozyVisualPage.canonicalMarkdown(sequence).replace("## Assets\nassets", "assets\n## Assets"))
         val yamlanchor = _write(root.resolve("anchor.yaml"), CozyVisualPage.canonicalYaml(sequence).replace("knowledge: \"knowledge-1\"", "knowledge: &knowledge \"knowledge\""))
@@ -256,7 +321,8 @@ final class CozyVisualPageSpec
           "unknown-relation" -> unknownrelation, "incompatible" -> incompatible, "topology" -> topology, "duplicate-page" -> duplicatepage,
           "duplicate-node" -> duplicatenode, "duplicate-relation" -> duplicaterelation, "duplicate-source" -> duplicatesource,
           "duplicate-asset" -> duplicateasset, "unsafe" -> unsafe, "missing" -> missing, "missing-asset" -> missingasset,
-          "digest-mismatch" -> digestmismatch, "legacy" -> legacy, "lossy" -> lossy, "yaml-anchor" -> yamlanchor,
+          "missing-asset-field" -> missingassetfield, "wrong-asset-type" -> wrongassettype, "duplicate-asset-field" -> duplicateassetfield,
+          "unsafe-asset" -> unsafeasset, "symlink-asset" -> symlinkasset, "legacy" -> legacy, "lossy" -> lossy, "yaml-anchor" -> yamlanchor,
           "yaml-alias" -> yamlalias, "yaml-embedded-quote-anchor" -> yamlembeddedquoteanchor,
           "yaml-embedded-quote-alias" -> yamlembeddedquotealias, "yaml-merge" -> yamlmerge, "semantic-comment" -> semanticcomment,
           "malformed-utf8" -> malformedutf8, "mapping-missing" -> mappingmissing, "mapping-unknown" -> mappingunknown,
@@ -271,7 +337,7 @@ final class CozyVisualPageSpec
       }
     }
 
-    "provide deterministic validate, inspect, and fail-safe conversion commands without changing the legacy slide route" in {
+    "provide deterministic validate, inspect, and direct conversion commands without changing the legacy slide route" in {
       _with_work("visual-page-command") { root =>
         Given("one valid direct page and closed catalog")
         val catalog = _write_catalog(root)
@@ -290,7 +356,9 @@ final class CozyVisualPageSpec
         val formatfailure = _failure(CozyVisualPage.execute(List("convert", input.toString, "--catalog", catalog.toString, "--save", unsupportedoutput.toString)))
 
         Then("summary/detail output is deterministic, conversion is canonical, failures leave no outputs, and slide behavior is not selected")
-        validate.split("\n").forall(line => line.startsWith("schema:") || line.startsWith("version:") || line.startsWith("count:") || line.contains("Identity." ) || line.startsWith("catalogIdentity:") || line.startsWith("logicalCatalogIdentity:") || line.startsWith("documentIdentity:")) shouldBe true
+        validate should not include("sha256:")
+        validate should include("catalogId: core")
+        validate should include("page: sequence-page")
         inspect should include_text("relation: transition type=next from=discover to=apply")
         convert should include_text("format: md")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyVisualPage.canonicalMarkdown(_sequence_page())
@@ -317,15 +385,17 @@ final class CozyVisualPageSpec
         }
 
         Then("Visual Page validation reaches its stable summary and both command grammars are discoverable")
-        validate.split("\n").filter(_.nonEmpty).map(_.takeWhile(_ != ':')) shouldBe Vector(
+        validate.split("\n").filter(_.nonEmpty).map(_.takeWhile(_ != ':').trim) shouldBe Vector(
           "schema",
           "version",
           "count",
-          "catalogIdentity",
-          "logicalCatalogIdentity",
-          "logicalIdentity.sequence-page",
-          "visualPageIdentity.sequence-page",
-          "documentIdentity"
+          "catalogId",
+          "catalogRevision",
+          "page",
+          "knowledge",
+          "language",
+          "logicalPattern",
+          "visualPattern"
         )
         validate should include_text("schema: cozy.visual-page.v1")
         validate should include_text("version: 1")
@@ -337,6 +407,30 @@ final class CozyVisualPageSpec
       }
     }
     }
+  }
+
+  private def _material_metadata(document: CozyVisualPage.Document, extra: Json): Json = {
+    def _page_(value: Json): Json = value.mapObject { fields =>
+      fields.add("assets", Json.fromValues(fields("assets").get.asArray.get.map(_.mapObject(_.add("sha256", extra).add("ordinaryMetadata", extra)))))
+    }
+    val value = parse(CozyVisualPage.canonicalJson(document)).toOption.get
+    document match {
+      case _: CozyVisualPage.Page => _page_(value)
+      case _: CozyVisualPage.PageSet => value.mapObject(fields => fields.add("pages", Json.fromValues(fields("pages").get.asArray.get.map(_page_))))
+    }
+  }
+
+  private def _material_representation(document: CozyVisualPage.Document, value: Json, format: String): String = format match {
+    case "json" => value.noSpaces
+    case "yaml" => value.asObject.get.toVector.map { case (key, item) => s"$key: ${item.noSpaces}" }.mkString("\n") + "\n"
+    case "md" =>
+      val field = document match {
+        case _: CozyVisualPage.Page => "assets"
+        case _: CozyVisualPage.PageSet => "pages"
+      }
+      CozyVisualPage.canonicalMarkdown(document).split("\n", -1).map { line =>
+        if (line.startsWith(field + ": ")) field + ": " + value.hcursor.downField(field).focus.get.noSpaces else line
+      }.mkString("\n")
   }
 
   private def _sequence_page(
@@ -486,7 +580,6 @@ final class CozyVisualPageSpec
     path
   }
 
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _with_work[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-visual-page-" + name + "-")

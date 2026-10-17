@@ -1,8 +1,6 @@
 package cozy.review
 
-import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 
 import cozy.archive.CarCmlSourceResolver
 import cozy.config.CozyProjectYamlConfig
@@ -13,7 +11,8 @@ import scala.util.Try
 
 /*
  * @since   Jul. 16, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -27,14 +26,12 @@ object CozyCarReviewProvider {
     kind: String,
     organization: Option[String],
     name: String,
-    version: Option[String],
-    digest: String
+    version: Option[String]
   )
 
   final case class Request(
     reviewId: String,
     target: Target,
-    requestDigest: String,
     limits: Limits,
     requestedCapabilities: Vector[String],
     requestedEvidenceKinds: Vector[String],
@@ -95,21 +92,17 @@ object CozyCarReviewProvider {
       "target" -> _target(request.target),
       "provider" -> Json.obj("id" -> providerId, "version" -> providerVersion),
       "ruleSet" -> Json.obj("id" -> ruleSetId, "version" -> "1.0.0"),
-      "requestDigest" -> request.requestDigest,
       "evidence" -> JsArray(evidence),
       "observations" -> JsArray(observations),
       "limitations" -> JsArray(limitations)
     )
-    _canonical_object(provisional + ("bundleDigest" -> JsString(_digest(provisional))))
+    _canonical_object(provisional)
   }
-
-  def bundleDigest(bundle: JsObject): String =
-    _digest(bundle - "bundleDigest")
 
   /**
    * Admits the provider-request JSON at Cozy's public boundary.  The request
-   * remains a CBD-owned contract, but Cozy validates the fields it consumes
-   * and recomputes the binding digest before running local analysis.
+   * remains a CBD-owned contract, while Cozy validates the parsed request
+   * identity, selection and limits before running local analysis.
    */
   def request(value: String): Either[String, Request] =
     Try(Json.parse(value).as[JsObject]).toEither.left.map(_ => "provider-request-invalid-json").flatMap { json =>
@@ -126,7 +119,7 @@ object CozyCarReviewProvider {
         rules <- (json \ "rules").asOpt[JsObject].toRight("provider-request-rules-missing")
         include <- _string_vector(rules, "include")
         exclude <- _string_vector(rules, "exclude")
-      } yield Request(reviewid, target, _digest(_canonical_object(json)), limits, capabilities, kinds, include, exclude)
+      } yield Request(reviewid, target, limits, capabilities, kinds, include, exclude)
     }
 
   /**
@@ -279,7 +272,7 @@ object CozyCarReviewProvider {
   }
 
   private def _target(target: Target): JsObject =
-    _canonical_object(Json.obj("kind" -> target.kind, "name" -> target.name, "digest" -> target.digest) ++ target.organization.map(x => Json.obj("organization" -> x)).getOrElse(Json.obj()) ++ target.version.map(x => Json.obj("version" -> x)).getOrElse(Json.obj()))
+    _canonical_object(Json.obj("kind" -> target.kind, "name" -> target.name) ++ target.organization.map(x => Json.obj("organization" -> x)).getOrElse(Json.obj()) ++ target.version.map(x => Json.obj("version" -> x)).getOrElse(Json.obj()))
 
   private def _runtime_limitation: JsObject =
     Json.obj("code" -> "runtime-evidence-not-supported", "scope" -> "capability", "subjectId" -> capabilityId, "message" -> "Cozy static analysis does not supply runtime evidence.", "retryable" -> false)
@@ -377,8 +370,7 @@ object CozyCarReviewProvider {
     for {
       kind <- _required_string(value, "kind").toRight("provider-request-target-kind-missing")
       name <- _required_string(value, "name").toRight("provider-request-target-name-missing")
-      digest <- _required_string(value, "digest").toRight("provider-request-target-digest-missing")
-    } yield Target(kind, _optional_string(value, "organization"), name, _optional_string(value, "version"), digest)
+    } yield Target(kind, _optional_string(value, "organization"), name, _optional_string(value, "version"))
 
   private def _limits_request(value: JsObject): Either[String, Limits] =
     for {
@@ -397,12 +389,6 @@ object CozyCarReviewProvider {
   private def _optional_string(value: JsObject, name: String): Option[String] =
     (value \ name).asOpt[String].map(_.trim).filter(_.nonEmpty)
 
-  private def _digest(value: JsObject): String = {
-    val root = _canonical(value).as[JsObject] - "bundleDigest"
-    val bytes = _canonical_json(root).getBytes(StandardCharsets.UTF_8)
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map("%02x".format(_)).mkString
-  }
-
   private def _canonical_object(value: JsObject): JsObject = _canonical(value).as[JsObject]
 
   private def _canonical(value: JsValue): JsValue =
@@ -410,12 +396,5 @@ object CozyCarReviewProvider {
       case objectvalue: JsObject => JsObject(objectvalue.fields.sortBy(_._1).map { case (key, item) => key -> _canonical(item) })
       case JsArray(values) => JsArray(values.map(_canonical))
       case other => other
-    }
-
-  private def _canonical_json(value: JsValue): String =
-    value match {
-      case objectvalue: JsObject => objectvalue.fields.toVector.sortBy(_._1).map { case (key, item) => s"${Json.stringify(JsString(key))}:${_canonical_json(item)}" }.mkString("{", ",", "}")
-      case JsArray(values) => values.map(_canonical_json).mkString("[", ",", "]")
-      case other => Json.stringify(other)
     }
 }

@@ -158,7 +158,7 @@ membership, RuleInput/RuleOutput and generic references provide contextual evide
 Shared names, synonym candidates, conceptual groups, BoK labels, classification
 dimensions, guards, expressions and workflow lists infer no equivalence, policy
 result, runtime execution, transitive causation or read-model update.
-Provenance path/digest/line values are synthetic caller snapshots. These fixtures
+Source authority/path/line values are synthetic caller declarations. These fixtures
 claim no actual CML file, computed digest, source parsing or source currentness.
 
 BoK remains the meaning authority; CNCF owns runtime; Textus CBD Support owns

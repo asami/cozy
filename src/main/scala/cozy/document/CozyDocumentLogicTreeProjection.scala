@@ -1,15 +1,13 @@
 package cozy.document
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTreeProjection {
-  final case class Rendered(kind: String, html: String, identity: String)
+  final case class Rendered(kind: String, html: String)
 
   private val _overview_kind = "overview"
   private val _slides_kind = "slides"
@@ -21,12 +19,12 @@ private[cozy] object CozyDocumentLogicTreeProjection {
     _render(_slides_kind, _slides_html(validated))
 
   private def _render(kind: String, html: String): Rendered =
-    Rendered(kind, html, "sha256:" + _sha256(html.getBytes(StandardCharsets.UTF_8)))
+    Rendered(kind, html)
 
   private def _overview_html(validated: CozyDocumentLogicTree.Validated): String = {
     val chrome = validated.format.chrome
     val content =
-      s"""<main id="logic-tree-overview" data-core-id="${_html(validated.core.id)}" data-core-identity="${_html(validated.coreIdentity)}">
+      s"""<main id="logic-tree-overview" data-core-id="${_html(validated.core.id)}">
          |<header class="document-heading"><h1>${_html(validated.titlesById(validated.core.root.id))}</h1><p>${_html(chrome.overviewLabel)} · ${_html(validated.format.locale)}</p></header>
          |${_overview_step(validated, validated.core.root, Vector.empty)}
          |</main>""".stripMargin
@@ -61,7 +59,7 @@ private[cozy] object CozyDocumentLogicTreeProjection {
       _slide_page(validated, step, ancestors, index, validated.depthFirstSteps.size)
     }.mkString("\n")
     val content =
-      s"""<main id="logic-tree-slides" data-core-id="${_html(validated.core.id)}" data-core-identity="${_html(validated.coreIdentity)}">
+      s"""<main id="logic-tree-slides" data-core-id="${_html(validated.core.id)}">
          |<header class="slide-deck-heading"><h1>${_html(validated.titlesById(validated.core.root.id))}</h1><p>${validated.depthFirstSteps.size} ${_html(chrome.pageCountLabel)} · ${_html(validated.format.locale)}</p></header>
          |$pages
          |</main>
@@ -153,7 +151,4 @@ private[cozy] object CozyDocumentLogicTreeProjection {
     }
     builder.toString
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
 }

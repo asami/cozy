@@ -13,7 +13,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -32,14 +32,13 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
           record.articleIdentity shouldBe "development-process/example"
           record.locale shouldBe "ja"
           record.role shouldBe CozyArticleMediaIntegrity.Role.Video
-          record.artifact shouldBe CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")
+          record.artifact shouldBe Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"))
           record.publicPath.toString shouldBe "/repository/video/example-video/1.0.0/example-video-1.0.0.mp4"
           record.publicPath.toString should not be "/legacy-site-public-path.mp4"
           record.publicPath.toString should not be "/repository/video/legacy-public-path-decoy.mp4"
           record.publicPath.toString should not be "/registry-public-path-decoy.mp4"
           record.repositoryPath shouldBe "video/example-video/1.0.0/example-video-1.0.0.mp4"
           record.mediaType shouldBe "video/mp4"
-          record.sha256 shouldBe fixture.sha256
           record.provenance shouldBe CozyArticleMediaIntegrity.VideoPublication(
             "metadata/video/example-video/1.0.0/manifest.json",
             "metadata/artifacts/repository/example-video.json"
@@ -89,7 +88,6 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
           val result = CozyArticleMediaVideoEvidence.project(_input(fixture, snapshot = snapshot))
 
           Then("only the supplied exact entry objects and exact artifact candidate affect the result")
-          result.integrity.record.sha256 shouldBe fixture.sha256
           result.artifactPath shouldBe fixture.artifact.toRealPath()
         }
       }
@@ -161,7 +159,6 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
             _snapshot(fixture, fixture.manifest + ("artifact" -> (artifact + ("warehousePath" -> JsString("repository/video/example-video/1.0.0/example.webm")))), fixture.registry),
             _snapshot(fixture, fixture.manifest + ("artifact" -> (artifact - "repositoryPublicPath")), fixture.registry),
             _snapshot(fixture, fixture.manifest + ("artifact" -> (artifact + ("repositoryPublicPath" -> JsString("/repository/video/example.mp4")))), fixture.registry),
-            _snapshot(fixture, fixture.manifest + ("artifact" -> (artifact + ("sha256" -> JsString("A" * 64)))), fixture.registry),
             _snapshot(fixture, fixture.manifest, fixture.registry + ("artifact" -> (((fixture.registry \ "artifact").as[JsObject]) - "files"))),
             _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector.empty)),
             _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector(file, file))),
@@ -169,7 +166,6 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
             _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector(file + ("type" -> JsString("audio"))))),
             _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector(file + ("version" -> JsString("2.0.0"))))),
             _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector(file + ("warehousePath" -> JsString("repository/video/other.mp4"))))),
-            _snapshot(fixture, fixture.manifest, _registry_with_files(fixture, Vector(file + ("sha256" -> JsString("b" * 64))))),
             _snapshot(fixture, fixture.manifest, _registry_with_status(fixture, "draft"))
           )
 
@@ -178,38 +174,15 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
             intercept[IllegalArgumentException](CozyArticleMediaVideoEvidence.project(_input(fixture, snapshot = snapshot)))
           }
 
-          Then("each required field, selected file predicate, digest, and admission state is rejected")
+          Then("each required field, selected file predicate, and admission state is rejected")
           errors.size shouldBe variants.size
           errors.map(_.getMessage).foreach(_ should not be empty)
         }
       }
     }
 
-    "enforce configured repository containment and bytes for every admission state" which {
-      "reject manifest-registry disagreement, stale bytes, missing files, invalid roots, lexical escapes, and symlink escapes" in {
-        Given("independent exact metadata and repository filesystem failures")
-        _with_fixture() { fixture =>
-          val artifact = (fixture.manifest \ "artifact").as[JsObject]
-          val registryfile = (((fixture.registry \ "artifact").as[JsObject] \ "files").as[JsArray]).value.head.as[JsObject]
-          val disagreement = _registry_with_files(fixture, Vector(registryfile + ("sha256" -> JsString("b" * 64))))
-          val mismatch = _snapshot(fixture, fixture.manifest, disagreement)
-
-          When("the exact evidence digests disagree")
-          val disagreementerror = intercept[IllegalArgumentException](CozyArticleMediaVideoEvidence.project(_input(fixture, snapshot = mismatch)))
-
-          Then("manifest and registry disagreement is rejected before projection")
-          disagreementerror.getMessage should include("must match")
-
-          Given("a selected artifact whose bytes no longer match both metadata digests")
-          Files.write(fixture.artifact, "stale bytes".getBytes(StandardCharsets.UTF_8))
-
-          When("the configured candidate bytes are hashed")
-          val byteerror = intercept[IllegalArgumentException](CozyArticleMediaVideoEvidence.project(_input(fixture)))
-
-          Then("actual byte mismatch fails deterministically")
-          byteerror.getMessage should include("does not match")
-        }
-
+    "enforce configured repository containment for every admission state" which {
+      "reject missing files, invalid roots, lexical escapes, and symlink escapes" in {
         _with_fixture() { fixture =>
           Given("a missing exact artifact and an invalid configured root")
           Files.delete(fixture.artifact)
@@ -300,7 +273,6 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
     val root: Path,
     val repositoryroot: Path,
     val artifact: Path,
-    val sha256: String,
     val manifest: JsObject,
     val registry: JsObject
   )
@@ -319,7 +291,7 @@ final class CozyArticleMediaVideoEvidenceSpec extends AnyWordSpec with Matchers 
     Files.createDirectories(artifact.getParent)
     Files.write(artifact, "exact selected video bytes".getBytes(StandardCharsets.UTF_8))
     val sha256 = _sha256(artifact)
-    new Fixture(root, repositoryroot, artifact, sha256, _manifest(sha256), _registry(sha256, status))
+    new Fixture(root, repositoryroot, artifact, _manifest(sha256), _registry(sha256, status))
   }
 
   private def _input(

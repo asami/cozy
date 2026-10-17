@@ -109,8 +109,8 @@ uses a stable dotted/indexed model path such as
 `CozyLogicalUiSelection.select(model, itemId, intent)` validates its Model
 before requiring a List, then validates an existing item ID, and only then
 accepts an adaptive intent. It returns the same `Selection(listId, itemId)` and
-`DetailRequest(screenId, resourceId)` for both modes. Compact intent returns
-`NavigateToDetail` with `NavigatePattern`; expanded intent returns
+`DetailRequest(screenId, resourceId)` for all three window classes. Compact and
+medium intents return `NavigateToDetail` with `NavigatePattern`; expanded intent returns
 `UpdateDetailRegion` with `SelectPattern`. It has no mutation, I/O, server
 request, callback, actual navigation, or action execution.
 
@@ -118,6 +118,13 @@ request, callback, actual navigation, or action execution.
 `LUI74_SELECTION_SCREEN_INVALID` reports selection on a Detail; and
 `LUI74_ADAPTIVE_INTENT_INVALID` reports null/unsupported `intent`. Repeated
 same inputs return structurally equal transitions.
+
+`MediumIntent` is an additive member of the existing `AdaptiveIntent` vocabulary.
+The complete target-ready Logical UI profiles reuse this same vocabulary and
+`DetailPlacement`; persistent navigation and region availability are separate
+semantic metadata in [the Logical UI readiness contract](logical-ui-model.md#13-complete-target-ready-logical-ui-contract).
+They do not change runtime model fields, admission order or selection identity.
+Runtime selection performs no viewport measurement or target realization.
 
 ## Executable specifications and acceptance stages
 

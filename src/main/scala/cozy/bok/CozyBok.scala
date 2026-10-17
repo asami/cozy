@@ -7,7 +7,8 @@ import cozy.video.{CozyVideo, CozyVideoPublisher}
 /*
  * @since   Jun.  3, 2026
  *  version Jul. 23, 2026
- * @version Aug. 23, 2026
+ *  version Aug. 23, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBok {
@@ -43,8 +44,6 @@ private[cozy] object CozyBok {
   lazy val PublicationConfig = CozyBokImplementation.PublicationConfig
   type WorkflowConfig = CozyBokImplementation.WorkflowConfig
   lazy val WorkflowConfig = CozyBokImplementation.WorkflowConfig
-  type WebsiteBackupConfig = CozyBokImplementation.WebsiteBackupConfig
-  lazy val WebsiteBackupConfig = CozyBokImplementation.WebsiteBackupConfig
   type SiteConfig = CozyBokImplementation.SiteConfig
   lazy val SiteConfig = CozyBokImplementation.SiteConfig
   type ProjectFilePolicy = CozyBokImplementation.ProjectFilePolicy

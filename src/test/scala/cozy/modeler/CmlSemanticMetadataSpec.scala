@@ -6,14 +6,14 @@ import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
 
 import CmlSemanticFoundation._
 import CmlSemanticMetadata._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -89,6 +89,38 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
         references(0).source.line shouldBe Some(4)
       }
 
+      "publish the canonical fixture from independently authored typed facts" in {
+        Given("typed element, Term, reference and Derived facts matching the synthetic consumer resource")
+        val complete = _complete_catalog()
+        val first = complete.elements.head.copy(kind = "entity", name = "Item", source = complete.elements.head.source.copy(line = Some(12)))
+        val owner = complete.elements(1)
+        val references = _references(owner.references)
+        val localterm = references(1).copy(source = owner.source.copy(line = Some(30)))
+        val external = references(2).copy(
+          relation = Absent(NotDeclared, "No relation classification is admitted."),
+          preferredLabel = Absent(NotApplicable, "No label applies to this external target."),
+          source = owner.source.copy(line = Some(31))
+        )
+        val second = owner.copy(source = owner.source.copy(line = Some(28)), references = Present(Vector(localterm, external)))
+        val catalog = _catalog(CmlSemanticFoundation.build(Vector(first, second), complete.terms))
+        val extensions = Json.obj("org.example.projection" -> Json.obj(
+          "unfamiliar" -> Json.obj("nested" -> Json.arr(JsNull, true, Json.obj("retained" -> "opaque"))),
+          "scalar" -> "not a core projection claim"
+        ))
+
+        When("the independently admitted facts are published and the canonical document is read")
+        val fixture = _fixture
+        val published = _envelope(CmlSemanticMetadata.build(catalog, extensions))
+        val canonical = CmlSemanticMetadata.canonicalJson(published)
+        val consumed = _envelope(CmlSemanticMetadata.read(Json.parse(canonical)))
+
+        Then("the complete resource equals typed publication and canonical consumption is stable")
+        CmlSemanticMetadata.toJson(published) shouldBe fixture
+        consumed.catalog.elements shouldBe catalog.elements
+        consumed.catalog.terms shouldBe catalog.terms
+        CmlSemanticMetadata.canonicalJson(consumed) shouldBe canonical
+      }
+
       "round-trip the canonical empty document and retain typed unknown lookup" in {
         Given("the canonical empty Catalog and an explicitly empty extension object")
         val envelope = _envelope(CmlSemanticMetadata.build(Catalog(), Json.obj()))
@@ -103,6 +135,90 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
         reconstructed.catalog.elements shouldBe Vector.empty
         reconstructed.catalog.terms shouldBe Vector.empty
         _lookup_diagnostic(missing).kind shouldBe DanglingReference
+      }
+    }
+
+    "project required source attribution" which {
+      "discard arbitrary source extras while preserving typed facts and opaque extensions" in {
+        Given("an admitted Catalog with element, Term, reference and Derived sources and an opaque hash-named value")
+        val catalog = _complete_catalog()
+        val extensions = Json.obj("org.example.projection" -> Json.obj("sha256" -> Json.arr("opaque", JsNull)))
+        val published = _envelope(CmlSemanticMetadata.build(catalog, extensions))
+        val root = CmlSemanticMetadata.toJson(published)
+        val variations = for {
+          historical <- Gen.oneOf(_source_extra_values)
+          other <- Gen.oneOf(_source_extra_values)
+        } yield (historical, other)
+
+        When("the ordinary reader consumes each extra type and bounded independently generated pairs")
+        val outcomes = _source_extra_values.map { extra =>
+          _envelope(CmlSemanticMetadata.read(_core_source_extras(root, extra, extra)))
+        }
+        val property = Prop.forAll(variations) { case (historical, other) =>
+          CmlSemanticMetadata.read(_core_source_extras(root, historical, other)) match {
+            case Right(read) =>
+              read.catalog.elements == catalog.elements && read.catalog.terms == catalog.terms &&
+                read.catalog.element(ModelElementId("model.example", "entity:other")) == Right(catalog.elements(1)) &&
+                read.catalog.term(TermId("bok.example", "term:item")) == Right(catalog.terms.head) &&
+                _references(read.catalog.elements(1).references) == _references(catalog.elements(1).references) &&
+                read.extensions == extensions &&
+                CmlSemanticMetadata.canonicalJson(read) == CmlSemanticMetadata.canonicalJson(published)
+            case Left(_) => false
+          }
+        }
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+
+        Then("all required facts and opaque content survive while source extras disappear from publication")
+        outcomes.foreach { read =>
+          read.catalog.elements shouldBe catalog.elements
+          read.catalog.terms shouldBe catalog.terms
+          read.extensions shouldBe extensions
+          CmlSemanticMetadata.toJson(read) shouldBe root
+        }
+        check.passed shouldBe true
+      }
+
+      "reject missing or malformed known source fields at every attribution position" in {
+        Given("actual source positions for an element, Term, reference and Derived input")
+        val root = _object(_fixture)
+        val positions = Vector(
+          (Vector("elements", "[0]", "source"), "elements[0].source", "elements[0].source"),
+          (Vector("terms", "[0]", "source"), "terms[0].source", "terms[0].source"),
+          (Vector("elements", "[1]", "references", "value", "[0]", "source"), "elements[1].references.value[0].source", "elements[1].references[0].source"),
+          (Vector("elements", "[1]", "references", "value", "[0]", "origin", "sources", "[0]"), "elements[1].references.value[0].origin.sources[0]", "elements[1].references[0].origin.sources[0]")
+        )
+        val malformed = Vector(
+          ("authorityId", None, InvalidShape), ("authorityId", Some(JsNull), InvalidShape),
+          ("authorityId", Some(JsNumber(1)), InvalidShape),
+          ("path", None, InvalidShape), ("path", Some(JsNull), InvalidShape),
+          ("path", Some(JsBoolean(false)), InvalidShape),
+          ("line", None, InvalidShape), ("line", Some(JsString("1")), InvalidShape),
+          ("line", Some(JsNumber(BigDecimal("1.5"))), InvalidShape),
+          ("line", Some(JsNumber(BigDecimal(Int.MaxValue) + 1)), InvalidShape),
+          ("line", Some(JsNumber(0)), InvalidSemanticCatalog),
+          ("line", Some(JsNumber(-1)), InvalidSemanticCatalog)
+        )
+
+        When("known fields are removed or replaced while unknown extras remain harmless")
+        val outcomes = positions.flatMap { case (route, wirepath, semanticpath) =>
+          malformed.map { case (field, replacement, kind) =>
+            val source = _object(_source_at_path(root, route)) ++ Json.obj("sha256" -> JsNull, "arbitrary" -> Json.arr(1))
+            val changed = replacement.fold(source - field)(value => source + (field -> value))
+            val result = CmlSemanticMetadata.read(_replace_source_path(root, route, changed))
+            (_first_diagnostic(result), kind, (if (kind == InvalidShape) wirepath else semanticpath) + "." + field)
+          }
+        }
+        val nulllines = positions.map { case (route, _, _) =>
+          val source = _object(_source_at_path(root, route)) + ("line" -> JsNull)
+          CmlSemanticMetadata.read(_replace_source_path(root, route, source))
+        }
+
+        Then("required field failures retain exact kinds and logical paths while explicit null line is admitted")
+        outcomes.foreach { case (diagnostic, kind, path) =>
+          diagnostic.kind shouldBe kind
+          diagnostic.path shouldBe path
+        }
+        nulllines.foreach(_.isRight shouldBe true)
       }
     }
 
@@ -266,10 +382,6 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
           val source = _object(_field(element, "source"))
           element + ("source" -> (source + ("path" -> JsString("/workspace/secret.cml"))))
         }
-        val invaliddigest = _with_element(root, 0) { element =>
-          val source = _object(_field(element, "source"))
-          element + ("source" -> (source + ("sha256" -> JsString("not-a-digest"))))
-        }
         val invalidline = _with_element(root, 0) { element =>
           val source = _object(_field(element, "source"))
           element + ("source" -> (source + ("line" -> JsNumber(BigDecimal(0)))))
@@ -301,7 +413,7 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
           val origin = _object(_field(reference, "origin"))
           val sources = _array_values(_field(origin, "sources"))
           val source = _object(sources.head)
-          reference + ("origin" -> (origin + ("sources" -> JsArray((source + ("sha256" -> JsString("not-a-digest"))) +: sources.tail))))
+          reference + ("origin" -> (origin + ("sources" -> JsArray((source + ("path" -> JsString("../glossary/example.dox"))) +: sources.tail))))
         }
         val invalidabsence = _with_reference(root, 1) { reference =>
           val relation = _object(_field(reference, "relation"))
@@ -315,7 +427,6 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
           danglingmodel -> Vector(Diagnostic(DanglingReference, "elements[1].references[1].target", "The local model target is not admitted.")),
           invalidauthority -> Vector(Diagnostic(InvalidProvenance, "elements[0].source.authorityId", "The element source authority must equal its model identity authority.")),
           invalidsource -> Vector(Diagnostic(InvalidProvenance, "elements[0].source.path", "Source path must be a canonical project-relative POSIX path.")),
-          invaliddigest -> Vector(Diagnostic(InvalidProvenance, "elements[0].source.sha256", "Source digest must be exactly 64 lowercase hexadecimal characters.")),
           invalidline -> Vector(Diagnostic(InvalidProvenance, "elements[0].source.line", "A supplied source line must be positive.")),
           invalidreference -> Vector(
             Diagnostic(InvalidIdentity, "elements[1].references[0].relation.relationId", "Identifier component must be nonempty, unpadded, and free of ISO control characters."),
@@ -325,7 +436,7 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
           invalidprofile -> Vector(Diagnostic(InvalidIdentity, "elements[1].references[0].profile.profileId", "Identifier component must be nonempty, unpadded, and free of ISO control characters.")),
           invalidcontext -> Vector(Diagnostic(InvalidReference, "elements[1].references[0].context", "Context must be nonempty, unpadded, and free of ISO control characters.")),
           invalidlabel -> Vector(Diagnostic(InvalidReference, "elements[1].references[0].preferredLabel.text", "Localized label text must be nonempty, unpadded, and free of ISO control characters.")),
-          invalidderivedsource -> Vector(Diagnostic(InvalidProvenance, "elements[1].references[0].origin.sources[0].sha256", "Source digest must be exactly 64 lowercase hexadecimal characters.")),
+          invalidderivedsource -> Vector(Diagnostic(InvalidProvenance, "elements[1].references[0].origin.sources[0].path", "Source path must be a canonical project-relative POSIX path.")),
           invalidabsence -> Vector(Diagnostic(InvalidReference, "elements[1].references[1].relation.detail", "Absence detail must be nonempty, unpadded, and free of ISO control characters."))
         )
 
@@ -368,7 +479,7 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
 
       "reject null descriptions and invalid extension namespaces without leaking supplied paths" in {
         Given("an otherwise admitted Catalog with null descriptive fields and an invalid namespace token")
-        val source = SourceAttribution("model.example", "src/main/cozy/example.cml", _zero_digest, Some(1))
+        val source = SourceAttribution("model.example", "src/main/cozy/example.cml", Some(1))
         val record = ElementRecord(Present(ModelElementId("model.example", "entity:item")), null, null, source, Present(Vector.empty))
         val nullcatalog = _catalog(CmlSemanticFoundation.build(Vector(record), Vector.empty))
         val validcatalog = _complete_catalog()
@@ -411,8 +522,8 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
           val targetid = ModelElementId(modelid, s"entity:項目:$variation")
           val ownerid = ModelElementId(modelid, s"entity:owner:$variation")
           val termid = TermId("bok.example", s"term:項目:$variation")
-          val source = SourceAttribution(modelid, s"src/main/cozy/$variation/example.cml", _digest_for(variation), Some(variation))
-          val termsource = SourceAttribution("bok.example", s"glossary/$variation/example.dox", _one_digest, None)
+          val source = SourceAttribution(modelid, s"src/main/cozy/$variation/example.cml", Some(variation))
+          val termsource = SourceAttribution("bok.example", s"glossary/$variation/example.dox", None)
           val absence = _absence_reason_for(variation)
           val boundary = if (variation % 2 == 0) Local else External
           val relation = if (variation % 3 == 0)
@@ -516,8 +627,43 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
     }
   }
 
-  private val _zero_digest = "0" * 64
-  private val _one_digest = "1" * 64
+  private val _source_extra_values: Vector[Option[JsValue]] = Vector(
+    None, Some(JsString("a" * 64)), Some(JsString("")), Some(JsString("malformed")),
+    Some(JsNull), Some(JsNumber(17)), Some(JsBoolean(true)),
+    Some(Json.arr("old", JsNull)), Some(Json.obj("nested" -> false))
+  )
+
+  private def _source_extras(value: JsValue, historical: Option[JsValue], other: Option[JsValue]): JsValue = value match {
+    case source: JsObject if Vector("authorityId", "path", "line").forall(source.value.contains) =>
+      val first = historical.fold(source)(extra => source + ("sha256" -> extra))
+      other.fold(first)(extra => first + ("arbitrary" -> extra))
+    case objectvalue: JsObject => JsObject(objectvalue.fields.map { case (key, field) => key -> _source_extras(field, historical, other) })
+    case JsArray(values) => JsArray(values.map(_source_extras(_, historical, other)))
+    case scalar => scalar
+  }
+
+  private def _core_source_extras(root: JsObject, historical: Option[JsValue], other: Option[JsValue]): JsObject =
+    root ++ Json.obj(
+      "elements" -> _source_extras(_field(root, "elements"), historical, other),
+      "terms" -> _source_extras(_field(root, "terms"), historical, other)
+    )
+
+  private def _source_at_path(value: JsValue, route: Vector[String]): JsValue = route match {
+    case Vector() => value
+    case head +: tail if head.startsWith("[") => _source_at_path(_array_values(value)(head.drop(1).dropRight(1).toInt), tail)
+    case head +: tail => _source_at_path(_field(_object(value), head), tail)
+  }
+
+  private def _replace_source_path(value: JsValue, route: Vector[String], replacement: JsValue): JsValue = route match {
+    case Vector() => replacement
+    case head +: tail if head.startsWith("[") =>
+      val index = head.drop(1).dropRight(1).toInt
+      val values = _array_values(value)
+      JsArray(values.updated(index, _replace_source_path(values(index), tail, replacement)))
+    case head +: tail =>
+      val objectvalue = _object(value)
+      objectvalue + (head -> _replace_source_path(_field(objectvalue, head), tail, replacement))
+  }
 
   private def _fixture: JsValue =
     Option(getClass.getResourceAsStream("/cozy/modeler/semantic-metadata-v1.json")) match {
@@ -531,9 +677,9 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
     val targetid = ModelElementId("model.example", "entity:item")
     val ownerid = ModelElementId("model.example", "entity:other")
     val termid = TermId("bok.example", "term:item")
-    val modelsourcetarget = SourceAttribution("model.example", "src/main/cozy/example.cml", _zero_digest, Some(2))
-    val modelsourceowner = SourceAttribution("model.example", "src/main/cozy/example.cml", _zero_digest, Some(4))
-    val termsource = SourceAttribution("bok.example", "glossary/example.dox", _one_digest, None)
+    val modelsourcetarget = SourceAttribution("model.example", "src/main/cozy/example.cml", Some(2))
+    val modelsourceowner = SourceAttribution("model.example", "src/main/cozy/example.cml", Some(4))
+    val termsource = SourceAttribution("bok.example", "glossary/example.dox", None)
     val localmodel = SemanticReference(
       ModelTarget(targetid), Local,
       Absent(NotDeclared, "No relation is admitted."),
@@ -654,6 +800,4 @@ final class CmlSemanticMetadataSpec extends AnyWordSpec with Matchers with Given
       case _ => NotApplicable
     }
 
-  private def _digest_for(value: Int): String =
-    ("0123456789abcdef" * 4).take(63) + (value % 16).toHexString
 }

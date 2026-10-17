@@ -41,13 +41,13 @@ needed by tests.
 - Keep viewport/profile selection deterministic and Policy-driven.
 - Diagnose overflow, unreachable required content, missing feedback/navigation,
   stale target-plan/source identity, and responsive coverage gaps.
-- Preserve distinction between Phase 50 Progressive Static Web semantic review
+- Preserve distinction between Phase 50.1 Progressive Static Web semantic review
   and Phase 52 Flutter Web implementation review.
 
 The two Web surfaces have different purposes:
 
 ```text
-Phase 50 Progressive Static Web
+Phase 50.1 Progressive Static Web
   = inspect Logical UI behavior before target implementation
 
 Phase 52 Flutter Web
@@ -108,7 +108,7 @@ inspect/plan
 
 ## Exclusions
 
-- changing Phase 50 accepted Logical UI authority;
+- changing Phase 50.1 accepted Logical UI authority;
 - treating Flutter Web behavior as iPhone/Android acceptance;
 - final iOS/Android build/sign/package verification;
 - real fold/unfold platform acceptance;
@@ -134,6 +134,7 @@ Subcomponent productization.
 
 - `docs/phase/phase-52-checklist.md`
 - `docs/phase/phase-51.md`
-- `docs/phase/phase-50.md`
+- `docs/phase/phase-50.md` (compact producer foundation)
+- `docs/phase/phase-50.1.md` (complete target-ready acceptance)
 - `docs/notes/flutter-ui-projection-and-responsive-preview-specification-proposal.md`
 - `docs/journal/2026/09/2026-09-06-flutter-mobile-first-web-first-development-direction.md`

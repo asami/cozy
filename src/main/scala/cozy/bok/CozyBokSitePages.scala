@@ -1,5 +1,7 @@
 package cozy.bok
 
+import CozyBokSitePages.ArticleCardMediaLink
+
 import org.goldenport.RAISE
 import org.goldenport.cli.{Request => CliRequest}
 import org.goldenport.cli.spec
@@ -34,7 +36,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -43,13 +45,15 @@ private[cozy] trait CozyBokSitePages {
   private[bok] def _write_bok_pages(config: BuildConfig): Unit =
     config.localeMode match {
       case LocaleMode.SingleLocaleRoot =>
-        _write_home_page(config, config.websitePath, config.defaultLocale)
+        if (!config.arcadia.enabled)
+          _write_home_page(config, config.websitePath, config.defaultLocale)
         _write_special_pages(config, config.websitePath, config.defaultLocale, writelocalizedglossaryindexes = true)
         _write_category_pages(config, config.websitePath, config.defaultLocale)
       case LocaleMode.MultiLocaleSubdirs =>
         config.languages.foreach { lang =>
           val target = config.websitePath.resolve(lang)
-          _write_home_page(config, target, lang)
+          if (!config.arcadia.enabled)
+            _write_home_page(config, target, lang)
           _write_special_pages(config, target, lang, writelocalizedglossaryindexes = false)
           _write_category_pages(config, target, lang)
         }
@@ -536,7 +540,6 @@ private[cozy] trait CozyBokSitePages {
     path != "index.html"
   }
 
-  private final case class ArticleCardMediaLink(href: String, label: String, mediatype: Option[String])
 
   private def _article_notice_media(config: BuildConfig, locale: String): Map[String, Vector[ArticleCardMediaLink]] = {
     val directory = config.doxsitePath.resolve("WEB-INF/data").resolve(locale)
@@ -787,4 +790,8 @@ private[cozy] trait CozyBokSitePages {
       _write_text(page, updated)
   }
 
+}
+
+private[cozy] object CozyBokSitePages {
+  private[bok] final case class ArticleCardMediaLink(href: String, label: String, mediatype: Option[String])
 }

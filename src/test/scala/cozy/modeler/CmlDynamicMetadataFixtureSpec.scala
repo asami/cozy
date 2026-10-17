@@ -12,7 +12,7 @@ import CmlDynamicTopology.{TopologyLink, Topology}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -227,7 +227,6 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
   private val _peer = "org.example.dynamic-handoff"
   private val _peer_value = Json.obj("producer" -> "synthetic-caller", "declaredFlowOrder" ->
     Json.arr("review-branch", "branch-accept", "branch-reject", "accept-merge", "reject-merge"), "absence" -> JsNull)
-  private val _digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   private val _absences = Vector(
     Absent(NotDeclared, "No Dynamic fact is declared."),
     Absent(NotRepresented, "The Dynamic fact is not represented."),
@@ -239,7 +238,7 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
   private def _refs(values: String*): Presence[Vector[ModelReference]] = { Present(values.toVector.map(_ref)) }
   private def _expression(text: String, reference: String): DeclaredExpression = { DeclaredExpression(text, _refs(reference)) }
   private def _source(line: Int): SourceAttribution = {
-    SourceAttribution("dynamic.example", "src/main/cml/dynamic-handoff.cml", _digest, Some(line))
+    SourceAttribution("dynamic.example", "src/main/cml/dynamic-handoff.cml", Some(line))
   }
   private def _literal(absent: Boolean): Expected = {
     // New Dynamic expectations are independently authored typed data; no reader or supplier is an oracle.
@@ -445,7 +444,7 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
   }
   private def _identity_json(id: ModelElementId): JsObject = { Json.obj("modelId" -> id.modelId, "elementId" -> id.elementId) }
   private def _source_json(source: SourceAttribution): JsObject = {
-    Json.obj("authorityId" -> source.authorityId, "path" -> source.path, "sha256" -> source.sha256, "line" -> source.line.get)
+    Json.obj("authorityId" -> source.authorityId, "path" -> source.path, "line" -> source.line.get)
   }
   private def _presence_json[A](value: Presence[A], render: A => JsValue): JsObject = {
     value match {

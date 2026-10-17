@@ -11,7 +11,7 @@ import CmlClassificationMetadata._
 
 /*
  * @since   Oct. 3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -114,26 +114,24 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
     }
 
     "CL-03 reject forged identity kind name provenance and semantic references in factory and wire records" in {
-      Given("an admitted trait and five distinct full-record contradictions")
+      Given("an admitted trait and four distinct full-record contradictions")
       val graph = _graph()
       val record = graph.traits.head.element
       val forged = Vector(record.copy(identity = Present(ModelElementId("model.example", "other"))),
         record.copy(kind = "powertype"), record.copy(name = "different"),
-        record.copy(source = record.source.copy(sha256 = "b" * 64)),
         record.copy(references = Absent(NotDeclared, "Changed core reference facts.")))
       val root = CmlClassificationMetadata.toJson(graph)
       val embedded = _at(_child(root), Vector("traits", "0", "element")).as[JsObject]
       val wire = Vector(
         embedded + ("identity" -> Json.obj("status" -> "present", "value" -> Json.obj("modelId" -> "model.example", "elementId" -> "other"))),
         embedded + ("kind" -> JsString("powertype")), embedded + ("name" -> JsString("different")),
-        embedded + ("source" -> ((embedded \ "source").as[JsObject] + ("sha256" -> JsString("b" * 64)))),
         embedded + ("references" -> Json.obj("status" -> "absent", "reason" -> "not-declared", "detail" -> "Changed core reference facts.")))
       When("the real factory and strict reader receive the contradicted records")
       val typedresults = forged.map(value => _rebuild(graph, traits = Some(Vector(TraitProjection(value)))))
       val wireresults = wire.map(value => CmlClassificationMetadata.read(_replace_child(root, Vector("traits", "0", "element"), value)))
       Then("every contradiction fails full binding even when a display name or identity still matches")
-      typedresults.map(_first(_).kind) shouldBe Vector.fill(5)(InvalidCoreBinding)
-      wireresults.map(_first(_).kind) shouldBe Vector.fill(5)(InvalidCoreBinding)
+      typedresults.map(_first(_).kind) shouldBe Vector.fill(4)(InvalidCoreBinding)
+      wireresults.map(_first(_).kind) shouldBe Vector.fill(4)(InvalidCoreBinding)
     }
   }
 
@@ -530,7 +528,7 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
   private val _peer: JsObject = Json.obj("z" -> Json.arr(JsNull, "retained", Json.obj("β" -> "value")), "a" -> true)
 
   private def _source(authority: String): SourceAttribution =
-    SourceAttribution(authority, "src/main/cml/classification.cml", "a" * 64, Some(7))
+    SourceAttribution(authority, "src/main/cml/classification.cml", Some(7))
 
   private def _record(kind: String, id: String, authority: String = "model.example", name: String = "共有"): ElementRecord =
     ElementRecord(Present(ModelElementId(authority, id)), kind, name, _source(authority), Present(Vector.empty))

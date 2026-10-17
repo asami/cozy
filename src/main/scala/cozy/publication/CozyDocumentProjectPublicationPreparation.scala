@@ -1,18 +1,17 @@
 package cozy.publication
 
 import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
-import cozy.document.{CozyDocumentProject, CozyDocumentProjectExport}
-import scala.collection.JavaConverters._
+import cozy.document.CozyDocumentProject
 import scala.util.control.NonFatal
 
 /*
  * @since   Oct.  1, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectPublicationPreparation {
   final case class Config(
-    registration: CozyDocumentProjectPublicationTarget.CurrentRegistrationConfig,
+    registration: CozyDocumentProjectPublicationTarget.ProjectRegistrationConfig,
     taskRoot: Path,
     destination: Path
   )
@@ -20,57 +19,37 @@ private[cozy] object CozyDocumentProjectPublicationPreparation {
   final case class Prepared(root: Path, exportRoot: Path, registryPaths: Vector[Path])
 
   private val _export_files = Vector(
-    "manifest.yaml", "receipt.yaml", "work-products/article-review-html/article-review.html"
+    "manifest.yaml", "work-products/article-review-html/article-review.html"
   )
 
-  def prepare(config: Config): Prepared = prepare(config, () => ())
-
-  /* This specification seam changes original authority only immediately before
-   * the ordinary final producer revalidation; production always uses a no-op. */
-  private[publication] def prepare(config: Config, beforeFinalRevalidation: () => Unit): Prepared = {
+  def prepare(config: Config): Prepared = {
     if (config == null) _invalid("publication preparation configuration is required")
-    val original = CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
-    if (beforeFinalRevalidation == null) _invalid("publication preparation callback is required")
+    val original = CozyDocumentProjectPublicationTarget.planProjectRegistration(config.registration)
     val taskroot = _task_root(config.taskRoot)
     val destination = _destination(config.destination, taskroot)
     _require_disjoint(taskroot, destination, original)
-    val fresh = CozyDocumentProjectPublicationTarget.revalidateCurrentRegistration(original)
-    val temporary = Files.createTempDirectory(taskroot, "publication-preparation-")
-    try {
-      val exportroot = Files.createDirectory(temporary.resolve("export"))
-      _export_files.foreach { relative =>
-        val copied = exportroot.resolve(relative)
-        Files.createDirectories(copied.getParent)
-        Files.copy(fresh.registration.export.bundleRoot.resolve(relative), copied)
-      }
-      val verified = CozyDocumentProjectExport.verifyBundle(exportroot)
-      val admitted = CozyDocumentProjectPublicationTarget.admit(exportroot)
-      if (verified != fresh.registration.export.evidence || admitted.evidence != verified)
-        _invalid("prepared export evidence differs from the original verified bundle")
-      val media = fresh.registration.siteBinding.config
-      CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config(
-        descriptorFile = media.descriptorFile,
-        publicationRoot = temporary,
-        target = media.target,
-        dryRun = false,
-        siteRoot = media.siteRoot,
-        siteConfig = media.siteConfig
-      ))
-      val registrynames = CozyArticleMediaRegistry.load(temporary).bundleDigests.keys.toVector.sorted
-        .map(name => s"$name.json")
-      beforeFinalRevalidation()
-      CozyDocumentProjectPublicationTarget.revalidateCurrentRegistration(fresh)
-      if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
-        _invalid("publication preparation destination must be absent")
-      Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE)
-      Prepared(destination, destination.resolve("export"), registrynames.map(destination.resolve(_)))
-    } catch {
-      case NonFatal(failure) =>
-        try _delete_owned(temporary) catch {
-          case NonFatal(cleanup) => failure.addSuppressed(cleanup)
-        }
-        throw failure
+    _generated_directory(destination)
+    val exportroot = destination.resolve("export")
+    _generated_directory(exportroot)
+    _generated_directory(exportroot.resolve("work-products"))
+    _generated_directory(exportroot.resolve("work-products/article-review-html"))
+    _export_files.foreach { relative =>
+      val copied = exportroot.resolve(relative)
+      if (Files.isSymbolicLink(copied)) _invalid("publication preparation output must not be a symlink")
+      Files.copy(original.registration.export.bundleRoot.resolve(relative), copied, StandardCopyOption.REPLACE_EXISTING)
     }
+    val media = original.registration.siteBinding.config
+    CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config(
+      descriptorFile = media.descriptorFile,
+      publicationRoot = destination,
+      target = media.target,
+      dryRun = false,
+      siteRoot = media.siteRoot,
+      siteConfig = media.siteConfig
+    ))
+    val registrynames = CozyArticleMediaRegistry.load(destination).bundleNames.sorted
+      .map(name => s"$name.json")
+    Prepared(destination, exportroot, registrynames.map(destination.resolve(_)))
   }
 
   private def _task_root(path: Path): Path = {
@@ -88,15 +67,16 @@ private[cozy] object CozyDocumentProjectPublicationPreparation {
     val normalized = _normalized(path, "destination")
     if (normalized.getParent != taskroot)
       _invalid("publication preparation destination must be a direct child of task root")
-    if (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS))
-      _invalid("publication preparation destination must be absent")
+    if (Files.isSymbolicLink(normalized) ||
+      (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)))
+      _invalid("publication preparation destination must be a direct directory")
     normalized
   }
 
   private def _require_disjoint(
     taskroot: Path,
     destination: Path,
-    plan: CozyDocumentProjectPublicationTarget.CurrentRegistrationPlan
+    plan: CozyDocumentProjectPublicationTarget.ProjectRegistrationPlan
   ): Unit = {
     val registration = plan.registration
     val binding = registration.siteBinding
@@ -130,10 +110,11 @@ private[cozy] object CozyDocumentProjectPublicationPreparation {
     }
   }
 
-  private def _delete_owned(path: Path): Unit = if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-    val stream = Files.walk(path)
-    try stream.iterator.asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.delete(_))
-    finally stream.close()
+  private def _generated_directory(path: Path): Unit = {
+    if (Files.isSymbolicLink(path) ||
+      (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)))
+      _invalid("publication preparation output directory must be direct and non-symlink")
+    Files.createDirectories(path)
   }
 
   private def _invalid(message: String): Nothing = CozyDocumentProject._failure("DP-OP-001", message)

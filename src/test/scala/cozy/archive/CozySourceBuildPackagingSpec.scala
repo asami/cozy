@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.Comparator
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.collection.JavaConverters._
@@ -57,7 +56,7 @@ final class CozySourceBuildPackagingSpec extends AnyWordSpec with Matchers with 
           (descriptor \ "component" \ "id").as[String] shouldBe "SourceFixture"
           val packagedprovenance = _zip_text(fixture.archive, "generation-provenance.json")
           packagedprovenance.getBytes(StandardCharsets.UTF_8).toVector shouldBe provenancebytes
-          GenerationProvenance.requireValidPackagedEvidence(provenance, _cncf_version, _cozy_version)
+          GenerationProvenance.requireValidPackagedMetadata(provenance, _cncf_version, _cozy_version)
           Files.readAllBytes(fixture.project).toVector shouldBe sourcebytes
           _zip_bytes(fixture.archive, "lib/native.jar").toVector shouldBe Files.readAllBytes(fixture.runtimejar).toVector
           And("the accepted generation contract names the selected inputs while runtime policy stays independent")
@@ -283,16 +282,13 @@ final class CozySourceBuildPackagingSpec extends AnyWordSpec with Matchers with 
   private def _provenance(root: Path, cozyversion: String = "0.3.3-SNAPSHOT"): Path = {
     val source = _write(root.resolve("src/main/cozy/sample.cml"), "component SourceFixture\n")
     _write(root.resolve("target/generated/fixture/Generated.scala"), "package fixture\nfinal class Generated\n")
-    val snapshot = GenerationProvenance.requireSourceSnapshot(source, "src/main/cozy/sample.cml")
-    GenerationProvenance.write(root, snapshot, GenerationProvenance.Inputs(
-      _cncf_version, _sha256(_runtime_descriptor().getBytes(StandardCharsets.UTF_8)), cozyversion,
-      "1.1.26-SNAPSHOT", "0.3.0-SNAPSHOT", snapshot.identity, snapshot.sha256
+    val sourceinput = GenerationProvenance.captureSourceInput(source, "src/main/cozy/sample.cml").fold(errors => fail(errors.toString), identity)
+    GenerationProvenance.write(root, sourceinput, GenerationProvenance.Inputs(
+      _cncf_version, cozyversion,
+      "1.1.26-SNAPSHOT", "0.3.0-SNAPSHOT", sourceinput.identity
     ))
     root.resolve(GenerationProvenance.METADATA_PATH)
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _write(path: Path, text: String): Path = {
     Files.createDirectories(path.getParent)

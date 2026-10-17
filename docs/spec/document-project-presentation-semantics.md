@@ -1,6 +1,6 @@
 # Document Project Presentation Semantics
 
-Status: Phase 46 normative specification
+Status: Phase 46 normative specification amended by Phase 71.5 S05
 
 ## Boundary
 
@@ -15,11 +15,10 @@ The existing Phase 48 public scaffold is the only scaffold/output
 clarification at this boundary: it writes a strict v2 authored sibling at
 `content/presentation-semantics-<language>.yaml` for exactly the public
 profiles `standard`, `standard-video`, `bok`, and `bok-video`. The sibling's
-`contentCore` binds the direct generated Core bytes through the Phase 46
-identity rule. This generated file is an authoring-incomplete scaffold surface,
+`contentCore` associates the generated Core's semantic id and language. This generated file is an authoring-incomplete scaffold surface,
 not accepted or validated semantics, and does not claim a valid V2 document.
 It does not change the Phase 46 schema, diagnostics, or validation boundary,
-or the Phase 46.1 renderer, receipt, and generated-output boundary.
+or the fixed Phase 46.1 semantic renderer/profile and coverage boundary.
 
 ## V2 shape
 
@@ -29,9 +28,10 @@ The v2 root admits these ordered fields only:
 schema, id, contentCore, composition, storyFlow, structures, projectionPolicy
 ```
 
-`contentCore` is exactly `{id, language, identity}`. `identity` is
-`sha256:<64 lowercase hexadecimal characters>` over the direct v1 Core file
-bytes, and every field must exactly equal the admitted v1 Core binding.
+`contentCore` is exactly `{id, language}`. Both fields must exactly match the
+admitted closed v1 Core's semantic id and language. Direct Core bytes are read
+and parsed once with strict UTF-8 and ordinary structured-document loading;
+there is no parallel parsed-Core argument or retained byte certificate.
 
 `composition` is one exact `cozy.explanation-composition.v1` document. It is
 parsed into existing Phase 37 `CozyExplanation.Composition`, validated against
@@ -66,19 +66,28 @@ each selected `(medium, inherited logicalPattern)`. Missing or duplicate base
 bindings fail. A compatible override replaces its matching base only; it
 cannot invent a medium or bypass Phase 36 compatibility.
 
-## Normalization and currentness
+## Typed normalization and workflow state
 
-The immutable `Validated` aggregate retains the admitted v1 binding, canonical
-v2 semantic identity, validated Composition, normalized Plan, explanation and
-presentation catalog identities, policy identity, declared source and asset
-identities, structures, visual selections, and currentness identity.
+The immutable `Validated` aggregate retains id, semantic Core id/language,
+validated Composition, normalized Plan, Projection Policy id/revision/bindings,
+required source and asset declarations, StoryFlow, Structures, and selected
+Visual values. These typed values represent actual admitted input semantics.
+Nested Composition sources emit only `{id}` and assets only `{id,mediaType}`.
 
-Canonical identities are derived from fixed-order normalized content, not YAML
-mapping order. Unordered structure, transition, override, policy-binding, and
-parameter collections use stable canonical ordering; reader-facing text and
-the ordered Phase 37 Plan retain their semantic order. A v1 binding, v2
-semantics, Composition, catalog, policy, declared source, or declared asset
-identity change changes the relevant aggregate/currentness identity.
+Unordered Structure, transition, override, policy-binding, and parameter
+collections use stable ordering; reader-facing text and the Plan retain their
+semantic order. Current named catalogs validate graph and Visual choices.
+Upstream Explanation Composition/Plan/catalog hash removal remains separate
+finite work; this aggregate adds no semantic, catalog, policy, or currentness
+fingerprint.
+
+Project state is `missing`, `authoring-incomplete`, `invalid`, or `current`.
+Current means the actual input semantics were admitted. Authoring-incomplete
+requires the closed scaffold shape: expected schema and semantic/Core ids and
+language, empty composition, canonical StoryFlow id and empty transitions,
+empty structures, and supported policy schema/id/revision 1 with empty bindings.
+All relevant key sets remain closed. Text equality does not determine this
+ordinary authoring stage. All other rejected candidates remain invalid.
 
 ## Closed diagnostics
 
@@ -89,8 +98,8 @@ All new failures are `PresentationSemanticsFault` diagnostics:
 | `DP-SEM-001` | required direct input is missing, unsafe, unreadable, or malformed |
 | `DP-SEM-002` | fields are missing, unknown, duplicate, or not in the required root order |
 | `DP-SEM-003` | schema value is unsupported |
-| `DP-SEM-004` | scalar type, token, text, identity, medium, or revision is invalid |
-| `DP-SEM-005` | v1 Core shape/binding does not exactly match the v2 binding |
+| `DP-SEM-004` | scalar type, token, text, medium, or revision is invalid |
+| `DP-SEM-005` | v1 Core shape is malformed or semantic id/language does not match the v2 association |
 | `DP-SEM-006` | nested Phase 37 Composition or admitted catalog validation fails |
 | `DP-SEM-007` | StoryTransition is unsupported, duplicated, self-linked, or unresolved |
 | `DP-SEM-008` | Structure, article vocabulary, override, or Step binding is invalid |
@@ -104,6 +113,24 @@ No declared semantics can become a successful placeholder.
 
 Phase 46.1 may consume only this normalized aggregate to implement slide,
 video, and integrated confirmation projections. It owns renderer mapping,
-pagination, scene timing, narration, HTML, PDF, output bytes, and receipts.
+pagination, scene timing, narration, HTML, PDF, and output bytes.
 Phase 46 produces none of those artifacts: no HTML, slides, video, PDF,
-receipt, or generated output is produced here.
+or generated output is produced here.
+
+## Phase 71.5 implementation and validation status
+
+S05 implements the current semantic association, typed projection, coverage,
+confirmation HTML, and direct scaffold contracts under
+`P715-02-S05-PRESENTATION-SEMANTIC-COVERAGE`; its focused validation is pending.
+S04's three existing suites completed with 120 successes, zero failures, zero
+canceled cases, no warnings, exit 0, and terminal shared-lock release, as recorded
+in `p715-02-s04-focused-validation-result.json`. The first 119-success/one-failure
+run and the bounded existing MediaReceipt fixture correction remain retained
+history. This is implementation progress, not Step or Phase acceptance.
+
+External E715-01 through E715-04 reconciliation and the same full 34-scene JA
+ModelHarness VOICEVOX generation, final assembly, audible correct end card, and
+player EOF remain open. Repository-full validation is deferred-not-run to
+Phase 71.7. Independent Alignment, upstream Explanation hashes, delegated
+MediaReceipt, and Core/Description/Confirmation writer removal remain on the
+finite frontier; no exception or replacement certificate is introduced.

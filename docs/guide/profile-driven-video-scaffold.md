@@ -159,9 +159,11 @@ explicitly. Set `renderer.strategy` to `narration-card` (or `generic`) to
 retain the generic narration-card renderer even when a script contains
 characters.
 
-The renderer template is `cozy-character-dialogue-v1`. Cozy records the
-SHA-256 digest of its `DialogueVideo.jsx` entry resource and the named digest
-of every staged template resource in `rendererTemplateResources`. Cozy stages
+The renderer template is `cozy-character-dialogue-v1`. Cozy verifies the bundled
+`DialogueVideo.jsx` and `DiagramLayout.js` resources against their distributed
+integrity contracts when loading them. Local workspace props and part manifests
+record the template ID and ordered path-only entries in
+`rendererTemplateResources`, without local template digests. Cozy stages
 only assets declared in the script: character `asset`, `mouthClosedAsset`, and
 `mouthOpenAsset`, plus a scene `visual.image`.
 
@@ -359,8 +361,10 @@ profile unspecified so a configured user or organization default applies.
 `credits.presentation.enabled` defaults to `true`. Set it to `false` when the
 final page already carries the credit information and only the standalone video
 credit page should be suppressed. The selected credit items, validation,
-`credits.json`, `credits.md`, `renderer-props.json`, RDF projection, semantic
-digest, and isolated publication workspace remain present.
+`credits.json`, `credits.md`, `renderer-props.json`, RDF projection, and isolated
+publication workspace remain present. The projections retain selected
+attribution, presentation settings, and evidence without a local management
+digest; build and RDF metadata retain the actual profile and attribution fields.
 
 A minimal reusable profile is:
 
@@ -438,10 +442,11 @@ build/credits/credits.md
 build/credits/renderer-props.json
 ```
 
-The semantic JSON digest is independent of workspace and manifest filesystem
-locations, but includes localized presentation text, hold timing, and the
-effective presentation-enabled state. It is
-copied into build and RDF metadata. `credits.md` is ready
+These three projections contain the selected attribution, localized presentation,
+hold timing, presentation-enabled state, and evidence appropriate to each
+surface without a local management digest. `credits.json` preserves profile
+and audio-manifest source paths; build and RDF metadata retain the actual
+profile and attribution fields. `credits.md` is ready
 for a publication description. Remotion consumes `renderer-props.json` and
 inserts a static, non-empty credit page after content/summary and before the
 final URL page when presentation is enabled. No credit page or credit directory

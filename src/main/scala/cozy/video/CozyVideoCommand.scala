@@ -14,9 +14,7 @@ import java.io.ByteArrayOutputStream
 import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,11 +26,27 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoCommand {
+  private final case class SynthesisInput[Script, Project, Execution](
+    scriptfile: Path,
+    script: Script,
+    savedir: Path,
+    projectfile: Path,
+    projectroot: Path,
+    project: Project,
+    execution: Execution
+  )
+}
+
 private[cozy] trait CozyVideoCommand {
   self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoStoryboardReview with CozyVideoStoryboardBuild with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private type SynthesisInput = CozyVideoCommand.SynthesisInput[VideoScript, VideoProject, VideoExecutionConfig]
+
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
@@ -115,7 +129,7 @@ private[cozy] trait CozyVideoCommand {
     else {
       val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
       val checks =
-        if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
+        if (config.checkTools || (!config.dryRun && plan.execution.requiresDocker))
           tools.checks(context)
         else
           Vector.empty
@@ -148,13 +162,15 @@ private[cozy] trait CozyVideoCommand {
       case "voicevox" =>
         new VoicevoxNarrationProvider(input.execution.voicevoxUrl, voicevox)
       case "macos-say" =>
-        if (input.execution.toolMode != VideoToolMode.Host)
+        if (input.execution.selected("macos-say").mode != VideoToolMode.Host ||
+            config.toolMode.exists(value => VideoToolMode.parse(value) != VideoToolMode.Host))
           RAISE.invalidArgumentFault(
             "Narration provider macos-say requires host tool mode. Use --tool-mode=host."
           )
-        new MacosSayNarrationProvider(input.projectroot, runner)
+        new MacosSayNarrationProvider(input.projectroot, runner, input.execution)
       case "piper" =>
-        if (input.execution.toolMode != VideoToolMode.Docker)
+        if (input.execution.selected("piper").mode != VideoToolMode.Docker ||
+            config.toolMode.exists(value => VideoToolMode.parse(value) != VideoToolMode.Docker))
           RAISE.invalidArgumentFault(
             "Narration provider piper requires Docker tool mode. Use --tool-mode=docker."
           )
@@ -176,16 +192,6 @@ private[cozy] trait CozyVideoCommand {
     _render_synthesis_result(result)
   }
 
-  private final case class SynthesisInput(
-    scriptfile: Path,
-    script: VideoScript,
-    savedir: Path,
-    projectfile: Path,
-    projectroot: Path,
-    project: VideoProject,
-    execution: VideoExecutionConfig
-  )
-
   private def _synthesis_input(config: SynthesizeConfig): SynthesisInput =
     config.part match {
       case Some(part) => _project_synthesis_input(config, part)
@@ -199,7 +205,7 @@ private[cozy] trait CozyVideoCommand {
           config.dockerImage,
           config.voicevoxUrl
         )
-        SynthesisInput(config.scriptFile, script, config.saveDir, config.scriptFile, config.projectRoot, project, execution)
+        CozyVideoCommand.SynthesisInput(config.scriptFile, script, config.saveDir, config.scriptFile, config.projectRoot, project, execution)
     }
 
   private def _project_synthesis_input(config: SynthesizeConfig, requestedpart: String): SynthesisInput = {
@@ -233,7 +239,7 @@ private[cozy] trait CozyVideoCommand {
       config.dockerImage,
       config.voicevoxUrl
     )
-    SynthesisInput(source, script, savedir, plan.projectFile, plan.projectRoot, plan.project, execution)
+    CozyVideoCommand.SynthesisInput(source, script, savedir, plan.projectFile, plan.projectRoot, plan.project, execution)
   }
 
   private def _validate_project_synthesis_output(
@@ -281,7 +287,7 @@ private[cozy] trait CozyVideoCommand {
     CozyVideoEffects.validate(config.renderer, CozyVideoEffects.expand(plan.project.visualEffects))
     val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks =
-      if (config.checkTools || plan.execution.toolMode == VideoToolMode.Docker)
+      if (config.checkTools || plan.execution.requiresDocker)
         tools.checks(context)
       else
         Vector.empty
@@ -355,21 +361,11 @@ private[cozy] trait CozyVideoCommand {
         val rendererpropsfile = directory.resolve("renderer-props.json")
         val missing = Vector(jsonfile, markdownfile, rendererpropsfile).filterNot(Files.isRegularFile(_)).map(x => s"missing credit projection: $x") ++
           (if (Files.isRegularFile(manifestpath)) Vector.empty
-           else if (nativestoryboard) Vector(s"missing project manifest: $manifestpath")
-           else Vector(s"missing project manifest with credit digest: $manifestpath"))
-        val digestfindings =
-          if (!Files.isRegularFile(jsonfile))
-            Vector.empty
-          else {
-            val actual = parser.parse(Files.readString(jsonfile, StandardCharsets.UTF_8)).toOption.
-              flatMap(_.hcursor.get[String]("digest").toOption)
-            if (actual.contains(plan.credits.digest)) Vector.empty
-            else Vector(s"credit digest mismatch: expected ${plan.credits.digest}, found ${actual.getOrElse("missing")}")
-          }
+           else Vector(s"missing project manifest: $manifestpath"))
         val projectionfindings = Vector(
-          _credit_json_projection_finding(jsonfile, CozyVideoCredits.toJson(plan.credits), "credit JSON"),
-          _credit_text_projection_finding(markdownfile, CozyVideoCredits.toMarkdown(plan.credits), "credit Markdown"),
-          _credit_json_projection_finding(rendererpropsfile, CozyVideoCredits.toRendererProps(plan.credits), "credit renderer props")
+          _credit_json_projection_finding(jsonfile, value => CozyVideoCredits.validJson(value, plan.credits), "credit JSON"),
+          _credit_text_projection_finding(markdownfile, plan.credits, "credit Markdown"),
+          _credit_json_projection_finding(rendererpropsfile, value => CozyVideoCredits.validRendererProps(value, plan.credits), "credit renderer props")
         ).flatten
         val manifestfindings =
           if (!Files.isRegularFile(manifestpath))
@@ -390,33 +386,31 @@ private[cozy] trait CozyVideoCommand {
                   if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
                 ).flatten
             } else {
-              val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
               Vector(
-                if (digest.contains(plan.credits.digest)) None else Some(s"project manifest credit digest mismatch: expected ${plan.credits.digest}, found ${digest.getOrElse("missing")}"),
                 if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
               ).flatten
             }
           }
-        missing ++ digestfindings ++ projectionfindings ++ manifestfindings
+        missing ++ projectionfindings ++ manifestfindings
       }
     diagnostics ++ artifactfindings
   }
 
-  private[video] def _credit_json_projection_finding(path: Path, expected: Json, label: String): Option[String] =
+  private[video] def _credit_json_projection_finding(path: Path, valid: Json => Boolean, label: String): Option[String] =
     if (!Files.isRegularFile(path))
       None
     else {
       val actual = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption
-      if (actual.contains(expected)) None else Some(s"$label does not match the effective credit set: $path")
+      if (actual.exists(valid)) None else Some(s"$label does not satisfy the effective credit obligations: $path")
     }
 
-  private[video] def _credit_text_projection_finding(path: Path, expected: String, label: String): Option[String] =
+  private[video] def _credit_text_projection_finding(path: Path, effective: CozyVideoCredits.EffectiveSet, label: String): Option[String] =
     if (!Files.isRegularFile(path))
       None
-    else if (Files.readString(path, StandardCharsets.UTF_8) == expected)
+    else if (CozyVideoCredits.validMarkdown(Files.readString(path, StandardCharsets.UTF_8), effective))
       None
     else
-      Some(s"$label does not match the effective credit set: $path")
+      Some(s"$label does not satisfy the effective credit obligations: $path")
 
   def demoScript(config: DemoScriptConfig): String =
     _render_demo_script_result(_write_demo_script(config))
@@ -456,11 +450,6 @@ private[cozy] trait CozyVideoCommand {
       RAISE.invalidArgumentFault(
         s"Video project descriptor must be an existing direct regular non-symlink file (source: $source, normalized: $projectfile)"
       )
-    val attributes = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor attributes cannot be read (source: $source): ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      RAISE.invalidArgumentFault(s"Video project descriptor has no stable direct file identity (source: $source, normalized: $projectfile)")
     val identity = try projectfile.toRealPath() catch {
       case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical identity cannot be read (source: $source): ${e.getMessage}")
     }
@@ -468,28 +457,8 @@ private[cozy] trait CozyVideoCommand {
       RAISE.invalidArgumentFault(
         s"Video project descriptor canonical identity must be a direct regular non-symlink file (source: $source, normalized: $projectfile, identity: $identity)"
       )
-    val identityattributes = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical attributes cannot be read (source: $source, identity: $identity): ${e.getMessage}")
-    }
-    if (identityattributes.fileKey() == null || !_same_file_attributes(attributes, identityattributes))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile, identity: $identity)")
-    val after = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
-    }
-    if (!_same_file_attributes(identityattributes, after))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, identity: $identity)")
-    val sourceafter = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
-    }
-    if (!_same_file_attributes(attributes, sourceafter))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile)")
     identity
   }
-
-  private[video] def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() &&
-      before.size() == after.size() &&
-      before.lastModifiedTime() == after.lastModifiedTime()
 
   private[video] def _load_script(path: Path): Option[VideoScript] =
     if (Files.isRegularFile(path))
@@ -563,7 +532,6 @@ private[cozy] trait CozyVideoCommand {
     Json.obj(
       "schema" -> Json.fromString("cozy.video.replay-script.v1"),
       "sourceVideo" -> Json.fromString(input.toString),
-      "sourceSha256" -> Json.fromString(_sha256(input)),
       "manualReview" -> Json.fromBoolean(manualreview),
       "sources" -> Json.obj(
         Vector(
@@ -634,14 +602,6 @@ private[cozy] trait CozyVideoCommand {
   }
 
   private[video] def _replay_execution(config: ReplayConfig): VideoExecutionConfig = {
-    val defaults = CozyProjectYamlConfig.loadOperationDefaults(config.projectRoot)
-    val mode = config.toolMode.
-      orElse(defaults.value("video.tool-mode")).
-      getOrElse("docker")
-    val dockerimage = config.dockerImage.
-      orElse(defaults.value("video.docker-image")).
-      orElse(defaults.value("cozy.docker-image")).
-      getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
-    VideoExecutionConfig(VideoToolMode.parse(mode), dockerimage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
+    VideoExecutionConfig.create(config.projectRoot, None, config.toolMode, config.dockerImage, None)
   }
 }

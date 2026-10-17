@@ -2,20 +2,19 @@ package cozy.media
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.util.zip.{CRC32, Deflater, DeflaterOutputStream}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPagePreview {
   private final case class PreviewConfig(input: Path, catalog: Path, html: Path, png: Option[Path])
   private final case class Output(target: Path, bytes: Array[Byte])
-  private final case class StagedOutput(target: Path, temporary: Path)
   private final case class Image(width: Int, height: Int, pixels: Array[Int])
 
   private val _schema = "cozy.visual-page.preview.v1"
@@ -35,12 +34,9 @@ private[cozy] object CozyVisualPagePreview {
     val validated = CozyVisualPage.load(config.input, config.catalog)
     val htmlbytes = _html(validated).getBytes(StandardCharsets.UTF_8)
     val pngbytes = config.png.map(_ => _png(validated))
-    val htmlidentity = _identity(htmlbytes)
-    val pngidentity = pngbytes.map(_identity)
-    val previewidentity = _preview_identity(validated, htmlidentity, pngidentity)
     val outputs = Vector(Output(config.html, htmlbytes)) ++ config.png.zip(pngbytes).map { case (path, bytes) => Output(path, bytes) }
-    _replace_all(outputs)
-    _report(validated, htmlidentity, pngidentity, previewidentity)
+    _write_outputs(outputs)
+    _report(validated, config.png.nonEmpty)
   }
 
   private def _config(args: List[String]): PreviewConfig = args match {
@@ -114,10 +110,8 @@ private[cozy] object CozyVisualPagePreview {
       "<dl class=\"identity\">",
       s"<dt>Document schema</dt><dd><code>${_escape(validated.document.schema)}</code></dd>",
       s"<dt>Document ID</dt><dd><code>${_escape(validated.document.id)}</code></dd>",
-      s"<dt>Document identity</dt><dd><code>${_escape(validated.documentIdentity)}</code></dd>",
       s"<dt>Catalog ID</dt><dd><code>${_escape(validated.catalog.id)}</code></dd>",
       s"<dt>Catalog revision</dt><dd><code>${validated.catalog.revision}</code></dd>",
-      s"<dt>Catalog identity</dt><dd><code>${_escape(validated.catalogIdentity)}</code></dd>",
       "</dl>",
       "<h2>Ordered page IDs</h2>",
       "<ol>",
@@ -320,53 +314,30 @@ private[cozy] object CozyVisualPagePreview {
 
   private def _report(
     validated: CozyVisualPage.ValidatedDocument,
-    htmlidentity: String,
-    pngidentity: Option[String],
-    previewidentity: String
+    pnggenerated: Boolean
   ): String =
     (Vector(
       s"schema: ${_schema}",
       "version: 1",
       s"generator: ${_generator}",
-      s"documentIdentity: ${validated.documentIdentity}",
-      s"catalogIdentity: ${validated.catalogIdentity}",
-      s"htmlIdentity: $htmlidentity"
-    ) ++ pngidentity.map(identity => s"pngIdentity: $identity") ++ Vector(
-      s"previewIdentity: $previewidentity",
+      s"documentId: ${validated.document.id}",
+      s"catalogId: ${validated.catalog.id}",
+      s"catalogRevision: ${validated.catalog.revision}",
+      s"pageCount: ${validated.count}",
+      "html: generated"
+    ) ++ (if (pnggenerated) Vector("png: generated") else Vector.empty) ++ Vector(
       "status: generated"
     )).mkString("\n")
 
-  private def _preview_identity(
-    validated: CozyVisualPage.ValidatedDocument,
-    htmlidentity: String,
-    pngidentity: Option[String]
-  ): String = _identity((Vector(
-    s"schema: ${_schema}",
-    s"documentIdentity: ${validated.documentIdentity}",
-    s"catalogIdentity: ${validated.catalogIdentity}",
-    s"htmlIdentity: $htmlidentity"
-  ) ++ pngidentity.map(identity => s"pngIdentity: $identity")).mkString("\n").getBytes(StandardCharsets.UTF_8))
-
-  private def _replace_all(outputs: Vector[Output]): Unit = {
-    var staged = Vector.empty[StagedOutput]
+  private def _write_outputs(outputs: Vector[Output]): Unit = {
     try {
       outputs.foreach { output =>
-        val parent = Option(output.target.getParent).getOrElse(_fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", "output parent is required"))
-        val prefix = Option(output.target.getFileName).map(_.toString).filter(_.length >= 3).getOrElse("vpg")
-        val temporary = Files.createTempFile(parent, prefix, ".tmp")
-        staged :+= StagedOutput(output.target, temporary)
-        Files.write(temporary, output.bytes)
-      }
-      staged.foreach { output =>
-        try Files.move(output.temporary, output.target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        catch {
-          case _: AtomicMoveNotSupportedException => _fail("VISUAL_PAGE_PREVIEW_SAVE_ATOMIC", "$save", "filesystem does not support same-directory atomic output replacement")
-        }
+        Files.write(output.target, output.bytes)
       }
     } catch {
       case fault: CozyVisualPage.VisualPageFault => throw fault
-      case NonFatal(e) => _fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", Option(e.getMessage).getOrElse("cannot replace preview output"))
-    } finally staged.foreach(output => Files.deleteIfExists(output.temporary))
+      case NonFatal(e) => _fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", Option(e.getMessage).getOrElse("cannot write preview output"))
+    }
   }
 
   private def _validate_output(path: Path, label: String, suffix: String): Unit = {
@@ -397,9 +368,6 @@ private[cozy] object CozyVisualPagePreview {
     case '\'' => "&#39;"
     case character => character.toString
   }
-
-  private def _identity(bytes: Array[Byte]): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _pattern_color(pattern: String): Int = pattern match {
     case "sequence" => 0x2f6f9f

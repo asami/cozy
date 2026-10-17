@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.Comparator
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.collection.JavaConverters._
@@ -12,7 +11,7 @@ import cozy.compatibility.{
   CncfRuntimeCompatibility,
   MavenCoordinate
 }
-import cozy.modeler.CmlModelMetadata
+import cozy.modeler.{CmlModelMetadata, GenerationProvenance}
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +20,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul. 29, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyCarRuntimeManifestSpec
@@ -56,20 +56,23 @@ final class CozyCarRuntimeManifestSpec
           "--component", "Sample"
         ))
 
-        Then("both descriptors declare the same raw carrier and development evidence binds its copied bytes")
+        And("the prepared manifest, both descriptors and both carrier copies are read back")
+        val manifest = Json.parse(Files.readString(developmentmanifest, StandardCharsets.UTF_8))
         val developmentdescriptor = Json.parse(Files.readString(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY), StandardCharsets.UTF_8))
         val packageddescriptor = Json.parse(_zip_text(archive, "component-descriptor.json"))
         val declaration = (developmentdescriptor \ "componentKnowledge").as[play.api.libs.json.JsObject]
+        val sourcebytes = Files.readAllBytes(sourcecarrier).toVector
+        val copiedbytes = Files.readAllBytes(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_KNOWLEDGE_IDENTITY)).toVector
+        val expecteddeclaration = _carrier_declaration
+        val packagedcarrier = Json.parse(_zip_text(archive, "component-knowledge.json"))
+        val expectedcarrier = Json.parse(rawcarrier)
+
+        Then("both descriptors and raw carrier copies agree while development evidence declares only paths")
         developmentdescriptor shouldBe packageddescriptor
-        declaration shouldBe _carrier_declaration(Files.readAllBytes(sourcecarrier))
-        Files.readAllBytes(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_KNOWLEDGE_IDENTITY)).toVector shouldBe Files.readAllBytes(sourcecarrier).toVector
-        Json.parse(_zip_text(archive, "component-knowledge.json")) shouldBe Json.parse(rawcarrier)
-        (Json.parse(Files.readString(developmentmanifest, StandardCharsets.UTF_8)) \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
-          "target/cncf.d/runtime-classpath.txt",
-          "target/cncf.d/component-descriptor.json",
-          "target/cncf.d/component-knowledge.json",
-          "src/main/car/abi-manifest.json"
-        )
+        declaration shouldBe expecteddeclaration
+        copiedbytes shouldBe sourcebytes
+        packagedcarrier shouldBe expectedcarrier
+        manifest shouldBe _development_manifest(componentknowledge = true)
       }
     }
 
@@ -200,7 +203,7 @@ final class CozyCarRuntimeManifestSpec
       }
     }
 
-    "write deterministic stable evidence across class-only recompilation" in {
+    "retain path-only development metadata across class-only recompilation" in {
       _with_temp_dir { root =>
         Given("a CAR project with prepared classpath, descriptor, ABI, and mutable classes")
         _write(
@@ -221,25 +224,80 @@ final class CozyCarRuntimeManifestSpec
         _write(classpath, classes.toString)
         val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
 
-        When("Cozy prepares development runtime evidence twice around a class-only recompilation")
+        When("Cozy prepares and reads the initial development manifest")
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         val before = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+
+        Given("the compiled class bytes are replaced by another compilation")
         _write(classes.resolve("sample.class"), "second compilation")
+
+        When("Cozy prepares and reads the manifest for the current classes")
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         val after = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
 
-        Then("the development schema records only stable evidence")
-        (after \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v2"
-        (after \ "sourceKind").as[String] shouldBe "development-directory"
-        (after \ "car" \ "name").as[String] shouldBe "example-sample"
-        (after \ "car" \ "component").as[String] shouldBe "Sample"
-        (after \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
-          "target/cncf.d/runtime-classpath.txt",
-          "target/cncf.d/component-descriptor.json",
-          "src/main/car/abi-manifest.json"
-        )
+        Then("both documents retain the complete required path-only development projection")
+        before shouldBe _development_manifest()
+        after shouldBe _development_manifest()
         before shouldBe after
       }
+    }
+
+    "retain the complete development projection over fifty valid current-input rewrites" in {
+      Given("canonical CAR and ABI contracts with two existing classpath entries and generated valid rewrites")
+      val rewrites = for {
+        reversed <- Gen.oneOf(true, false)
+        duplicates <- Gen.choose(1, 4)
+        whitespace <- Gen.oneOf("", " ", "\t", " \t ")
+        separator <- Gen.oneOf("\n", java.io.File.pathSeparator)
+        formatted <- Gen.oneOf(true, false)
+        compiled <- Gen.alphaNumStr
+      } yield (reversed, duplicates, whitespace, separator, formatted, compiled)
+      val property = Prop.forAll(rewrites) { case (reversed, duplicates, whitespace, separator, formatted, compiled) =>
+        _with_temp_dir { root =>
+          Given("a canonical project with a compiled directory and an existing dependency entry")
+          val classpath = _prepare_development_project(root)
+          val classes = root.resolve("target/scala-3.3.8/classes")
+          val dependency = _write(root.resolve("artifacts/dependency.jar"), "dependency")
+          _write(classpath, Vector(classes, dependency).mkString("\n"))
+          val abi = root.resolve("src/main/car/abi-manifest.json")
+          val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+          When("Cozy prepares and reads the original valid development manifest")
+          CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+          val before = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+
+          Given("valid whitespace, order, duplicate, ABI formatting and compiled-byte changes")
+          val entries = if (reversed) Vector(dependency, classes) else Vector(classes, dependency)
+          val operands = Vector.fill(duplicates)(entries).flatten.map(path => s"$whitespace$path$whitespace")
+          _write(classpath, operands.mkString(separator) + "\n")
+          val abijson = Json.parse(_abi_manifest("0.0.1-SNAPSHOT"))
+          _write(abi, if (formatted) Json.prettyPrint(abijson) + "\n" else Json.stringify(abijson))
+          _write(classes.resolve("sample.class"), compiled)
+
+          When("Cozy validates the current inputs and prepares and reads the manifest again")
+          CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+          val after = Json.parse(Files.readString(manifest, StandardCharsets.UTF_8))
+          val currentclasspath = Files.readString(classpath, StandardCharsets.UTF_8)
+          val currentabi = Json.parse(Files.readString(abi, StandardCharsets.UTF_8))
+          val currentcompiled = Files.readString(classes.resolve("sample.class"), StandardCharsets.UTF_8)
+
+          Then("both manifests equal the independently authored path-only contract despite the actual rewrites")
+          before shouldBe _development_manifest()
+          after shouldBe _development_manifest()
+          after shouldBe before
+          currentclasspath shouldBe operands.mkString(separator) + "\n"
+          currentabi shouldBe abijson
+          currentcompiled shouldBe compiled
+          true
+        }
+      }
+
+      When("ScalaCheck executes fifty actual development writer and readback trials")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+      Then("all fifty valid rewrites satisfy the current path and metadata contract")
+      result.passed shouldBe true
+      result.succeeded shouldBe 50
     }
 
     "reject a stale or deleted runtime classpath entry" in {
@@ -253,7 +311,14 @@ final class CozyCarRuntimeManifestSpec
         val classpath = root.resolve(CozyDevelopmentRuntimeManifest.RUNTIME_CLASSPATH_IDENTITY)
         _write(classpath, classes.toString)
         val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+        When("Cozy prepares and reads a successful development manifest")
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+
+        Then("the current inputs produce the canonical development projection")
+        Json.parse(Files.readString(manifest, StandardCharsets.UTF_8)) shouldBe _development_manifest()
+
+        Given("the declared runtime directory is subsequently deleted")
         Files.delete(classes.resolve("sample.class"))
         Files.delete(classes)
 
@@ -262,9 +327,106 @@ final class CozyCarRuntimeManifestSpec
           CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
         }
 
-        Then("Cozy refuses to publish stale development evidence")
+        Then("Cozy reports the missing actual entry and its declaration")
         stale.getMessage should include("Development runtime classpath entry is missing")
         stale.getMessage should include(classes.toString)
+        stale.getMessage should include(classpath.toString)
+      }
+    }
+
+    "current required inputs" which {
+      "reject missing or empty evidence" in {
+        Given("the required classpath and ABI evidence, each independently missing or empty")
+        val failures = for {
+          identity <- Vector("target/cncf.d/runtime-classpath.txt", "src/main/car/abi-manifest.json")
+          missing <- Vector(true, false)
+        } yield (identity, missing)
+        failures.foreach { case (identity, missing) =>
+          _with_temp_dir { root =>
+            Given("a canonical project with current required evidence")
+            val classpath = _prepare_development_project(root)
+            val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+            When("Cozy prepares and reads a successful manifest")
+            CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+
+            Then("the current inputs produce the canonical development projection")
+            Json.parse(Files.readString(manifest, StandardCharsets.UTF_8)) shouldBe _development_manifest()
+
+            Given(s"required evidence $identity is ${if (missing) "missing" else "empty"}")
+            val evidence = root.resolve(identity)
+            if (missing) Files.delete(evidence) else _write(evidence, "")
+
+            When("the development writer evaluates the invalid evidence")
+            val error = intercept[Throwable] {
+              CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+            }
+
+            Then("the required evidence diagnostic identifies the path")
+            error.getMessage should include("Development runtime evidence is missing or empty")
+            error.getMessage should include(evidence.toString)
+          }
+        }
+      }
+
+      "reject an invalid classpath operand" in {
+        _with_temp_dir { root =>
+          Given("a canonical project with valid classpath and ABI evidence")
+          val classpath = _prepare_development_project(root)
+          val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+          When("Cozy prepares and reads a successful manifest")
+          CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+
+          Then("the current inputs produce the canonical development projection")
+          Json.parse(Files.readString(manifest, StandardCharsets.UTF_8)) shouldBe _development_manifest()
+
+          Given("the classpath now contains an operand with an embedded NUL")
+          _write(classpath, "invalid\u0000operand")
+
+          When("Cozy evaluates the invalid Path.of operand")
+          val error = intercept[Throwable] {
+            CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+          }
+
+          Then("the classpath diagnostic identifies its declaration")
+          error.getMessage should include("Development runtime classpath entry is invalid")
+          error.getMessage should include(classpath.toString)
+        }
+      }
+
+      "reject malformed or contradictory ABI evidence" in {
+        Given("invalid ABI JSON, an unsupported ABI format and contradictory ABI coordinates")
+        val failures = Vector(
+          "{" -> "is not valid JSON",
+          _abi_manifest("0.0.1-SNAPSHOT").replace("cozy.car.abi-manifest.v2", "obsolete") -> "car.abi.schema.unsupported",
+          _abi_manifest("0.0.2-SNAPSHOT") -> "component.release-coordinate.mismatch"
+        )
+        failures.foreach { case (content, diagnostic) =>
+          _with_temp_dir { root =>
+            Given("a canonical project with valid classpath and ABI evidence")
+            val classpath = _prepare_development_project(root)
+            val manifest = root.resolve("target/cncf.d/car-runtime-manifest.json")
+
+            When("Cozy prepares and reads a successful manifest")
+            CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+
+            Then("the current inputs produce the canonical development projection")
+            Json.parse(Files.readString(manifest, StandardCharsets.UTF_8)) shouldBe _development_manifest()
+
+            Given("the ABI evidence is replaced with the selected invalid contract")
+            _write(root.resolve("src/main/car/abi-manifest.json"), content)
+
+            When("Cozy evaluates the invalid ABI contract")
+            val error = intercept[Throwable] {
+              CozyDevelopmentRuntimeManifest.write(root, classpath, manifest)
+            }
+
+            Then("the ABI failure remains actionable and identifies its source")
+            error.getMessage should include(diagnostic)
+            error.getMessage should include("src/main/car/abi-manifest.json")
+          }
+        }
       }
     }
 
@@ -283,6 +445,8 @@ final class CozyCarRuntimeManifestSpec
             |""".stripMargin
         )
         val metadata = root.resolve("target/cozy/model-metadata.json")
+
+        When("Cozy generates the style-less CML metadata")
         CmlModelMetadata.write(
           source,
           metadata,
@@ -290,6 +454,8 @@ final class CozyCarRuntimeManifestSpec
           "src/main/cozy/sample.cml",
           "concept"
         )
+
+        Given("the canonical descriptor, ABI and current runtime classpath")
         _write(
           root.resolve("src/main/car/component-descriptor.json"),
           _descriptor("0.0.1-SNAPSHOT", "\"componentStyle\":{\"provider\":\"preserved\"}")
@@ -308,21 +474,17 @@ final class CozyCarRuntimeManifestSpec
 
         When("Cozy writes development runtime evidence from generated style-less metadata")
         CozyDevelopmentRuntimeManifest.write(root, classpath, manifestpath)
-
-        Then("the generated metadata omits a style and selects canonical target descriptor evidence")
         val generated = Json.parse(Files.readString(metadata, StandardCharsets.UTF_8))
-        (generated \ "componentStyle").toOption shouldBe None
         val manifest = Json.parse(Files.readString(manifestpath, StandardCharsets.UTF_8))
-        (manifest \ "schemaVersion").as[String] shouldBe "cncf.car-development-runtime-manifest.v2"
-        (manifest \ "evidence").as[Vector[play.api.libs.json.JsObject]].map(entry => (entry \ "path").as[String]) shouldBe Vector(
-          "target/cncf.d/runtime-classpath.txt",
-          "target/cncf.d/component-descriptor.json",
-          "src/main/car/abi-manifest.json"
-        )
+        val developmentdescriptor = Json.parse(Files.readString(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY), StandardCharsets.UTF_8))
+        val sourcedescriptor = Json.parse(Files.readString(root.resolve("src/main/car/component-descriptor.json"), StandardCharsets.UTF_8))
+
+        Then("the metadata omits a style and the complete manifest selects canonical path-only evidence")
+        (generated \ "componentStyle").toOption shouldBe None
+        manifest shouldBe _development_manifest()
 
         And("unrelated canonical componentStyle source content is preserved")
-        Json.parse(Files.readString(root.resolve(CozyDevelopmentRuntimeManifest.COMPONENT_DESCRIPTOR_IDENTITY), StandardCharsets.UTF_8)) shouldBe
-          Json.parse(Files.readString(root.resolve("src/main/car/component-descriptor.json"), StandardCharsets.UTF_8))
+        developmentdescriptor shouldBe sourcedescriptor
 
       }
     }
@@ -377,47 +539,15 @@ final class CozyCarRuntimeManifestSpec
   }
 
   "CNCF CAR runtime manifest packaging" should {
-    "reject a prebuilt archive whose declared carrier digest differs from its named entry" in {
-      _with_temp_dir { root =>
-        Given("one canonical prebuilt descriptor declaration and matching raw archive entry")
-        val staged = root.resolve("staged")
-        val rawcarrier = _consumer_contract("org.example.textus", "Sample", "0.0.1-SNAPSHOT")
-        _write(staged.resolve("component/main.jar"), "main")
-        _write(staged.resolve("component-knowledge.json"), rawcarrier)
-        _write(
-          staged.resolve("component-descriptor.json"),
-          Json.stringify(Json.obj(
-            "schemaVersion" -> 3,
-            "component" -> Json.obj("namespace" -> "org.example.textus", "id" -> "Sample", "version" -> "0.0.1-SNAPSHOT"),
-            "componentKnowledge" -> _carrier_declaration(rawcarrier.getBytes(StandardCharsets.UTF_8))
-          ))
-        )
-        _write(staged.resolve("abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT", "org.example.textus"))
-        val coordinate = CozyComponentReleaseCoordinateCodec.admit("org.example.textus", "Sample", "0.0.1-SNAPSHOT", "spec")
-        val validarchive = _zip(staged, root.resolve("valid.car"))
-
-        When("canonical admission evaluates matching and then mismatched carrier bytes")
-        noException should be thrownBy CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(validarchive, coordinate)
-        _write(staged.resolve("component-knowledge.json"), rawcarrier + "\n")
-        val mismatchedarchive = _zip(staged, root.resolve("mismatched.car"))
-        val error = intercept[Throwable] {
-          CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(mismatchedarchive, coordinate)
-        }
-
-        Then("the declaration is verified against only component-knowledge.json raw bytes")
-        error.getMessage should include("componentKnowledge.sha256 does not match archive entry component-knowledge.json")
-      }
-    }
-
-    "preserve runtime range and exact archive bytes across generated versions" in {
-      Given("generated CAR coordinates and arbitrary packaged component bytes")
+    "preserve runtime range across generated versions" in {
+      Given("generated CNCF versions and a CAR coordinate with component and ABI files")
       val versions = for {
         patch <- Gen.choose(0, 999)
         suffix <- Gen.oneOf("", "-SNAPSHOT")
         content <- Gen.nonEmptyListOf(Gen.alphaNumChar)
       } yield (s"0.5.${patch}${suffix}", content.mkString)
 
-      When("Cozy writes CNCF-owned runtime admission evidence")
+      When("Cozy projects the CAR coordinate and CNCF runtime range")
       val property = Prop.forAll(versions) { case (cncfversion, content) =>
         _with_temp_dir { root =>
           val component = root.resolve("component/main.jar")
@@ -438,20 +568,12 @@ final class CozyCarRuntimeManifestSpec
               StandardCharsets.UTF_8
             )
           )
-          val entries = (manifest \ "integrity" \ "entries")
-            .as[Vector[play.api.libs.json.JsObject]]
-            .map { entry =>
-              (entry \ "path").as[String] -> (entry \ "sha256").as[String]
-            }
-            .toMap
           (manifest \ "runtime" \ "cncf" \ "minimum").as[String] == cncfversion &&
-          (manifest \ "runtime" \ "cncf" \ "tested").as[Vector[String]] == Vector(cncfversion) &&
-          entries.keySet == Set("abi-manifest.json", "component/main.jar") &&
-          entries("component/main.jar") == _sha256(content.getBytes(StandardCharsets.UTF_8))
+          (manifest \ "runtime" \ "cncf" \ "tested").as[Vector[String]] == Vector(cncfversion)
         }
       }
 
-      Then("at least fifty generated contracts retain their range and digest evidence")
+      Then("at least fifty generated contracts retain their selected runtime minimum and tested version")
       val result = Test.check(
         Test.Parameters.default.withMinSuccessfulTests(50),
         property
@@ -459,7 +581,7 @@ final class CozyCarRuntimeManifestSpec
       result.passed shouldBe true
     }
 
-    "admit package bytes and reject any post-package modification" in {
+    "admit canonical CARs and reject required runtime or packaged provenance contradictions" in {
       _with_temp_dir { root =>
         Given("one package-generated CAR runtime manifest and descriptor")
         val staged = root.resolve("staged")
@@ -484,32 +606,104 @@ final class CozyCarRuntimeManifestSpec
         )
         val validarchive = _zip(staged, root.resolve("valid.car"))
 
-        When("publication admission evaluates the unchanged archive")
+        When("publication admission evaluates the current selected archive with optional provenance")
+
+        Then("the canonical CAR is admitted")
         noException should be thrownBy CozyCarRuntimeManifest.requireValidArchive(
           validarchive,
           contract,
           coordinate,
-          expectedGenerationProvenance = None
+          requireGenerationProvenance = false
         )
 
-        And("component bytes are changed without regenerating the manifest")
-        _write(staged.resolve("component/main.jar"), "tampered")
-        val tamperedarchive = _zip(staged, root.resolve("tampered.car"))
-        val error = intercept[Throwable] {
+        Given("packaged provenance with the selected CNCF target, Cozy generator and safe logical paths")
+        val provenance = GenerationProvenance.Manifest(
+          GenerationProvenance.Inputs(
+            cncfTargetVersion = contract.cncfCompileTarget.version,
+            cozyGeneratorVersion = contract.cozyVersion,
+            simpleModelerBackendVersion = "0.2.0",
+            simpleModelingModelVersion = "0.2.0",
+            sourceIdentity = "src/main/cozy/Sample.cml"
+          ),
+          Vector(GenerationProvenance.Artifact("src/main/scala/PublicApi.scala"))
+        )
+        val provenancepath = staged.resolve("generation-provenance.json")
+        _write(provenancepath, provenance.toJsonString)
+        CozyCarRuntimeManifest.write(
+          staged, contract, coordinate.mavenArtifactId, coordinate.version, "Sample", Some(coordinate)
+        )
+        val provenancearchive = _zip(staged, root.resolve("provenance.car"))
+
+        When("publication admission requires the actual packaged provenance")
+
+        Then("the selected packaged metadata is admitted")
+        noException should be thrownBy CozyCarRuntimeManifest.requireValidArchive(
+          provenancearchive, contract, coordinate, requireGenerationProvenance = true
+        )
+
+        Given("the required packaged provenance entry is missing")
+        Files.delete(provenancepath)
+        CozyCarRuntimeManifest.write(
+          staged, contract, coordinate.mavenArtifactId, coordinate.version, "Sample", Some(coordinate)
+        )
+        val missingarchive = _zip(staged, root.resolve("missing-provenance.car"))
+
+        When("publication admission requires provenance from that CAR")
+        val missing = intercept[Throwable] {
           CozyCarRuntimeManifest.requireValidArchive(
-            tamperedarchive,
-            contract,
-            coordinate,
-            expectedGenerationProvenance = None
+            missingarchive, contract, coordinate, requireGenerationProvenance = true
           )
         }
 
-        Then("publication rejects the digest contradiction")
-        error.getMessage should include(
-          "car-runtime-manifest.json digest mismatch for component/main.jar"
+        Then("the required named packaged entry is diagnosed")
+        missing.getMessage should include("Generated release CAR requires generation-provenance.json")
+
+        Given("packaged provenance declaring a different CNCF target")
+        _write(
+          provenancepath,
+          provenance.copy(inputs = provenance.inputs.copy(cncfTargetVersion = "0.5.18")).toJsonString
         )
+        CozyCarRuntimeManifest.write(
+          staged, contract, coordinate.mavenArtifactId, coordinate.version, "Sample", Some(coordinate)
+        )
+        val wrongtargetarchive = _zip(staged, root.resolve("wrong-target-provenance.car"))
+
+        When("publication admission evaluates the required packaged target")
+        val wrongtarget = intercept[Throwable] {
+          CozyCarRuntimeManifest.requireValidArchive(
+            wrongtargetarchive, contract, coordinate, requireGenerationProvenance = true
+          )
+        }
+
+        Then("the packaged input mismatch is diagnosed")
+        wrongtarget.getMessage should include("GENERATION_PROVENANCE_INPUT_MISMATCH")
       }
     }
+  }
+
+  private def _development_manifest(componentknowledge: Boolean = false): play.api.libs.json.JsValue = {
+    val carrier = if (componentknowledge) """{"path":"target/cncf.d/component-knowledge.json"},""" else ""
+    Json.parse(s"""{
+      |  "schemaVersion": "cncf.car-development-runtime-manifest.v2",
+      |  "sourceKind": "development-directory",
+      |  "car": {"name":"example-sample","version":"0.0.1-SNAPSHOT","component":"Sample"},
+      |  "runtime": {"cncf":{"minimum":"0.5.2-SNAPSHOT","maximum":null,"excluded":[],"tested":["0.5.2-SNAPSHOT"]}},
+      |  "evidence": [
+      |    {"path":"target/cncf.d/runtime-classpath.txt"},
+      |    {"path":"target/cncf.d/component-descriptor.json"},
+      |    $carrier
+      |    {"path":"src/main/car/abi-manifest.json"}
+      |  ]
+      |}""".stripMargin)
+  }
+
+  private def _prepare_development_project(root: Path): Path = {
+    _write(root.resolve("project.json"), _project_json("0.0.1-SNAPSHOT"))
+    _write(root.resolve("src/main/car/component-descriptor.json"), _descriptor("0.0.1-SNAPSHOT"))
+    _write(root.resolve("src/main/car/abi-manifest.json"), _abi_manifest("0.0.1-SNAPSHOT"))
+    val classes = root.resolve("target/scala-3.3.8/classes")
+    _write(classes.resolve("sample.class"), "compiled")
+    _write(root.resolve("target/cncf.d/runtime-classpath.txt"), classes.toString)
   }
 
   private def _project_yaml(version: String): String =
@@ -560,12 +754,11 @@ final class CozyCarRuntimeManifestSpec
     s"""{"schemaVersion":3,"component":{"namespace":"org.example","id":"Sample","version":"$version"}$suffix}"""
   }
 
-  private def _carrier_declaration(bytes: Array[Byte]): play.api.libs.json.JsObject =
+  private def _carrier_declaration: play.api.libs.json.JsObject =
     Json.obj(
       "carrierSchema" -> "cncf.component-knowledge-carrier.v1",
       "consumerContractSchema" -> "cncf.component-knowledge-consumer.v1",
-      "logicalPath" -> "component-knowledge.json",
-      "sha256" -> _sha256(bytes)
+      "logicalPath" -> "component-knowledge.json"
     )
 
   private def _consumer_contract(namespace: String, id: String, version: String): String = {
@@ -644,10 +837,6 @@ final class CozyCarRuntimeManifestSpec
     try body(root)
     finally _delete_tree(root)
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).
-      map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

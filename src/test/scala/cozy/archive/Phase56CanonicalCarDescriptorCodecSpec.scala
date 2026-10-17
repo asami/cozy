@@ -16,7 +16,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  8, 2026
+ *  version Aug.  8, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -488,7 +489,7 @@ final class Phase56CanonicalCarDescriptorCodecSpec extends AnyWordSpec with Matc
 
   private def _provider_car(path: Path, namespace: String, id: String, version: String, apiclass: String): Path = {
     val coordinate = CozyComponentReleaseCoordinateCodec.admit(namespace, id, version, "test")
-    val provided = s"""[{"apiClass":"$apiclass","version":"$version","artifactPath":"${coordinate.apiArtifactPath}","abiHash":"sha256:$apiclass"}]"""
+    val provided = s"""[{"apiClass":"$apiclass","version":"$version","artifactPath":"${coordinate.apiArtifactPath}"}]"""
     _write_zip(path, Map("component-api-descriptor.json" -> _api_descriptor(namespace, id, version, provided, "[]"), coordinate.apiArtifactPath -> "api"))
   }
 

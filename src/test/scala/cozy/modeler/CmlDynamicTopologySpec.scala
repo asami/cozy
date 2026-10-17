@@ -14,7 +14,7 @@ import CmlDynamicTopology._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlDynamicTopologySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -340,7 +340,7 @@ final class CmlDynamicTopologySpec extends AnyWordSpec with Matchers with GivenW
   }
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "src/main/cml/topology.cml", "b" * 64, Some(11))
+    SourceAttribution(authority, "src/main/cml/topology.cml", Some(11))
   }
 
   private def _record(kind: String, elementid: String, authority: String = "dynamic.example"): ElementRecord = {
