@@ -1,28 +1,21 @@
 # Phase 78 Checklist: DataStore Logical Type Generation and Storage Mapping Metadata
 
-status=in-progress
+status=closed
+closed_at=2026-10-18
 phase=[Phase 78](phase-78.md)
 
 Delivery grouping (2026-10-18): P78-PRODUCER integrates P78-01 through P78-04;
-P78-ACCEPTANCE owns P78-05. All five canonical sections and every obligation
-remain. Parent-owned focused validation and independent review have accepted
-P78-PRODUCER, so P78-01 through P78-04 are DONE. P78-05 has accepted downstream
-compilation and restart/readback evidence; its last two items remain OPEN for
-final validation, independent Phase review and closure. Downstream acceptance
-Step criteria are distinct from these final Phase gates. External-format selection is consumed
-from the frozen Core/CNCF decoder contract; unsupported/incompatible declaration
-diagnostics remain inherited generator responsibilities within the supported
-bounds in [the producer specification](../spec/datastore-logical-type-generation.md).
-
-P78-05 uses CNCF `src/test/cozy/phase100-store.cml` and existing
-`Test / sourceGenerators` -> compiled generated source ->
-`Phase100GeneratedStoreSpec`, with the explicit current Cozy development root
-and CNCF's generated current runtime descriptor/version. Cozy helper
-0.5.2-SNAPSHOT source fixtures remain separate. The
-[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
-records actual generated compilation and CNCF DSM-100-06 producer-fixture
-acceptance with Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT, distinguishing the
-regenerated CML fixture from existing generated nested semantic-AST fixtures.
+P78-ACCEPTANCE owns P78-05. All five sections and every declared obligation are
+DONE. Both delivery Steps are accepted and committed. Current generated-source
+compilation, provider reopen and separate-JVM restart/readback are accepted.
+The sole comprehensive Phase review, focused CPB-P78-001 repair closure and
+final Cozy FULL validation are accepted; the final release closes Phase 78.
+External-format selection retains the frozen Core/CNCF decoder contract and
+unsupported/incompatible declaration diagnostics retain inherited generator
+responsibility within the [producer specification](../spec/datastore-logical-type-generation.md).
+The [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+distinguishes current regenerated CML, existing generated nested semantic-AST
+fixtures, provider reopen and the additional process-restart executable resource.
 
 ## P78-01: Producer inventory and contract intake
 
@@ -60,6 +53,6 @@ regenerated CML fixture from existing generated nested semantic-AST fixtures.
 - [x] Compile generated fixtures against the CNCF Phase 100 producer-facing ABI.
 - [x] Hand String, XJson, XSemiStructuredData, class and array fixtures to CNCF DSM-100-03/04.
 - [x] Prove generated metadata selects distinct declared semantics without payload inference.
-- [x] Obtain CNCF DSM-100-06 acceptance for a Cozy-generated restart roundtrip fixture.
-- [ ] Complete Cozy focused/full validation and independent review.
-- [ ] Record closure only after the CNCF acceptance handoff is evidenced.
+- [x] Obtain CNCF DSM-100-06 acceptance for a Cozy-generated restart roundtrip fixture, including terminated writer JVM and independent fresh reader JVM; CPB-P78-001 is resolved.
+- [x] Complete Cozy focused/full validation and independent review.
+- [x] Record closure only after the CNCF acceptance handoff is evidenced.

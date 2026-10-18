@@ -1,4 +1,12 @@
 # docs/phase
+## Phase 78 — 2026-10-18
+
+[Phase 78](phase-78.md) is CLOSED; its [checklist](phase-78-checklist.md) is complete.
+Both delivery Steps, declared structured datatype generation, current CNCF
+generated consumer compilation and separate-JVM restart/readback are accepted.
+The sole comprehensive review with focused repair closure and final Cozy FULL
+validation passed. HYG-P78-001 remains separately recorded; no successor is started.
+
 ## Phase 76 — 2026-10-13
 
 [Phase 76](phase-76.md) is CLOSED with all 24 criteria accepted. All six Step commits

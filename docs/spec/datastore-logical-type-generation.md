@@ -1,13 +1,12 @@
 # DataStore logical type generation
 
-Status (2026-10-18): Phase 78 is in progress. The inherited producer and E7
-executable specifications have current focused validation and independent
-P78-PRODUCER Step acceptance. P78-01 through P78-04 are DONE. P78-ACCEPTANCE
-records actual generated compilation and CNCF DSM-100-06 producer-fixture
-restart/readback acceptance in the
-[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md).
-Independent acceptance Step review is accepted; final Phase validation/review/
-release remain required; historical validation below does not establish those gates.
+Status (2026-10-18): Phase 78 is CLOSED. P78-PRODUCER and P78-ACCEPTANCE are
+accepted and committed; all five canonical sections are DONE. Current generated
+compilation, provider reopen and distinct-JVM restart/readback are accepted in
+the [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md).
+The sole comprehensive Phase review and focused CPB-P78-001 repair closure are
+accepted, final Cozy FULL validation passed, and the final release records
+closure. Historical validation below retains its original scope and status.
 
 ## Declaration route
 
@@ -157,7 +156,7 @@ prove current-runtime compatibility and its version is not changed by this intak
 
 The accepted current route uses Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT.
 Current focused producer validation and actual consumer-generated compilation
-with captured codecs are recorded, together with CNCF DSM-100-06 acceptance
+with captured codecs are recorded, together with accepted CNCF DSM-100-06 provider-reopen evidence
 through its existing executable specification. The regenerated CML fixture
 covers declared String, XJson, XSemiStructuredData, native, class and repeated
 values; existing generated semantic-AST fixtures supply nested collection
@@ -167,15 +166,27 @@ identities. Explicit JSON/YAML/HOCON decoder selection retains its frozen
 Core/CNCF ownership, independently of physical JSON text mapping.
 
 The [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
-records this producer-fixture acceptance, not CNCF Phase 100 or Workbench
-closure. Source-only migration ancestry integration remains outside Phase 78.
-The independent acceptance Step review is accepted. Cozy FULL validation, the
-Phase review and final closure remain pending. R7–R11 presence, patch, managed-field, transaction and
-consumer/recovery obligations retain their CNCF owners. Source inspection and
-deterministic source comparison cannot substitute for compilation or runtime
-acceptance. P78-PRODUCER integrates P78-01–04; P78-ACCEPTANCE owns P78-05.
-Its downstream acceptance Step criteria are distinct from the final Phase
-gates retained in the [canonical checklist](../phase/phase-78-checklist.md).
+distinguishes provider close/reopen within one JVM from the separately accepted
+OS-process restart evidence. The Cozy-owned Scala3 fixture
+`src/test/resources/cozy/modeler/phase78/GeneratedStoreProcessRestartSpec.scala`
+is compiled as an additional CNCF unmanaged Test source against the current
+generated Proposal. A finite writer JVM saves through the public generated
+Create-family EntityStore route, closes its provider and terminates. A fresh
+reader JVM loads the same database/entity identity through the generated
+EntityPersistent/EntityStore route and compares independently authored typed
+expectations. Distinct child/parent PIDs, successful exits and readback markers
+establish the process boundary. Merged output and SQLite files remain under
+CNCF `target/phase78-process-restart`; waits are bounded and cleanup is limited
+to fixture-owned children. No CNCF source, index or build edit is required.
+Actual execution and independent focused closure resolve CPB-P78-001.
+
+This handoff closes Cozy Phase 78 only. CNCF Phase 100, Workbench and source-only
+migration ancestry integration remain separate. R7–R11 presence, patch,
+managed-field, transaction and consumer/recovery obligations retain their CNCF
+owners. Source inspection and deterministic comparison do not substitute for
+actual compilation/runtime acceptance. P78-PRODUCER integrates P78-01–04;
+P78-ACCEPTANCE owns P78-05, including the final Phase gates completed in the
+[canonical checklist](../phase/phase-78-checklist.md).
 
 ## Historical validation and status lineage (October 5–6, 2026)
 

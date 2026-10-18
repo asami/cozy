@@ -1,20 +1,20 @@
 # Phase 78: DataStore Logical Type Generation and Storage Mapping Metadata
 
-status=in-progress
+status=closed
+closed_at=2026-10-18
 planned_at=2026-10-05
 depends_on=goldenport-cncf Phase 100 DSM-100-02
 consumer=goldenport-cncf Phase 100 DSM-100-03, DSM-100-04, DSM-100-06
 checklist=[Phase 78 Checklist](phase-78-checklist.md)
 
 Delivery grouping (2026-10-18): P78-PRODUCER integrates canonical P78-01 through
-P78-04; P78-ACCEPTANCE owns P78-05. All five checklist sections and every
-obligation remain in force. P78-PRODUCER has current focused validation and
-independent Step acceptance; P78-01 through P78-04 are DONE. P78-05 records
-generated compilation and downstream restart/readback acceptance in the
-[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md).
-Its downstream acceptance Step criteria are distinct from final Phase gates:
-P78-05 and the Phase remain in progress pending final Cozy FULL validation,
-independent Phase review and closure.
+P78-04; P78-ACCEPTANCE owns P78-05. All five checklist sections are DONE.
+Both delivery Steps are accepted and committed. The generated consumer handoff,
+including separate-JVM restart/readback, is accepted. The sole comprehensive
+Phase review and its focused CPB-P78-001 repair closure are accepted, final Cozy
+FULL validation passed, and the final release records this Phase closure.
+The [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+retains the provider-reopen/process-restart distinction and external ownership.
 
 ## Goal
 
@@ -99,15 +99,22 @@ development root, `-Dcncf.cozyGeneratorRoot=<Cozy checkout>`, after
 `cozyExportRuntimeClasspath`. Replace `<Cozy checkout>` with the selected absolute
 checkout path at execution. Cozy's existing 0.5.2-SNAPSHOT helper fixtures
 remain separate source-output checks. Actual compilation and recorded CNCF
-DSM-100-06 acceptance are recorded in the
+DSM-100-06 provider-reopen evidence are recorded in the
 [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
 for Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT. The CML fixture was regenerated
 and compiled through that consumer route; existing generated nested
 semantic-AST fixtures provide separate nested collection coverage. CNCF's
 executable specification accepts typed EntityStore memory/SQLite behavior and
-SQLite close/reopen readback. This satisfies the selected producer-fixture
-handoff, without closing CNCF Phase 100 or Workbench work. Final Cozy Phase
-gates remain open in the [checklist](phase-78-checklist.md).
+SQLite close/reopen readback within one JVM. Separate OS-process restart
+readback is accepted through the Cozy-owned Scala3 executable fixture
+`src/test/resources/cozy/modeler/phase78/GeneratedStoreProcessRestartSpec.scala`.
+The consumer compiles it against the same current generated Proposal; a writer
+JVM saves and terminates before a fresh reader JVM reconstructs independently
+expected values from the same SQLite database/entity identity. CPB-P78-001 is
+resolved by actual execution and independent focused closure. Existing nested
+fixture coverage remains separate. The [checklist](phase-78-checklist.md) records
+the completed final Cozy validation, review and release gates. CNCF Phase 100,
+Workbench and source-only migration ancestry integration remain separately owned.
 
 ## Executable specifications
 

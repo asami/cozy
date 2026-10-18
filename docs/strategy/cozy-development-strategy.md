@@ -1,9 +1,19 @@
 # Cozy Development Strategy
 
 Date: 2026-07-28
-Updated: 2026-10-10 (Asia/Tokyo)
+Updated: 2026-10-18 (Asia/Tokyo)
 
 Status: active
+
+## DataStore producer status — 2026-10-18
+
+[Phase 78](../phase/phase-78.md) is CLOSED. Declared String, XJson,
+XSemiStructuredData, class/native and collection identities are preserved through
+the existing generator and accepted CNCF consumer, including separate-JVM
+restart/readback. Both delivery Steps, the sole Phase review with focused repair
+closure and final Cozy FULL validation are complete. CNCF Phase 100, Workbench,
+migration ancestry and separately recorded Hygiene retain their own scope;
+other Phase priorities remain unchanged and no successor is started.
 
 ## Logical UI producer status — 2026-10-13
 
