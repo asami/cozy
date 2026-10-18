@@ -55,7 +55,7 @@ import scala.collection.mutable
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
  *  version Sep. 28, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -447,6 +447,15 @@ class Modeler(
   }
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val validationmetadata = smodel.model match {
+      case source: KaleidoxModel => ValidationMetadataScalaGenerator.fromModel(source) match {
+        case Left(diagnostic) => return SError(ValidationMetadataScalaGenerator.conclusion(diagnostic))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && validationmetadata.nonEmpty)
+      return SError(ValidationMetadataScalaGenerator.libraryConclusion)
     val logicalui = smodel.model match {
       case source: KaleidoxModel => LogicalUiScalaGenerator.fromModel(source) match {
         case Left(diagnostic) => return SError(LogicalUiScalaGenerator.conclusion(diagnostic))
@@ -463,7 +472,8 @@ class Modeler(
     val workflows = _workflow_definitions(smodel.model)
     val failuremodels = _failure_model_definitions(smodel.model)
     val model = _make_model(smodel.model)
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels, logicalUi = logicalui)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels,
+      logicalUi = logicalui, validationMetadata = validationmetadata)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
@@ -472,6 +482,15 @@ class Modeler(
   }
 
   private def _make_scala_value(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val validationmetadata = smodel.model match {
+      case source: KaleidoxModel => ValidationMetadataScalaGenerator.fromModel(source) match {
+        case Left(diagnostic) => return SError(ValidationMetadataScalaGenerator.conclusion(diagnostic))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && validationmetadata.nonEmpty)
+      return SError(ValidationMetadataScalaGenerator.libraryConclusion)
     val logicalui = smodel.model match {
       case source: KaleidoxModel => LogicalUiScalaGenerator.fromModel(source) match {
         case Left(diagnostic) => return SError(LogicalUiScalaGenerator.conclusion(diagnostic))
@@ -494,7 +513,8 @@ class Modeler(
     if (generationTarget == ModelGenerationTarget.Library)
       ModelGenerationTarget.requireLibraryModel(builder, compositestatemachines, workflows, failuremodels)
     val model = builder.buildValue()
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels, logicalUi = logicalui)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels,
+      logicalUi = logicalui, validationMetadata = validationmetadata)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)

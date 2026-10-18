@@ -36,7 +36,7 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 19, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) {
@@ -320,7 +320,7 @@ private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) 
 
     private def _attribute(p: Column): MAttribute = {
       val designation = Designation.nameLabel(p.name, p.i18nLabel)
-      val atype = MDataType(p.datatype)
+      val atype = _structured_attribute_type(p.datatype).getOrElse(MDataType(p.datatype))
       val multiplicity = MMultiplicity(p.multiplicity)
       val constraints: List[MConstraint] = p.constraints.map(RConstraint)
       val readonly = false
@@ -336,7 +336,12 @@ private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) 
         flatMap(PredefinedScalarCatalog.get).
         flatMap(_.runtimeclassname).
         map(x => MObjectAttributeType(MObjectRef.create(x)))
-      predefined.getOrElse(if (p.domain.datatype == org.goldenport.record.v2.XString) {
+      val structured: Option[MAttributeType] = p.rawTypeName.
+        flatMap(MBuiltinStructuredDataType.get).
+        orElse(_structured_attribute_type(p.domain.datatype).map { builtin =>
+          p.rawTypeName.flatMap(raw => _resolve_object_attribute_type(pkg, raw)).getOrElse(builtin)
+        })
+      predefined.orElse(structured).getOrElse(if (p.domain.datatype == org.goldenport.record.v2.XString) {
         p.rawTypeName match {
           case Some(raw) =>
             _builtin_attribute_type(pkg, raw).
@@ -348,6 +353,11 @@ private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) 
       } else
         MDataType(p.domain.datatype))
     }
+
+    private def _structured_attribute_type(
+      p: org.goldenport.record.v2.DataType
+    ): Option[MAttributeType] =
+      MBuiltinStructuredDataType.get(p.name)
 
     private def _attribute_type_constraints(
       p: SchemaModel.Attribute
@@ -401,9 +411,8 @@ private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) 
             datatype != org.goldenport.record.v2.XString || normalized == "string"
           }
       }
-      datatype.map(MDataType(_)).orElse {
+      MBuiltinStructuredDataType.get(p).orElse(datatype.map(MDataType(_))).orElse {
         normalized match {
-          case "record" => Some(MObjectAttributeType(MObjectRef.record))
           case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
           case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
           case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))

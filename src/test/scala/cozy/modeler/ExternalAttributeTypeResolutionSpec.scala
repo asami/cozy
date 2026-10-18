@@ -10,11 +10,161 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr.  9, 2026
  *  version May. 21, 2026
  *  version Jun. 23, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
   "External attribute type resolution" should {
+    "project structured builtin spellings through ordinary Scala generation" which {
+      Vector(
+        ("json", "Json", "io.circe.Json"),
+        ("XJson", "Json", "io.circe.Json"),
+        ("semiStructuredData", "Record", "org.goldenport.record.Record"),
+        ("XSemiStructuredData", "Record", "org.goldenport.record.Record"),
+        ("semi-structured-data", "Record", "org.goldenport.record.Record"),
+        ("record", "Record", "org.goldenport.record.Record")
+      ).foreach { case (spelling, runtime, qualified) =>
+        s"retain $runtime for required, optional, repeated and nonempty $spelling fields" in {
+          Given(s"an entity and a value using $spelling at every supported multiplicity")
+          val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve(s"target/test-generated/modeler-scala-structured-$spelling")
+          delete_recursively(out)
+          val input = out.resolve("structured.cml")
+          val attributes = s"""### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| payload | $spelling | 1 |
+| optional_payload | $spelling | ? |
+| payloads | $spelling | * |
+| required_payloads | $spelling | + |
+"""
+          write_file(input, s"""# COMPONENT
+
+## StructuredBuiltinSpec
+
+### PACKAGE
+
+org.sample.structured
+
+# ENTITY
+
+## StructuredHolder
+
+$attributes
+# VALUE
+
+## StructuredEnvelope
+
+$attributes
+""")
+
+          When("Cozy generates the Scala entity and value through modeler-scala")
+          run_modeler_scala(input, out)
+
+          Then(s"both generated models import $qualified and preserve each collection contract")
+          Vector("entity/StructuredHolder.scala", "value/StructuredEnvelope.scala").foreach { relative =>
+            val generated = out.resolve(s"target/scala-3.3.8/src_managed/main/scala/org/sample/structured/$relative")
+            withClue(s"generated file not found: $generated") {
+              Files.exists(generated) shouldBe true
+            }
+            val content = Files.readString(generated)
+            withClue(content) {
+              content should include (s"import $qualified")
+              content should include (s"payload: $runtime")
+              content should include (s"optional_payload: Option[$runtime]")
+              content should include (s"payloads: Vector[$runtime]")
+              content should include (s"required_payloads: NonEmptyVector[$runtime]")
+              content should not include ("model.value.XJson")
+              content should not include ("model.value.XSemiStructuredData")
+              content should not include ("payload: XJson")
+              content should not include ("payload: XSemiStructuredData")
+              content should not include ("org.goldenport.datatype.Record")
+            }
+          }
+        }
+      }
+    }
+
+    "preserve nominal types and scalar priority beside structured builtin fields" in {
+      Given("a JSON-bearing declared value, a nominal datatype and semantic and ordinary scalar controls")
+      val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-structured-nominal-controls")
+      delete_recursively(out)
+      val input = out.resolve("nominal-controls.cml")
+      write_file(input, """# COMPONENT
+
+## StructuredNominalSpec
+
+### PACKAGE
+
+org.sample.structurednominal
+
+# ENTITY
+
+## NominalHolder
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| document | AuthoredDocument | 1 |
+| optional_document | AuthoredDocument | ? |
+| documents | AuthoredDocument | * |
+| required_documents | AuthoredDocument | + |
+| reference | ReferenceToken | 1 |
+| email | email | 1 |
+| text_value | string | 1 |
+| count | int | 1 |
+| amount | decimal | 1 |
+
+# VALUE
+
+## AuthoredDocument
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| payload | json | 1 |
+
+# DATATYPE
+
+## ReferenceToken
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| value | string | 1 |
+""")
+
+      When("Cozy generates Scala through the ordinary CML modeler command")
+      run_modeler_scala(input, out)
+
+      Then("the consuming entity retains declared names, semantic scalars and ordinary runtime scalars")
+      val generatedroot = out.resolve("target/scala-3.3.8/src_managed/main/scala/org/sample/structurednominal")
+      val content = Files.readString(generatedroot.resolve("entity/NominalHolder.scala"))
+      withClue(content) {
+        content should include ("document: AuthoredDocument")
+        content should include ("optional_document: Option[AuthoredDocument]")
+        content should include ("documents: Vector[AuthoredDocument]")
+        content should include ("required_documents: NonEmptyVector[AuthoredDocument]")
+        content should include ("reference: ReferenceToken")
+        content should include ("email: EmailAddress")
+        content should include ("text_value: String")
+        content should include ("count: Int")
+        content should include ("amount: BigDecimal")
+        content should not include ("model.value.XJson")
+        content should not include ("model.value.XSemiStructuredData")
+      }
+      And("the declared value contains the canonical JSON runtime without losing its own identity")
+      val document = Files.readString(generatedroot.resolve("value/AuthoredDocument.scala"))
+      document should include ("import io.circe.Json")
+      document should include ("payload: Json")
+      document should not include ("model.value.XJson")
+      Files.exists(generatedroot.resolve("datatype/ReferenceToken.scala")) shouldBe true
+    }
+
     "keep delegate value composition for textus UserProfile values" in {
       Given("a UserProfile entity with optional delegate values")
       val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/modeler-scala-user-account-address")
@@ -195,8 +345,9 @@ org.sample.recordbuiltin
         content should include ("required_records: NonEmptyVector[Record]")
         content should include ("records: Vector[Record]")
         content should include ("required_records: Option[NonEmptyVector[Record]]")
-        content should include ("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
-        content should include ("case Some(xs) => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, NonEmptyVector.fromVector(xs))")
+        content should include ("ModelValueEncoder.encodeC(v).TAKE")
+        content should include ("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_RECORDS)")
+        content should include ("case Some(value) => Consequence.success(value)")
         content should include ("case None => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, required_records)")
         content should not include ("NonEmptyVector.fromVector(xs).map(Some(_))")
         content should not include ("org.goldenport.datatype.Record")
