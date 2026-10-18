@@ -1,4 +1,13 @@
 # docs/phase
+
+## POWERTYPE persistence-code follow-up — 2026-10-19
+
+[Implementation plan](powertype-persistence-code-plan.md): Workbench Phase 1
+STEP-2 driven Core/Cozy/SimpleModeler dependency work for explicit fixed numeric
+codes. Connected implementation accepted under the Workbench STEP-2 local
+acceptance binding. Closed Phase
+78 and CNCF Phase 100/115 remain closed.
+
 ## Phase 78 — 2026-10-18
 
 [Phase 78](phase-78.md) is CLOSED; its [checklist](phase-78-checklist.md) is complete.

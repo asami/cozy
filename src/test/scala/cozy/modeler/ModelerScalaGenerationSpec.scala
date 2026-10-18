@@ -18,7 +18,8 @@ import play.api.libs.json.Json
  * @since   Jun. 23, 2026
  *  version Aug. 14, 2026
  *  version Sep. 19, 2026
- * @version Oct. 14, 2026
+ *  version Oct. 14, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -458,11 +459,11 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
           |
           |package = domain.value
           |
-          || name            | label           |
-          ||-----------------+-----------------|
-          || official_driver | Official Driver |
-          || museum_or_jp    | Museum.or.jp    |
-          || ai_web_tools    | AI Web Tools    |
+          || name            | value | label           |
+          ||-----------------+-------+-----------------|
+          || official_driver | 1     | Official Driver |
+          || museum_or_jp    | 2     | Museum.or.jp    |
+          || ai_web_tools    | 3     | AI Web Tools    |
           |""".stripMargin)
 
         When("Cozy generates Scala source from the model")
@@ -477,6 +478,11 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
       }
         val content = Files.readString(generated)
         content should include ("object UpdateFacilityRecordOperation extends OperationDefinition")
+        val powertypecontent = tree_snapshot(out).filter(_._1.endsWith("/FetchMethod.scala")).map(_._2).mkString("\n")
+        powertypecontent should include("Vector(1 -> official_driver, 2 -> museum_or_jp, 3 -> ai_web_tools)")
+        powertypecontent should include("numericCodeCodec")
+        val entitycontent = tree_snapshot(out).filter(_._1.endsWith("/Facility.scala")).map(_._2).mkString("\n")
+        entitycontent should include("FetchMethod.numericCodeCodec")
         content should include ("content = org.goldenport.value.BaseContent.simple(\"id\")")
         content should include ("multiplicity = org.goldenport.schema.Multiplicity.One")
         content should include ("content = org.goldenport.value.BaseContent.simple(\"name\")")

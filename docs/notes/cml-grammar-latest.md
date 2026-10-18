@@ -410,6 +410,10 @@ Interpretation:
 
 ## 4A. POWERTYPE
 
+For persistence, follow the adopted
+[fixed-code contract](../spec/cml-powertype-persistence-code.md). Its implementation
+is tracked in the [Workbench-driven plan](../phase/powertype-persistence-code-plan.md).
+
 `POWERTYPE` defines controlled vocabularies.  Use a powertype when a field is a
 state, category, selector, lifecycle value, or other finite vocabulary.  Do not
 model such fields as unconstrained `string` unless the vocabulary is genuinely
@@ -424,24 +428,32 @@ Recommended form:
 
 package = org.goldenport.textus.knowledge.editor.value
 
-| name | label |
-| --- | --- |
-| imported | Imported |
-| invalid | Invalid |
-| needs_resolution | Needs resolution |
-| ready_for_confirmation | Ready for confirmation |
-| confirmed | Confirmed |
-| published | Published |
-| rejected | Rejected |
-| conflict | Conflict |
+| name | value | label |
+| --- | --- | --- |
+| imported | 1 | Imported |
+| invalid | 2 | Invalid |
+| needs_resolution | 3 | Needs resolution |
+| ready_for_confirmation | 4 | Ready for confirmation |
+| confirmed | 5 | Confirmed |
+| published | 6 | Published |
+| rejected | 7 | Rejected |
+| conflict | 8 | Conflict |
 ```
 
 Columns:
 
 - `name`: required stable symbolic value.
 - `label`: optional display label.
-- `value`: optional numeric value. If omitted, generation assigns deterministic
-  declaration-order values.
+- `value`: explicit fixed integer code, required for every kind when the type
+  is used in persistence or declared as a numeric persistence type. Persistent
+  codes must fit signed16 `XShort` (`-32768..32767`); declaration parsing and
+  transient correspondence retain the existing Int range. It may be
+  omitted for a transient/display-only vocabulary. Omission MUST NOT cause
+  declaration-order/ordinal assignment or text-storage fallback. Validate
+  missing required, duplicate and invalid codes before successful generation.
+
+The example codes are explicit illustrative assignments, not a migration of
+already stored BookRecordState values. Existing assignments must be preserved.
 
 Section-per-kind form remains a tree-structure representation, but table form
 is canonical for finite vocabulary elements because it is easier to review,
@@ -450,6 +462,7 @@ diff, and edit with AI assistance.
 ```text
 ### imported
 
+value = 1
 label = Imported
 ```
 

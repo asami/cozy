@@ -10,6 +10,16 @@ closure. Historical validation below retains its original scope and status.
 
 ## Declaration route
 
+The subsequent [POWERTYPE fixed-code contract](cml-powertype-persistence-code.md)
+requires explicit complete numeric mappings for persistent POWERTYPE uses.
+Their database datatype is `XShort`, as for ordinary Short attributes: fixed
+signed16 codes use the shared Short persistence bridge and retain width to
+PostgreSQL/MySQL `SMALLINT` selection. SQLite stores `INTEGER` and shares the
+range admission. The Int-valued model correspondence API is independent of
+this declared physical mapping; arbitrary-precision contracts remain unchanged.
+Its [implementation plan](../phase/powertype-persistence-code-plan.md) has separate
+pending acceptance; the historical Phase 78 results above do not establish it.
+
 The existing CML -> ModelTypeProjector -> SimpleModeler semantic model -> Scala
 entity family route carries distinct declared structured identities. The
 consumer authority is CNCF Phase 100 DSM-100-02
