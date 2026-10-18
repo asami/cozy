@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 29, 2026
  *  version Sep. 30, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -50,7 +50,7 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
     }
 
     "generic generated metadata" which {
-      "accept at least fifty reset trials through build and verify for both PDF contracts" in {
+      "accept at least fifty reset trials through build and verify for both PDF contracts" taggedAs org.scalatest.tagobjects.Slow in {
         Given("generated ordinary and historical metadata names and arbitrary JSON kinds")
         val metadata = for {
           token <- Gen.listOfN(8, Gen.alphaChar).map(_.mkString)

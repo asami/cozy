@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -135,7 +135,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
     }
 
     "generated evidence metadata" which {
-      "accept arbitrary nested JSON through fifty independent public CrossReview builds and verifications" in {
+      "accept arbitrary nested JSON through fifty independent public CrossReview builds and verifications" taggedAs org.scalatest.tagobjects.Slow in {
         Given("arbitrary metadata names, scalar and nested values, and insertion positions outside the known evidence grammar")
         val metadata = for {
           token <- Gen.listOfN(8, Gen.alphaChar).map(_.mkString)

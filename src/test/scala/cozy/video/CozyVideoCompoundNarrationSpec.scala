@@ -13,7 +13,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoCompoundNarrationSpec
@@ -111,7 +111,7 @@ final class CozyVideoCompoundNarrationSpec
         withClue(s"compound-narration property result: $result") { result.passed shouldBe true }
       }
 
-      "forward the actual full private driver to VOICEVOX and regenerate after a pronunciation-only edit" in {
+      "forward the actual full private driver to VOICEVOX and regenerate after a pronunciation-only edit" taggedAs org.scalatest.tagobjects.Slow in {
         Given("explicit opt-in and the parent-selected safe repository-relative full Model Harness driver")
         if (!java.lang.Boolean.getBoolean("cozy.video.narration.integration"))
           cancel("Set -Dcozy.video.narration.integration=true and -Dcozy.video.narration.driver=<repo-relative script.json> for actual VOICEVOX evidence.")

@@ -12,9 +12,11 @@ import CmlSemanticPublication.{Publication, PublicationDiagnostic, InvalidSuppli
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  */
 final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlSemanticPublicationCompatibilitySpec._
+
   "Semantic publication compatibility" should {
     "unchanged complete publication and legacy separation" which {
       "PC-01 preserve both full wires and independently admitted suppliers through read build and canonical reconsumption" in {
@@ -293,7 +295,7 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
       }
     }
     "active canonical and adversarial reconstruction" which {
-      "PC-06 execute both full opaque-extended modes and all six version adversaries in every seed 42 sample" in {
+      "PC-06 execute both full opaque-extended modes and all six version adversaries in every seed 42 sample" taggedAs org.scalatest.tagobjects.Slow in {
         Given("both full filenames literal future peer seed 42 no-discard salts and six required observed coverage tags")
         val filenames = Vector("causal-metadata-v1-declared.json", "causal-metadata-v1-absence.json")
         val opaque = _opaque_literal
@@ -365,16 +367,6 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
     "cozy.cml.use-case", "cozy.cml.terminology", "cozy.cml.causal")
   private val _labels = Vector("Structure", "Classification", "Dynamic", "Use Case", "Terminology", "Causal")
   private def _missing: Vector[Absent] = _labels.map(label => Absent(NotDeclared, "No admitted " + label + " metadata is supplied."))
-
-  private final case class Oracle(
-    envelope: CmlSemanticMetadata.Envelope,
-    structure: Presence[CmlStructureMetadata.Graph],
-    classification: Presence[CmlClassificationMetadata.Graph],
-    dynamic: Presence[CmlDynamicMetadata.Graph],
-    usecase: Presence[CmlUseCaseMetadata.Graph],
-    terminology: Presence[CmlTerminologyMetadata.Graph],
-    causal: Presence[CmlCausalMetadata.Graph]
-  )
 
   private def _oracle(raw: JsObject): Oracle = {
     val envelope = _right(CmlSemanticMetadata.read(raw))
@@ -559,4 +551,16 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
     val source = Source.fromInputStream(getClass.getResourceAsStream("/cozy/modeler/" + name), "UTF-8")
     try Json.parse(source.mkString).as[JsObject] finally source.close()
   }
+}
+
+private object CmlSemanticPublicationCompatibilitySpec {
+  private final case class Oracle(
+    envelope: CmlSemanticMetadata.Envelope,
+    structure: Presence[CmlStructureMetadata.Graph],
+    classification: Presence[CmlClassificationMetadata.Graph],
+    dynamic: Presence[CmlDynamicMetadata.Graph],
+    usecase: Presence[CmlUseCaseMetadata.Graph],
+    terminology: Presence[CmlTerminologyMetadata.Graph],
+    causal: Presence[CmlCausalMetadata.Graph]
+  )
 }

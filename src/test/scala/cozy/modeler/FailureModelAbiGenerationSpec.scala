@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct. 17, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -155,7 +155,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
     }
 
-    "bind historical expected metadata to one hundred independent locations while preserving every other byte" in {
+    "bind historical expected metadata to one hundred independent locations while preserving every other byte" taggedAs org.scalatest.tagobjects.Slow in {
       Given("four historical raw groups and independently chosen input locations containing spaces and Unicode")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]

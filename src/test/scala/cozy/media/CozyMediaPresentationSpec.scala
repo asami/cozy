@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 25, 2026
  *  version Sep. 30, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -111,7 +111,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         }
       }
 
-      "accept arbitrary nested stored metadata through both public presentation routes" in {
+      "accept arbitrary nested stored metadata through both public presentation routes" taggedAs org.scalatest.tagobjects.Slow in {
         Given("independent Slide IR and Visual Page fixtures and generated JSON metadata with no semantic authority")
         val metadata = for {
           token <- Gen.listOfN(8, Gen.alphaChar).map(_.mkString)

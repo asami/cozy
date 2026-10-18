@@ -16,7 +16,7 @@ import CmlCapabilityProductionRequest._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -272,7 +272,7 @@ final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matcher
           Files.exists(root.resolve("output/" + prepared.batch.artifacts(1).path)) shouldBe false
         }
       }
-      "C64B08 preserve selected images and explicit index order under active package permutations" in {
+      "C64B08 preserve selected images and explicit index order under active package permutations" taggedAs org.scalatest.tagobjects.Slow in {
         _with_root { root =>
           Given("two actual sources sharing one explicitly selected full Component/package domain and a separate bundle")
           _copy_sources(root)

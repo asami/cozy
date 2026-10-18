@@ -11,15 +11,10 @@ lazy val simpleModelerSourceDirectory =
 lazy val simpleModelerSourceProject =
   simpleModelerSourceDirectory.map(source => RootProject(source.toURI))
 
-lazy val cozySimpleModelerDevelopmentDirectory =
-  settingKey[Option[File]]("Explicit canonical SimpleModeler development source directory")
-
 lazy val validateCozySimpleModelerDevelopment =
   settingKey[Unit]("Validate loaded SimpleModeler development coordinates against Cozy")
 
-cozySimpleModelerDevelopmentDirectory := simpleModelerSourceDirectory
-
-validateCozySimpleModelerDevelopment := ()
+validateCozySimpleModelerDevelopment := { () }
 
 lazy val simpleModelerSourceSettings: Seq[Def.Setting[_]] =
   simpleModelerSourceProject.toSeq.flatMap { source =>
@@ -74,6 +69,10 @@ lazy val cncfCollaboratorApiVersion = "0.2.0"
 scalaVersion := "2.12.18"
 // Tests temporarily change JVM-global Locale and must not overlap.
 Test / parallelExecution := false
+// FULL retains basic integration routes; repeated generation and native media
+// toolchains are opt-in HEAVY, using the same ScalaTest tag as CNCF.
+Test / test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-l", "org.scalatest.tags.Slow")
+Test / testOnly / testOptions := Seq.empty
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
 
 scalacOptions += "-deprecation"
@@ -125,8 +124,11 @@ libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.20-SNAPSHOT"
 val simplemodelerVersion =
   sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
 
-libraryDependencies ++= (if (simpleModelerSourceProject.isDefined) Seq.empty
-  else Seq("org.simplemodeling" %% "simplemodeler" % simplemodelerVersion))
+libraryDependencies ++= {
+  validateCozySimpleModelerDevelopment.value
+  if (simpleModelerSourceProject.isDefined) Seq.empty
+  else Seq("org.simplemodeling" %% "simplemodeler" % simplemodelerVersion)
+}
 
 excludeDependencies ++= (if (simpleModelerSourceProject.isDefined)
   Seq(ExclusionRule("org.simplemodeling", "simplemodeler_2.12"))

@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  2, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 18, 2026
  */
 final class CozyVideoDialogueContinuitySpec
     extends AnyWordSpec
@@ -89,7 +89,7 @@ final class CozyVideoDialogueContinuitySpec
         result.passed shouldBe true
       }
 
-      "keep settled diagram and item-slide regions continuous in the actual Remotion output" in {
+      "keep settled diagram and item-slide regions continuous in the actual Remotion output" taggedAs org.scalatest.tagobjects.Slow in {
         Given("the explicitly enabled Docker Remotion regression with four short scenes and declared SVG assets")
         if (!sys.props.get("cozy.video.remotion.integration").contains("true"))
           cancel("Set -Dcozy.video.remotion.integration=true to execute the native continuity regression.")

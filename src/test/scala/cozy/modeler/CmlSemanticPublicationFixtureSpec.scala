@@ -13,9 +13,11 @@ import CmlCausalTraversal.{TraversalLink, Cause, Reaction, AffectedSubject, Rule
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  */
 final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlSemanticPublicationFixtureSpec._
+
   "A JSON-only semantic publication consumer" should {
     "execute the complete fixed question matrix" which {
       "SF-01 answer all seventeen ordered declared and absence questions" in {
@@ -24,7 +26,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val orders = Vector(Vector("Q01", "Q02", "Q03", "Q04", "Q05", "Q06", "Q07", "Q08"),
           Vector("Q01", "Q02", "Q05", "Q06", "Q08", "A01", "A02", "A03", "A04"))
         When("actual UTF-8 question and publication resources are parsed, independent suppliers are admitted, and consumer APIs are built")
-        val session = _session()
+        val session = _baseline_session
         When("each literal question executes its finite complete semantic answer path in authored order")
         val answers = modes.flatMap(mode => session.questions(mode).map(question =>
           (mode, question, _answer(session, mode, question))))
@@ -45,7 +47,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val questionid = "Q01"
         val modes = Vector("declared", "absence")
         When("both actual complete publications and question fixtures independently admit suppliers before navigation is built")
-        val session = _session()
+        val session = _baseline_session
         When("element, term, links, linksForTerm and resolve execute the complete Q01 requests")
         val answers = modes.map(mode => (mode, _question(session, mode, questionid),
           _answer(session, mode, _question(session, mode, questionid))))
@@ -57,7 +59,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val questionid = "Q02"
         val modes = Vector("declared", "absence")
         When("both actual complete roots independently admit suppliers and build Use Case navigation")
-        val session = _session()
+        val session = _baseline_session
         When("useCase, actor, resolve and element follow the authored roles through dynamic.example/operation:complete")
         val answers = modes.map(mode => (mode, _question(session, mode, questionid),
           _answer(session, mode, _question(session, mode, questionid))))
@@ -69,7 +71,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val mode = "declared"
         val questionid = "Q03"
         When("the actual publication and literal questions are parsed and independent suppliers and Causal traversal are built")
-        val session = _session()
+        val session = _baseline_session
         When("consequences, affecting, node and resolve retain the placement carrier and continue through full Structure projections")
         val question = _question(session, mode, questionid)
         val answer = _answer(session, mode, question)
@@ -81,7 +83,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val mode = "declared"
         val questionid = "Q04"
         When("the actual complete publication independently admits supplier records before Causal traversal is built")
-        val session = _session()
+        val session = _baseline_session
         When("finite consequences, causes, outgoing, node and resolve requests execute the complete Reaction and rule-context path")
         val question = _question(session, mode, questionid)
         val answer = _answer(session, mode, question)
@@ -93,7 +95,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val modes = Vector("declared", "absence")
         val questionid = "Q05"
         When("actual UTF-8 roots independently admit Dynamic and Structure before topology construction")
-        val session = _session()
+        val session = _baseline_session
         When("workflow, stateMachine, state, transition and node continue through the Local owner and ordered affected Structure")
         val answers = modes.map(mode => (mode, _question(session, mode, questionid),
           _answer(session, mode, _question(session, mode, questionid))))
@@ -105,7 +107,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val modes = Vector("declared", "absence")
         val questionid = "Q06"
         When("actual roots and fixtures independently admit Classification before topology construction")
-        val session = _session()
+        val session = _baseline_session
         When("dimensions, dimension and node observe status, category and status-secondary in declaration order")
         val answers = modes.map(mode => (mode, _question(session, mode, questionid),
           _answer(session, mode, _question(session, mode, questionid))))
@@ -117,7 +119,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val mode = "declared"
         val questionid = "Q07"
         When("actual roots independently admit full core references and construct Causal traversal")
-        val session = _session()
+        val session = _baseline_session
         When("outgoing, node, resolve, modelReferences and causes execute the finite generic-reference requests")
         val question = _question(session, mode, questionid)
         val answer = _answer(session, mode, question)
@@ -131,7 +133,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         val requested = Vector("declared" -> "Q08", "absence" -> "Q08", "absence" -> "A01",
           "absence" -> "A02", "absence" -> "A03", "absence" -> "A04")
         When("both actual roots independently admit complete suppliers and construct the unchanged consumer APIs")
-        val session = _session()
+        val session = _baseline_session
         When("each finite gap question executes node consequences and retained cross-view requests with full ordered anonymous payloads")
         val answers = requested.map { case (mode, id) =>
           val question = _question(session, mode, id)
@@ -144,7 +146,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
         Given("causal-metadata-v1-declared.json and causal-metadata-v1-absence.json with 75 core occurrences seven Terms and five opaque peers")
         val modes = Vector("declared", "absence")
         When("actual UTF-8 resources are parsed and all unchanged suppliers independently admit full expected objects")
-        val session = _session()
+        val session = _baseline_session
         When("the publication facade renders every full input and typed peer and envelope observations are captured")
         val checks = modes.map(mode => _publication_checks(session.contexts(mode)))
         val outputs = modes.map(mode => CmlSemanticPublication.toJson(session.contexts(mode).publication))
@@ -160,7 +162,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
       }
     }
     "consume invariant answers under object reconstruction and execution permutation" which {
-      "SF-11 report actual seed 42 results and coverage for every mandatory mode and question occurrence" in {
+      "SF-11 report actual seed 42 results and coverage for every mandatory mode and question occurrence" taggedAs org.scalatest.tagobjects.Slow in {
         Given("both literal question filenames seed 42 a no-discard generator and the seventeen mandatory occurrence tags")
         val generator = Gen.choose(1, Int.MaxValue)
         val occurrencekeys = Vector("declared/Q01", "declared/Q02", "declared/Q03", "declared/Q04",
@@ -168,7 +170,7 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
           "absence/Q05", "absence/Q06", "absence/Q08", "absence/A01", "absence/A02", "absence/A03", "absence/A04")
         val tags = occurrencekeys ++ Vector("declared", "absence", "recursive-object-reconstruction", "question-execution-permutation")
         When("actual complete inputs and literal question oracles are read independently before any property consumer actions")
-        val baseline = _session()
+        val baseline = _baseline_session
         val counts = scala.collection.mutable.Map(tags.map(_ -> 0): _*)
         val executionorders = scala.collection.mutable.Set.empty[Vector[String]]
         When("ScalaCheck recursively reconstructs every object and separately permutes finite question execution for both inputs in each sample")
@@ -216,34 +218,9 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
     }
   }
 
-  private final case class Oracle(
-    envelope: CmlSemanticMetadata.Envelope,
-    structure: CmlStructureMetadata.Graph,
-    classification: CmlClassificationMetadata.Graph,
-    dynamic: CmlDynamicMetadata.Graph,
-    usecase: CmlUseCaseMetadata.Graph,
-    terminology: CmlTerminologyMetadata.Graph,
-    causal: CmlCausalMetadata.Graph
-  )
-  private final case class Context(
-    raw: JsObject,
-    oracle: Oracle,
-    publication: CmlSemanticPublication.Publication,
-    terminology: CmlTerminologyNavigation.Navigation,
-    usecase: CmlUseCaseNavigation.Navigation,
-    dynamic: CmlDynamicTopology.Topology,
-    classification: CmlClassificationTopology.Topology,
-    causal: CmlCausalTraversal.Traversal
-  )
-  private final case class Session(contexts: Map[String, Context], fixtures: Map[String, JsObject]) {
-    def questions(mode: String): Vector[JsObject] = (fixtures(mode) \ "questions").as[Vector[JsObject]]
-  }
-  private final case class SemanticCheck(label: String, equal: Boolean)
-  private final case class Answer(sourcefacts: JsObject, assertions: JsObject, checks: Vector[SemanticCheck]) {
-    def expected: JsObject = Json.obj("sourceFacts" -> sourcefacts, "answerAssertions" -> assertions)
-  }
-
-  private def _session(): Session = {
+  // Only the immutable classpath baseline is shared. The property still builds
+  // fresh contexts from each reconstructed input before executing its questions.
+  private lazy val _baseline_session: Session = {
     val modes = Vector("declared", "absence")
     val fixtures = modes.map(mode => mode -> _resource("semantic-publication-v1-" + mode + "-questions.json")).toMap
     val contexts = modes.map(mode => mode -> _context(_resource("causal-metadata-v1-" + mode + ".json"))).toMap
@@ -1015,5 +992,34 @@ final class CmlSemanticPublicationFixtureSpec extends AnyWordSpec with Matchers 
   private def _resource(name: String): JsObject = {
     val source = Source.fromInputStream(getClass.getResourceAsStream("/cozy/modeler/" + name), "UTF-8")
     try Json.parse(source.mkString).as[JsObject] finally source.close()
+  }
+}
+
+private object CmlSemanticPublicationFixtureSpec {
+  private final case class Oracle(
+    envelope: CmlSemanticMetadata.Envelope,
+    structure: CmlStructureMetadata.Graph,
+    classification: CmlClassificationMetadata.Graph,
+    dynamic: CmlDynamicMetadata.Graph,
+    usecase: CmlUseCaseMetadata.Graph,
+    terminology: CmlTerminologyMetadata.Graph,
+    causal: CmlCausalMetadata.Graph
+  )
+  private final case class Context(
+    raw: JsObject,
+    oracle: Oracle,
+    publication: CmlSemanticPublication.Publication,
+    terminology: CmlTerminologyNavigation.Navigation,
+    usecase: CmlUseCaseNavigation.Navigation,
+    dynamic: CmlDynamicTopology.Topology,
+    classification: CmlClassificationTopology.Topology,
+    causal: CmlCausalTraversal.Traversal
+  )
+  private final case class Session(contexts: Map[String, Context], fixtures: Map[String, JsObject]) {
+    def questions(mode: String): Vector[JsObject] = (fixtures(mode) \ "questions").as[Vector[JsObject]]
+  }
+  private final case class SemanticCheck(label: String, equal: Boolean)
+  private final case class Answer(sourcefacts: JsObject, assertions: JsObject, checks: Vector[SemanticCheck]) {
+    def expected: JsObject = Json.obj("sourceFacts" -> sourcefacts, "answerAssertions" -> assertions)
   }
 }
