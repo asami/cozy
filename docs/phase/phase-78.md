@@ -1,10 +1,16 @@
 # Phase 78: DataStore Logical Type Generation and Storage Mapping Metadata
 
-status=planned
+status=in-progress
 planned_at=2026-10-05
 depends_on=goldenport-cncf Phase 100 DSM-100-02
 consumer=goldenport-cncf Phase 100 DSM-100-03, DSM-100-04, DSM-100-06
 checklist=[Phase 78 Checklist](phase-78-checklist.md)
+
+Delivery grouping (2026-10-18): P78-PRODUCER integrates canonical P78-01 through
+P78-04; P78-ACCEPTANCE owns P78-05. All five checklist sections and every
+obligation remain in force. P78-PRODUCER has current focused validation and
+independent Step acceptance; P78-01 through P78-04 are DONE. P78-05 and the
+Phase remain in progress pending their own acceptance and release gates.
 
 ## Goal
 
@@ -58,7 +64,13 @@ Phase 78 does not independently define CNCF runtime mapping semantics. CNCF Phas
 - SQL TEXT is a physical storage mapping and must not redefine the application datatype.
 - JSON-looking String remains String when the declaration is String.
 
-Cozy generates declarations and metadata. Runtime JSON parsing, Record/Json reconstruction, provider reads/writes and malformed-payload handling belong to CNCF Phase 100.
+Cozy owns built-in structured semantic projection. SimpleModeler owns typed
+Scala generation, schema emission and declared row bindings. Core/CNCF own
+external decoding, physical mapping, provider reads/writes and restart/readback.
+Explicit external format selection belongs to that frozen decoder contract;
+it requires no new CML storage-format property. Unsupported or incompatible
+declaration diagnostics remain inherited generator responsibilities within the
+[supported bounds](../spec/datastore-logical-type-generation.md).
 
 ## Implementation direction
 
@@ -74,6 +86,16 @@ Implementation order:
 6. prove no active selected producer output depends on `Named("record")`;
 7. hand generated fixtures to CNCF DSM-100-03;
 8. close only after CNCF DSM-100-06 accepts the producer output in the declared roundtrip route.
+
+The selected acceptance route is CNCF `src/test/cozy/phase100-store.cml` ->
+existing `Test / sourceGenerators` -> generated Scala compilation ->
+`Phase100GeneratedStoreSpec` typed EntityStore SQLite reopen/readback. It uses
+CNCF's generated current runtime descriptor/version and explicit current Cozy
+development root, `-Dcncf.cozyGeneratorRoot=<Cozy checkout>`, after
+`cozyExportRuntimeClasspath`. Replace `<Cozy checkout>` with the selected absolute
+checkout path at execution. Cozy's existing 0.5.2-SNAPSHOT helper fixtures
+remain separate source-output checks. Actual compilation and recorded CNCF
+DSM-100-06 acceptance remain pending.
 
 ## Executable specifications
 

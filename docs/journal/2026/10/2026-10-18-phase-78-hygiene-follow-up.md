@@ -1,0 +1,3 @@
+<!-- cncf-phase-finding:HYG-P78-001:begin -->
+HYG-P78-001 — Owner: Cozy. ModelTypeProjector.scala:605 retains the pre-existing instance-owned LocalValueDefinition case class, contrary to ai/directive/core/type-modeling.md's instance-independent data-type rule. This unchanged declaration is unrelated to the reviewed structured datatype projection; no current Phase78 behavioral impact was established. Keep a separately admitted structural-maintenance follow-up for stable declaration ownership, preserving fields, callers and behavior. This record does not authorize incidental Phase78 cleanup.
+<!-- cncf-phase-finding:HYG-P78-001:end -->
