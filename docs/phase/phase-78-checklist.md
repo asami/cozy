@@ -6,8 +6,10 @@ phase=[Phase 78](phase-78.md)
 Delivery grouping (2026-10-18): P78-PRODUCER integrates P78-01 through P78-04;
 P78-ACCEPTANCE owns P78-05. All five canonical sections and every obligation
 remain. Parent-owned focused validation and independent review have accepted
-P78-PRODUCER, so P78-01 through P78-04 are DONE. P78-05 remains OPEN until
-its own acceptance, final validation and Phase closure gates complete. External-format selection is consumed
+P78-PRODUCER, so P78-01 through P78-04 are DONE. P78-05 has accepted downstream
+compilation and restart/readback evidence; its last two items remain OPEN for
+final validation, independent Phase review and closure. Downstream acceptance
+Step criteria are distinct from these final Phase gates. External-format selection is consumed
 from the frozen Core/CNCF decoder contract; unsupported/incompatible declaration
 diagnostics remain inherited generator responsibilities within the supported
 bounds in [the producer specification](../spec/datastore-logical-type-generation.md).
@@ -16,8 +18,11 @@ P78-05 uses CNCF `src/test/cozy/phase100-store.cml` and existing
 `Test / sourceGenerators` -> compiled generated source ->
 `Phase100GeneratedStoreSpec`, with the explicit current Cozy development root
 and CNCF's generated current runtime descriptor/version. Cozy helper
-0.5.2-SNAPSHOT source fixtures remain separate. No current runtime acceptance
-is claimed by this documentation intake.
+0.5.2-SNAPSHOT source fixtures remain separate. The
+[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+records actual generated compilation and CNCF DSM-100-06 producer-fixture
+acceptance with Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT, distinguishing the
+regenerated CML fixture from existing generated nested semantic-AST fixtures.
 
 ## P78-01: Producer inventory and contract intake
 
@@ -52,9 +57,9 @@ is claimed by this documentation intake.
 
 ## P78-05: Cross-project acceptance
 
-- [ ] Compile generated fixtures against the CNCF Phase 100 producer-facing ABI.
-- [ ] Hand String, XJson, XSemiStructuredData, class and array fixtures to CNCF DSM-100-03/04.
-- [ ] Prove generated metadata selects distinct declared semantics without payload inference.
-- [ ] Obtain CNCF DSM-100-06 acceptance for a Cozy-generated restart roundtrip fixture.
+- [x] Compile generated fixtures against the CNCF Phase 100 producer-facing ABI.
+- [x] Hand String, XJson, XSemiStructuredData, class and array fixtures to CNCF DSM-100-03/04.
+- [x] Prove generated metadata selects distinct declared semantics without payload inference.
+- [x] Obtain CNCF DSM-100-06 acceptance for a Cozy-generated restart roundtrip fixture.
 - [ ] Complete Cozy focused/full validation and independent review.
 - [ ] Record closure only after the CNCF acceptance handoff is evidenced.

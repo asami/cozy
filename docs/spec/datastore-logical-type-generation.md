@@ -3,8 +3,11 @@
 Status (2026-10-18): Phase 78 is in progress. The inherited producer and E7
 executable specifications have current focused validation and independent
 P78-PRODUCER Step acceptance. P78-01 through P78-04 are DONE. P78-ACCEPTANCE
-records/review and final Phase validation/release remain required; historical
-validation below does not establish those remaining gates.
+records actual generated compilation and CNCF DSM-100-06 producer-fixture
+restart/readback acceptance in the
+[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md).
+Independent acceptance Step review is accepted; final Phase validation/review/
+release remain required; historical validation below does not establish those gates.
 
 ## Declaration route
 
@@ -138,7 +141,7 @@ The shared support's existing runtime descriptor digest remains its established
 input contract. Selected source comparison proves deterministic generator
 output only when executed; it does not prove generated source compilation.
 
-## Current acceptance route and pending work
+## Current consumer acceptance and remaining Phase gates
 
 CNCF's authoritative fixture is `src/test/cozy/phase100-store.cml`. Its existing
 `Test / sourceGenerators` regenerates actual Scala against CNCF's generated
@@ -152,14 +155,27 @@ absolute checkout path at execution. The existing Cozy helper's
 0.5.2-SNAPSHOT fixture is a separate source-output oracle; its assertions do not
 prove current-runtime compatibility and its version is not changed by this intake.
 
-Current-tree focused generation checks, actual generated compilation with all
-captured codecs, recorded CNCF DSM-100-06 acceptance for String/XJson/
-XSemiStructuredData/class/array values, Cozy full validation and independent
-review remain required. R7–R11 presence, patch, managed-field, transaction and
+The accepted current route uses Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT.
+Current focused producer validation and actual consumer-generated compilation
+with captured codecs are recorded, together with CNCF DSM-100-06 acceptance
+through its existing executable specification. The regenerated CML fixture
+covers declared String, XJson, XSemiStructuredData, native, class and repeated
+values; existing generated semantic-AST fixtures supply nested collection
+coverage and are not newly regenerated CML evidence. Typed EntityStore
+memory/SQLite and SQLite close/reopen readback preserve declared logical
+identities. Explicit JSON/YAML/HOCON decoder selection retains its frozen
+Core/CNCF ownership, independently of physical JSON text mapping.
+
+The [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+records this producer-fixture acceptance, not CNCF Phase 100 or Workbench
+closure. Source-only migration ancestry integration remains outside Phase 78.
+The independent acceptance Step review is accepted. Cozy FULL validation, the
+Phase review and final closure remain pending. R7–R11 presence, patch, managed-field, transaction and
 consumer/recovery obligations retain their CNCF owners. Source inspection and
 deterministic source comparison cannot substitute for compilation or runtime
-acceptance. P78-PRODUCER integrates P78-01–04; P78-ACCEPTANCE owns P78-05,
-without removing any canonical checklist obligation.
+acceptance. P78-PRODUCER integrates P78-01–04; P78-ACCEPTANCE owns P78-05.
+Its downstream acceptance Step criteria are distinct from the final Phase
+gates retained in the [canonical checklist](../phase/phase-78-checklist.md).
 
 ## Historical validation and status lineage (October 5–6, 2026)
 

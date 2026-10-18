@@ -9,8 +9,12 @@ checklist=[Phase 78 Checklist](phase-78-checklist.md)
 Delivery grouping (2026-10-18): P78-PRODUCER integrates canonical P78-01 through
 P78-04; P78-ACCEPTANCE owns P78-05. All five checklist sections and every
 obligation remain in force. P78-PRODUCER has current focused validation and
-independent Step acceptance; P78-01 through P78-04 are DONE. P78-05 and the
-Phase remain in progress pending their own acceptance and release gates.
+independent Step acceptance; P78-01 through P78-04 are DONE. P78-05 records
+generated compilation and downstream restart/readback acceptance in the
+[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md).
+Its downstream acceptance Step criteria are distinct from final Phase gates:
+P78-05 and the Phase remain in progress pending final Cozy FULL validation,
+independent Phase review and closure.
 
 ## Goal
 
@@ -95,7 +99,15 @@ development root, `-Dcncf.cozyGeneratorRoot=<Cozy checkout>`, after
 `cozyExportRuntimeClasspath`. Replace `<Cozy checkout>` with the selected absolute
 checkout path at execution. Cozy's existing 0.5.2-SNAPSHOT helper fixtures
 remain separate source-output checks. Actual compilation and recorded CNCF
-DSM-100-06 acceptance remain pending.
+DSM-100-06 acceptance are recorded in the
+[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+for Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT. The CML fixture was regenerated
+and compiled through that consumer route; existing generated nested
+semantic-AST fixtures provide separate nested collection coverage. CNCF's
+executable specification accepts typed EntityStore memory/SQLite behavior and
+SQLite close/reopen readback. This satisfies the selected producer-fixture
+handoff, without closing CNCF Phase 100 or Workbench work. Final Cozy Phase
+gates remain open in the [checklist](phase-78-checklist.md).
 
 ## Executable specifications
 
