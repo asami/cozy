@@ -13,6 +13,21 @@ This closes only Cozy Phase 78; CNCF Phase 100, Workbench and migration ancestry
 integration retain their own owners and obligations. HYG-P78-001 remains a
 separate structural-maintenance follow-up without current-boundary impact.
 
+## Migration checkpoint history — 2026-10-18
+
+The separate main-history integration incorporates migration checkpoint
+`713965d6d96a80b383127fcea3a18e254723dd3b` while retaining the accepted Phase 78
+state at `b1b2c760a24bb10a3aa14b2d444c9eab2eacb68d`. The checkpoint's two Scala
+files already match that accepted state. The producer inventory retains the
+original entries and later intake; the specification retains the original
+pending evidence as history alongside its current accepted contract.
+
+The checkpoint remains a non-acceptance preservation record. Its incorporation
+adds ancestry without creating new Phase acceptance or reopening Phase 78.
+The separate history-integration obligation noted above is thereby fulfilled;
+CNCF Phase 100 and Workbench retain their own scope. No source, executable
+specification or build configuration is changed by this integration.
+
 ## Acceptance stages before final closure
 
 The following preserves the staged handoff and its then-pending status.
