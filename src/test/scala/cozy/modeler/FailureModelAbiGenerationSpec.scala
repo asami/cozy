@@ -15,12 +15,14 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
   private val _resources = _base.resolve("src/test/resources/modeler")
+  private val _reader_projection_amendment =
+    Json.parse(Files.readString(_resources.resolve("failure-model-reader-projection-amendment.json"))).as[JsObject]
   private val _root = "target/scala-3.3.8/src_managed/main/scala/cozy/generated/failuremodel"
   private val _scala_path = s"${_root}/FailureModelMetadata.scala"
   private val _probe_path = s"${_root}/FailureModelConsumerProbe.scala"
@@ -77,8 +79,8 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       save.source.line shouldBe Some(_line(Files.readString(input), "#### save"))
     }
 
-    "preserve original products with only declared source identity and operation metadata changes when declarations are absent" in {
-      Given("the immutable SOURCE baseline with removed source hashes, the selected fixture path and the accepted operation content metadata")
+    "preserve original products with declared source identity, operation metadata and reader/projection amendments when declarations are absent" in {
+      Given("the immutable SOURCE baseline with removed source hashes, the selected fixture path, accepted operation content and fixed reader/projection amendments")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
       val expected = groups.map(group => _legacy_expected(group, _base.resolve((group \ "fixture").as[String])))
@@ -118,7 +120,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       emptyjson shouldBe Json.obj("schemaVersion" -> "cozy.failure-model.v1", "components" -> Json.arr())
     }
 
-    "adapt only selected source identity and the four accepted operation content declarations" in {
+    "adapt only selected source identity, four accepted operation content declarations and declared Component readers" in {
       Given("the historical Workflow fixture and a selected source path containing spaces and Unicode")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
@@ -146,13 +148,84 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       yaml should not include "  sha256:"
       new String(unchanged.toArray, UTF_8) shouldBe originalpath
 
-      And("the exact four operation content additions leave every historical line intact and do not authorize other contract changes")
+      And("the exact four operation content additions compose with only the four declared Component reader amendments")
       val additions = Vector("beginReview", "submitReview", "supplyInput", "reviseChange").map(name =>
         s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
-      component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe files(componentpath).linesIterator.mkString("\n")
+      val replacements = (_reader_projection_amendment \ "replacements").as[Vector[JsObject]]
+        .filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
+      val declared = replacements.foldLeft(files(componentpath)) { (current, replacement) =>
+        current.replace((replacement \ "before").as[String], (replacement \ "after").as[String])
+      }
+      replacements.size shouldBe 4
+      component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe declared.linesIterator.mkString("\n")
       additions.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
       component.replace("BaseContent.Builder(\"beginReview\")", "BaseContent.Builder(\"wrongOperation\")") should not be component
       component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
+    }
+
+    "apply five declared value amendments or four Component reader amendments and reject missing or duplicate historical anchors" in {
+      Given("the independent historical producer and fixed before/after blocks for two value paths and two Component reader paths")
+      val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
+      val groups = (baseline \ "groups").as[Vector[JsObject]]
+      val paths = (_reader_projection_amendment \ "applicablePaths").as[Vector[String]]
+      val readerpaths = (_reader_projection_amendment \ "readerOnlyPaths").as[Vector[String]]
+      val replacements = (_reader_projection_amendment \ "replacements").as[Vector[JsObject]]
+      val files = groups.flatMap(group => (group \ "files").as[Vector[JsObject]])
+      val drift = "\n// arbitrary source drift\n"
+
+      And("the amendment retains historical provenance and declares exactly two value paths, two Component paths and five helper changes")
+      (_reader_projection_amendment \ "historicalProducerCommit").as[String] shouldBe (baseline \ "producerCommit").as[String]
+      paths.toSet shouldBe Set(
+        "target/scala-3.3.8/src_managed/main/scala/domain/value/CountryCode.scala",
+        "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala")
+      paths.size shouldBe 2
+      readerpaths.toSet shouldBe Set(
+        "src/main/scala/domain/impl/ComponentFactory.scala",
+        "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
+      readerpaths.size shouldBe 2
+      replacements.map(replacement => (replacement \ "symbol").as[String]) shouldBe Vector(
+        "_to_external_value", "_record_get_record", "_record_get_vector_as_c",
+        "_record_get_vector_as_context_c", "_record_get_vector_of_record_c")
+
+      (paths ++ readerpaths).foreach { path =>
+        Given(s"the raw historical source and its declared value or Component reader amendment at $path")
+        val raw = (files.find(file => (file \ "path").as[String] == path).get \ "text").as[String]
+        val selected = if (paths.contains(path)) replacements
+          else replacements.filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
+        val declared = selected.foldLeft(raw) { (current, replacement) =>
+          current.replace((replacement \ "before").as[String], (replacement \ "after").as[String])
+        }
+
+        When("the fixed amendment is applied to declared, unrelated and independently drifted source")
+        val amended = _legacy_reader_projection(path, raw)
+        val unrelated = _legacy_reader_projection("unrelated/" + path, raw)
+        val drifted = _legacy_reader_projection(path, raw + drift)
+
+        Then("only the selected five value blocks or four Component reader blocks change and all other source drift stays decisive")
+        selected.size shouldBe (if (paths.contains(path)) 5 else 4)
+        amended shouldBe declared
+        unrelated shouldBe raw
+        drifted shouldBe declared + drift
+        drifted should not be amended
+
+        selected.foreach { replacement =>
+          Given("one declared historical block whose presence must be unique")
+          val before = (replacement \ "before").as[String]
+          val symbol = (replacement \ "symbol").as[String]
+          val absent = raw.replace(before, "")
+          val duplicate = raw + before
+
+          When("the declared path contains a missing or duplicated historical block")
+          val missingerror = intercept[IllegalArgumentException](_legacy_reader_projection(path, absent))
+          val duplicateerror = intercept[IllegalArgumentException](_legacy_reader_projection(path, duplicate))
+
+          Then("both invalid anchors are rejected with the affected path and helper identity")
+          Vector(missingerror, duplicateerror).foreach { error =>
+            error.getMessage should include(path)
+            error.getMessage should include(symbol)
+          }
+        }
+      }
     }
 
     "bind historical expected metadata to one hundred independent locations while preserving every other byte" taggedAs org.scalatest.tagobjects.Slow in {
@@ -165,10 +238,13 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       val metadatapaths = Set(metadatapath, "target/cozy/model-metadata.yaml")
       val componentpath = "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
       val operations = Vector("beginReview", "submitReview", "supplyInput", "reviseChange")
+      val valuepaths = (_reader_projection_amendment \ "applicablePaths").as[Set[String]]
+      val readerpaths = (_reader_projection_amendment \ "readerOnlyPaths").as[Set[String]]
+      val replacements = (_reader_projection_amendment \ "replacements").as[Vector[JsObject]]
 
-      When("ScalaCheck binds only expected input paths and the fixed existing Operation content across all four groups")
+      When("ScalaCheck binds expected input paths, fixed Operation content and declared value or Component reader blocks across all four groups")
       val property = Prop.forAll(locations) { location =>
-        groups.foreach { group =>
+        groups.zipWithIndex.foreach { case (group, index) =>
           val fixture = (group \ "fixture").as[String]
           val input = location.resolve(fixture)
           val original = (group \ "files").as[Vector[JsObject]].map(file =>
@@ -181,23 +257,52 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
           expected.keySet shouldBe original.keySet
           val componentchanged = fixture == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&
             (group \ "route").as[String] == "modeler-scala"
-          val changedpaths = metadatapaths ++ (if (componentchanged) Set(componentpath) else Set.empty[String])
+          val amendedvaluepaths = original.keySet.intersect(valuepaths)
+          val amendedreaderpaths = original.keySet.intersect(readerpaths)
+          val amendedpaths = amendedvaluepaths ++ amendedreaderpaths
+          amendedvaluepaths.size shouldBe 1
+          amendedreaderpaths shouldBe (if (index == 2) readerpaths else Set.empty[String])
+          componentchanged shouldBe (index == 2)
+          val changedpaths = metadatapaths ++ amendedpaths ++ (if (componentchanged) Set(componentpath) else Set.empty[String])
           original.filterNot { case (path, _) => changedpaths.contains(path) }.foreach { case (path, bytes) =>
             expected(path) shouldBe bytes
+          }
+          amendedpaths.foreach { path =>
+            val raw = new String(original(path).toArray, UTF_8)
+            val selected = if (valuepaths.contains(path)) replacements
+              else replacements.filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
+            val readers = selected.foldLeft(raw) { (current, replacement) =>
+              current.replace((replacement \ "before").as[String], (replacement \ "after").as[String])
+            }
+            val declared = if (componentchanged && path == componentpath)
+              operations.foldLeft(readers) { (current, name) =>
+                val anchor = s"""val specification = OperationDefinition.Specification.Builder("$name").
+        copy(
+"""
+                current.replace(anchor, anchor + s"""          content = org.goldenport.value.BaseContent.Builder("$name"),
+""")
+              }
+            else readers
+            expected(path) shouldBe declared.getBytes(UTF_8).toVector
           }
           if (componentchanged) {
             val component = new String(expected(componentpath).toArray, UTF_8)
             val contentlines = operations.map(name => s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
+            val raw = new String(original(componentpath).toArray, UTF_8)
+            val declared = replacements.filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
+              .foldLeft(raw) { (current, replacement) =>
+                current.replace((replacement \ "before").as[String], (replacement \ "after").as[String])
+              }
             contentlines.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
             component.linesIterator.filterNot(contentlines.contains).mkString("", "\n", "\n").getBytes(UTF_8).toVector shouldBe
-              original(componentpath)
+              declared.getBytes(UTF_8).toVector
           }
         }
         true
       }
       val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100).withInitialSeed(Seed(73L)), property)
 
-      Then("one hundred reproducible samples preserve all other metadata, compiler, versions, inventories and request/response bytes except the three adopted adaptations, without discards")
+      Then("one hundred reproducible samples preserve all bytes outside source identity, fixed operation content and the declared five value or four Component reader blocks, without discards")
       withClue(result.toString) { result.passed shouldBe true }
       result.succeeded should be >= 100
       result.discarded shouldBe 0
@@ -407,6 +512,23 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
     realm.get(path).collect { case value: Realm.StringData => value.string }.getOrElse(fail(s"Missing generated artifact: $path"))
   private def _line(source: String, heading: String): Int = source.linesIterator.toVector.indexOf(heading) + 1
   private def _scopes(contract: EffectiveFailureContract): Vector[String] = contract.entries.map(_.scope.name)
+  private def _legacy_reader_projection(path: String, text: String): String = {
+    val paths = (_reader_projection_amendment \ "applicablePaths").as[Set[String]]
+    val readerpaths = (_reader_projection_amendment \ "readerOnlyPaths").as[Set[String]]
+    val replacements = (_reader_projection_amendment \ "replacements").as[Vector[JsObject]]
+    val selected = if (paths.contains(path)) replacements
+      else if (readerpaths.contains(path)) replacements.filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
+      else Vector.empty[JsObject]
+    selected.foldLeft(text) { (current, replacement) =>
+      val before = (replacement \ "before").as[String]
+      val after = (replacement \ "after").as[String]
+      val symbol = (replacement \ "symbol").as[String]
+      val index = current.indexOf(before)
+      require(before.nonEmpty && index >= 0 && index == current.lastIndexOf(before),
+        s"Expected exactly one historical reader/projection anchor for $path: $symbol")
+      current.take(index) + after + current.drop(index + before.length)
+    }
+  }
   private def _legacy_expected_bytes(path: String, text: String, source: Path): Vector[Byte] = {
     val expected = path match {
       case "target/cozy/model-metadata.json" =>
@@ -433,7 +555,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         }
       case _ => text
     }
-    expected.getBytes(UTF_8).toVector
+    _legacy_reader_projection(path, expected).getBytes(UTF_8).toVector
   }
   private def _legacy_expected(group: JsObject, input: Path): Map[String, Vector[Byte]] = {
     val operationgroup = (group \ "fixture").as[String] == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&
@@ -451,7 +573,8 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
   private def _legacy_text(fixture: String, route: String, path: String): String = {
     val groups = (Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json"))) \ "groups").as[Vector[JsObject]]
     val group = groups.find(g => (g \ "fixture").as[String].endsWith("/" + fixture) && (g \ "route").as[String] == route).get
-    (group \ "files").as[Vector[JsObject]].find(f => (f \ "path").as[String] == path).map(f => (f \ "text").as[String]).get
+    val text = (group \ "files").as[Vector[JsObject]].find(f => (f \ "path").as[String] == path).map(f => (f \ "text").as[String]).get
+    _legacy_reader_projection(path, text)
   }
   private def _mixed_source(original: String): String = {
     val defaults = Files.readString(_resources.resolve("failure-model.cml")).split("# COMPONENT", 2).head

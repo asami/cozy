@@ -14,7 +14,8 @@ import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex}
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -32,7 +33,7 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val powertype = model.takePowertypeModel
         val divisions = model.divisions.map(_.name).mkString(",")
         val errors = model.errors.map(_.toString).mkString("|")
-        Then("the parsed model exposes the expected normalized semantics")
+        Then("the parsed model retains explicit powertype codes and leaves omitted transient codes absent")
         withClue(s"CountryCode missing; actual keys=${powertype.classes.keys.mkString(",")}, divisions=$divisions, errors=$errors") {
         powertype.classes should contain key "CountryCode"
       }
@@ -44,9 +45,9 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         powertype.classes("AddressType").packageName shouldBe "domain.value"
         powertype.classes("CountryCode").kinds.map(_.name) shouldBe Vector("JP", "US")
         powertype.classes("CountryCode").kinds.head.value shouldBe Some(81)
-        powertype.classes("CountryCode").kinds(1).value shouldBe Some(2)
+        powertype.classes("CountryCode").kinds(1).value shouldBe None
         powertype.classes("AddressType").kinds.head.value shouldBe Some(1)
-        powertype.classes("AddressType").kinds(1).value shouldBe Some(2)
+        powertype.classes("AddressType").kinds(1).value shouldBe None
       }
 
       "kaleidox accepts STATE-MACHINE top-level alias" in {
@@ -75,11 +76,11 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         When("Kaleidox parses the source model")
         val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
         val powertype = model.takePowertypeModel
-        Then("the parsed model exposes the expected normalized semantics")
+        Then("the parsed model retains explicit powertype codes and leaves omitted transient codes absent")
         powertype.classes should contain key "CountryCode"
         powertype.classes should contain key "AddressType"
         powertype.classes("CountryCode").kinds.head.value shouldBe Some(81)
-        powertype.classes("CountryCode").kinds(1).value shouldBe Some(2)
+        powertype.classes("CountryCode").kinds(1).value shouldBe None
         powertype.classes.contains("SUMMARY") shouldBe false
         powertype.classes.contains("Overview") shouldBe false
       }

@@ -8,7 +8,7 @@ import org.simplemodeling.model.{MBuiltinStructuredDataType, MDataType, MEntity,
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerStructuredDataGenerationSpec extends AnyWordSpec with GivenWhenThen with ModelerSpecSupport {
@@ -100,7 +100,7 @@ final class ModelerStructuredDataGenerationSpec extends AnyWordSpec with GivenWh
         source should include("org.goldenport.record.Record")
         source should include("summon[org.goldenport.convert.ValueReader[io.circe.Json]].readC")
         source should include("_record_get_vector_as_c[io.circe.Json]")
-        source should include("_record_get_vector_of_record_c(record, INPUT_KEYS_EVIDENCES)")
+        source should include("_record_get_as_c[scala.Vector[org.goldenport.record.Record]](record, INPUT_KEYS_EVIDENCES)")
         source should not include "DataType.Named(\"json\")"
         source should not include "DataType.Named(\"record\")"
         source should not include "Json.createC"
@@ -139,8 +139,8 @@ final class ModelerStructuredDataGenerationSpec extends AnyWordSpec with GivenWh
         }
         entity should include("decodeAdmittedLogicalStoreRecord(r: Record): Consequence[Proposal] = { createC(r) }")
         entity should include("_record_get_vector_as_c[domain.value.ProposalSummary]")
-        first("domain/value/ProposalSummary.scala") should include("case m: ProposalSummary => { Consequence.success(m) }")
-        first("domain/value/ProposalSummary.scala") should include("case m: Record => createC(m)")
+        first("domain/value/ProposalSummary.scala") should include("given org.goldenport.convert.ValueReader[ProposalSummary]")
+        first("domain/value/ProposalSummary.scala") should include("org.goldenport.convert.ValueReader.recordReader[ProposalSummary]((record: Record) => createC(record)).readC(value)")
         first("domain/entity/query/Proposal.scala") should not include "_store_row_mapping"
 
         And("both update request schemas select each declared structured field independently")

@@ -10,7 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr.  9, 2026
  *  version May. 21, 2026
  *  version Jun. 23, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class ExternalAttributeTypeResolutionSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -195,8 +196,9 @@ org.sample.recordbuiltin
         content should include ("required_records: NonEmptyVector[Record]")
         content should include ("records: Vector[Record]")
         content should include ("required_records: Option[NonEmptyVector[Record]]")
-        content should include ("case m: cats.data.NonEmptyVector[?] => m.toVector.map(_to_external_value)")
-        content should include ("case Some(xs) => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, NonEmptyVector.fromVector(xs))")
+        content should include ("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
+        content should include ("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_RECORDS)")
+        content should include ("case Some(value) => Consequence.success(value)")
         content should include ("case None => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, required_records)")
         content should not include ("NonEmptyVector.fromVector(xs).map(Some(_))")
         content should not include ("org.goldenport.datatype.Record")
