@@ -14,7 +14,6 @@ import org.goldenport.realm.Realm
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
  *  version Sep. 28, 2026
- *  version Oct. 13, 2026
  * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
@@ -25,7 +24,8 @@ class ScalaGenerator(
   workflows: Vector[WorkflowDefinition] = Vector.empty,
   generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf,
   failureModels: Vector[ComponentFailureModel] = Vector.empty,
-  logicalUi: Option[Realm] = None
+  logicalUi: Option[Realm] = None,
+  validationMetadata: Option[Realm] = None
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -37,8 +37,10 @@ class ScalaGenerator(
   def generate(p: MPackage): STree = {
     PowertypePersistenceCodes.requireValid(model)
     ModelGenerationTarget.requireLogicalUiInput(logicalUi)
+    ValidationMetadataScalaGenerator.requireInput(validationMetadata)
     generationTarget match {
       case ModelGenerationTarget.Library =>
+        ValidationMetadataScalaGenerator.requireLibrary(validationMetadata)
         ModelGenerationTarget.requireLibraryLogicalUi(logicalUi)
         ModelGenerationTarget.requireLibraryGeneratorInput(model, compositeStateMachines, workflows, failureModels)
         STree(_transformer.transform(model).realm)
@@ -90,6 +92,7 @@ class ScalaGenerator(
     val withcandidateadmission = candidateadmissionproducerabi.fold(generatedrealm)(generatedrealm + _)
     val withprovidedapi = providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _)
     val withfailuremodel = if (failureModels.isEmpty) withprovidedapi else withprovidedapi + FailureModelAbiGenerator.generate(failureModels)
-    STree(logicalUi.fold(withfailuremodel)(withfailuremodel + _))
+    val withlogicalui = logicalUi.fold(withfailuremodel)(withfailuremodel + _)
+    STree(validationMetadata.fold(withlogicalui)(withlogicalui + _))
   }
 }

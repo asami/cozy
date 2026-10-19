@@ -1,0 +1,17 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALIDATION-METADATA
+
+## DECLARATION
+provider = "org.example.validation.FocusedDeclaration"
+properties = {"abiVersion":1,"purposes":["FOCUSED"],"features":[{"scope":"component:domain","identity":"feature-a"}],"expectedDuration":{"amount":500,"unit":"MILLISECONDS"},"durationClass":"NORMAL","executionRequirement":{"capabilities":["metadata-fixture"],"risk":"local","reasoning":"STANDARD","reviewRequired":false,"reasoningClass":"application.analysis","disposition":{"placement":"DELEGATED","independence":"REQUIRED","originContextIdentity":"context-a"}},"requiredSemantics":["validation.metadata.v1"]}
+
+## DECLARATION
+provider = "org.example.validation.EmptyDeclaration"
+properties = {}

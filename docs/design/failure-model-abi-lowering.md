@@ -65,7 +65,14 @@ removes the historical `source.sha256` line and rebinds only `source.path` to
 the selected fixture, without replacing unrelated strings or changing the
 producer. The normal Workflow component expectation adds only the four named
 operation content builders introduced independently by SimpleModeler `549a38c`.
-Every original component line, inventory and other expected byte remains exact.
+SimpleModeler `52aea03` additionally replaces private conversion implementations
+with canonical ModelValueEncoder and ValueReader delegates. A fixed expected-source
+adapter applies only the named helpers in CountryCode, ReviewContext,
+ComponentFactory and DomainComponent, removing the unused application-record
+vector helper in these four products. Expected generic vectors retain
+scalar compatibility and contextual readers forward the identical context.
+Every line outside these declared adaptations, every inventory and every other
+expected byte remains exact; actual generated products are compared unchanged.
 The baseline producer identity and fixture remain unchanged; no expectation is
 derived from newly generated output and no broad comparison exclusion is added.
 

@@ -1,7 +1,7 @@
 # CML Value and Datatype Contract
 
 status=accepted
-updated_at=2026-07-16
+updated_at=2026-10-19
 target_phase=16
 
 ## Scope
@@ -102,6 +102,36 @@ type with primitive `String`, `Condition[String]`, or `Update[String]`.
 A finite vocabulary uses a Powertype. State whose transitions are owned by the
 model uses a Statemachine. A provider-extensible registry or externally owned
 lifecycle MUST NOT be inferred as closed from its current values or its name.
+
+## Builtin Structured Data Projection
+
+Cozy MUST project builtin structured attributes through SimpleModeler's
+`MBuiltinStructuredDataType` contract. Its accepted `json` and `XJson`
+spellings generate `io.circe.Json`; `semiStructuredData`,
+`semi-structured-data`, `XSemiStructuredData`, and `record` generate
+`org.goldenport.record.Record`. Builtin spelling lookup belongs to that model
+contract rather than a separate Cozy alias catalog.
+
+Schema attributes and legacy `record.v2.Column` datatypes MUST select the same
+structured model types, including resolved `XJson` and `XSemiStructuredData`
+when no raw builtin spelling is present. Generated fields MUST NOT use obsolete
+`model.value.XJson` or `model.value.XSemiStructuredData` aliases.
+
+Multiplicity MUST preserve the canonical runtime element type: required fields
+use `Json` or `Record`, optional fields use `Option`, zero-or-more fields use
+`Vector`, and one-or-more fields use `NonEmptyVector`. Record builder and
+nonempty collection semantics remain governed by the existing generator
+contract.
+
+Predefined semantic scalar resolution retains priority. Authored nominal
+Datatypes and Values retain their declared identities and multiplicities; an
+underlying JSON schema or a JSON-bearing field MUST NOT flatten a declared
+custom type into the builtin runtime. Ordinary scalar resolution retains its
+existing behavior.
+
+`ExternalAttributeTypeResolutionSpec` exercises the real CML-to-Scala command
+for structured spellings and multiplicities, nominal custom types, semantic
+scalars, ordinary scalars, delegate composition and record builder behavior.
 
 ## Semantic Text Contract
 

@@ -140,7 +140,8 @@ final class ModelerStructuredDataGenerationSpec extends AnyWordSpec with GivenWh
         entity should include("decodeAdmittedLogicalStoreRecord(r: Record): Consequence[Proposal] = { createC(r) }")
         entity should include("_record_get_vector_as_c[domain.value.ProposalSummary]")
         first("domain/value/ProposalSummary.scala") should include("given org.goldenport.convert.ValueReader[ProposalSummary]")
-        first("domain/value/ProposalSummary.scala") should include("org.goldenport.convert.ValueReader.recordReader[ProposalSummary]((record: Record) => createC(record)).readC(value)")
+        first("domain/value/ProposalSummary.scala") should include(
+          "org.goldenport.convert.ValueReader.recordReader[ProposalSummary]((record: Record) => createC(record)).readC(value)")
         first("domain/entity/query/Proposal.scala") should not include "_store_row_mapping"
 
         And("both update request schemas select each declared structured field independently")

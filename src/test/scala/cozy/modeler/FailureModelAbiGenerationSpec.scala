@@ -159,6 +159,11 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       replacements.size shouldBe 4
       component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe declared.linesIterator.mkString("\n")
       additions.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
+      component should include("_record_get_as_c[Record](record, keys)")
+      component should include("ValueReader.vector(vr, allowSingle = true), ctx)")
+      component should not include "private def _record_get_vector_of_record_c"
+      component.replace("allowSingle = true", "allowSingle = false") should not be component
+      component.replace("(vr, allowSingle = true), ctx)", "(vr, allowSingle = true), otherContext)") should not be component
       component.replace("BaseContent.Builder(\"beginReview\")", "BaseContent.Builder(\"wrongOperation\")") should not be component
       component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
     }
@@ -204,6 +209,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         Then("only the selected five value blocks or four Component reader blocks change and all other source drift stays decisive")
         selected.size shouldBe (if (paths.contains(path)) 5 else 4)
         amended shouldBe declared
+        amended shouldBe _current_conversion_delegates(path, raw)
         unrelated shouldBe raw
         drifted shouldBe declared + drift
         drifted should not be amended
@@ -265,7 +271,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
           componentchanged shouldBe (index == 2)
           val changedpaths = metadatapaths ++ amendedpaths ++ (if (componentchanged) Set(componentpath) else Set.empty[String])
           original.filterNot { case (path, _) => changedpaths.contains(path) }.foreach { case (path, bytes) =>
-            expected(path) shouldBe bytes
+            expected(path) shouldBe _current_conversion_delegates(path, new String(bytes.toArray, UTF_8)).getBytes(UTF_8).toVector
           }
           amendedpaths.foreach { path =>
             val raw = new String(original(path).toArray, UTF_8)
@@ -556,6 +562,39 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       case _ => text
     }
     _legacy_reader_projection(path, expected).getBytes(UTF_8).toVector
+  }
+  // Fixed expected-source adaptations from SimpleModeler 52aea03, never from generated output.
+  // Only these four historical products contain the superseded private conversion helpers.
+  private def _current_conversion_delegates(path: String, text: String): String = {
+    val values = Set(
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/CountryCode.scala",
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala")
+    val components = Set(
+      "src/main/scala/domain/impl/ComponentFactory.scala",
+      "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
+    def _replace_method_(source: String, name: String, declaration: String): String = {
+      val pattern = ("(?ms)^  private def " + java.util.regex.Pattern.quote(name) +
+        "(?=[\\[(]).*?^  }\\n(?:  \\n)?").r
+      pattern.findAllMatchIn(source).size shouldBe 1
+      pattern.replaceFirstIn(source, java.util.regex.Matcher.quoteReplacement(declaration))
+    }
+    val projected = if (values.contains(path))
+      _replace_method_(text, "_to_external_value",
+        "  private def _to_external_value(v: Any): Any =\n" +
+        "    org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE\n  \n")
+    else text
+    if ((values ++ components).contains(path) && projected.contains("  private def _record_get_record(")) {
+      val record = _replace_method_(projected, "_record_get_record",
+        "  private def _record_get_record(record: Record, keys: List[String]): Consequence[Option[Record]] =\n" +
+        "    _record_get_as_c[Record](record, keys)\n  \n")
+      val vector = _replace_method_(record, "_record_get_vector_as_c",
+        "  private def _record_get_vector_as_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] =\n" +
+        "    _record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true))\n  \n")
+      val contextual = _replace_method_(vector, "_record_get_vector_as_context_c",
+        "  private def _record_get_vector_as_context_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[Vector[A]]] =\n" +
+        "    _record_get_as_context_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true), ctx)\n  \n")
+      _replace_method_(contextual, "_record_get_vector_of_record_c", "")
+    } else projected
   }
   private def _legacy_expected(group: JsObject, input: Path): Map[String, Vector[Byte]] = {
     val operationgroup = (group \ "fixture").as[String] == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&

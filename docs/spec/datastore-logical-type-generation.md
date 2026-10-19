@@ -63,8 +63,11 @@ a canonical structured datatype. Field multiplicity, web hints,
 constraints, confidentiality, required, ordering and update descriptors remain
 operation metadata; extra revision inputs and response projection are retained.
 
-JSON admission uses canonical Core ValueReader; Record keeps its existing
-Record-specific admission behavior. The producer does not infer application
+JSON and Record admission use canonical Core ValueReader. Following
+SimpleModeler `52aea03`, scalar Record selects `ValueReader[Record]` and repeated
+Record selects the whole `Vector[Record]` reader; canonical Record collections
+use strict collection admission. Generic compatibility vectors alone retain
+`allowSingle = true`. The producer does not infer application
 methods, external formats or storage policies from either runtime class.
 
 Explicit JSON/YAML/HOCON selection belongs to the frozen external decoder
