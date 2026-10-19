@@ -33,7 +33,7 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val powertype = model.takePowertypeModel
         val divisions = model.divisions.map(_.name).mkString(",")
         val errors = model.errors.map(_.toString).mkString("|")
-        Then("the parsed model exposes the expected normalized semantics")
+        Then("the parsed model retains explicit powertype codes and leaves omitted transient codes absent")
         withClue(s"CountryCode missing; actual keys=${powertype.classes.keys.mkString(",")}, divisions=$divisions, errors=$errors") {
         powertype.classes should contain key "CountryCode"
       }
@@ -76,7 +76,7 @@ class KaleidoxCmlParsingSpec extends AnyWordSpec with Matchers with GivenWhenThe
         When("Kaleidox parses the source model")
         val model = KaleidoxModel.load(KaleidoxConfig.default.withoutLocation, input.toFile)
         val powertype = model.takePowertypeModel
-        Then("the parsed model exposes the expected normalized semantics")
+        Then("the parsed model retains explicit powertype codes and leaves omitted transient codes absent")
         powertype.classes should contain key "CountryCode"
         powertype.classes should contain key "AddressType"
         powertype.classes("CountryCode").kinds.head.value shouldBe Some(81)

@@ -36,7 +36,7 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 19, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelServiceOperationProjector(
@@ -246,8 +246,39 @@ private[modeler] final class ModelServiceOperationProjector(
         case Some(OperationModel.OperationKind.Query) =>
           _defined_query_service_operation(opname, desc, implementation, entity, access)
         case _ =>
-          _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution), access)
+          val command = _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution), access)
+          if (implementation.contains("entity-create"))
+            command
+          else
+            _with_structured_command_input(command, p, opdef)
       }
+    }
+
+    private def _with_structured_command_input(
+      command: MOperation,
+      source: ServiceModel.ServiceClass.Operation,
+      definition: Option[OperationModel.NormalizedOperationDefinition]
+    ): MOperation = {
+      val input = source.input.value.orElse {
+        definition.flatMap { operation =>
+          canonicalTypeBindings match {
+            case Some(bindings) => bindings.values.get(operation.inputType)
+            case None => value.get(operation.inputType)
+          }
+        }
+      }.map(typeProjector.projectValue)
+      // Keep the actual Value schema as the one input; scalar metadata cannot
+      // establish structured identity or the generated action's leaf fields.
+      input.filter(_.attributes.exists(_.attributeType match {
+        case MBuiltinStructuredDataType.Json | MBuiltinStructuredDataType.SemiStructuredData => true
+        case _ => false
+      })).
+        map { projected =>
+          MOperation.Instance(
+            command.elementCore,
+            command.operationCore.copy(parameters = List(MParameter("record", projected)))
+          )
+        }.getOrElse(command)
     }
 
     private def _merge_service_operation_metadata(
@@ -546,8 +577,8 @@ private[modeler] final class ModelServiceOperationProjector(
             blockFor(
               """_ <- exec_pure {
                 |  val previous = core.component.map(_.loadEventEffect()).getOrElse(org.goldenport.record.Record.empty)
-                |  val name = action.record.getString("name").filter(_.nonEmpty).orElse(previous.getString("name")).getOrElse("")
-                |  val title = action.record.getString("title").filter(_.nonEmpty).orElse(previous.getString("title")).getOrElse("")
+                |  val name = action.request.toRecord.getString("name").filter(_.nonEmpty).orElse(previous.getString("name")).getOrElse("")
+                |  val title = action.request.toRecord.getString("title").filter(_.nonEmpty).orElse(previous.getString("title")).getOrElse("")
                 |  val record = org.goldenport.record.Record.data(
                 |    "cncf" -> "event-driven",
                 |    "event" -> "item.changed",

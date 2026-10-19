@@ -345,7 +345,7 @@ org.sample.recordbuiltin
         content should include ("required_records: NonEmptyVector[Record]")
         content should include ("records: Vector[Record]")
         content should include ("required_records: Option[NonEmptyVector[Record]]")
-        content should include ("ModelValueEncoder.encodeC(v).TAKE")
+        content should include ("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
         content should include ("_record_get_as_c[cats.data.NonEmptyVector[org.goldenport.record.Record]](record, INPUT_KEYS_REQUIRED_RECORDS)")
         content should include ("case Some(value) => Consequence.success(value)")
         content should include ("case None => Consequence.successOrPropertyNotFound(PROP_REQUIRED_RECORDS, required_records)")

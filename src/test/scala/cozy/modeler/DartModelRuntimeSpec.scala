@@ -13,7 +13,7 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 19, 2026
  */
 class DartModelRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "A consumer of emitted Dart 3.0 model code" should {
@@ -147,7 +147,9 @@ class DartModelRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen 
   private def _scratch(prefix: String): Path = {
     val root = Paths.get("target/test-generated/phase65-dart-models").toAbsolutePath
     Files.createDirectories(root)
-    Files.createTempDirectory(root, prefix + "-")
+    val scratch = Files.createTempDirectory(root, prefix + "-")
+    _write(scratch.resolve("analysis_options.yaml"), "analyzer:\n  errors: {}\nlinter:\n  rules: []\n")
+    scratch
   }
 
   private def _positive_tree(scratch: Path): Path = {
