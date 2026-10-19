@@ -10,7 +10,7 @@ import org.simplemodeling.model.{MEntity, MNominalDataType, MPowertype, MStructu
 
 /*
  * @since   Jul. 16, 2026
- * @version Jul. 16, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlModelKindContractSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -46,7 +46,7 @@ final class CmlModelKindContractSpec extends AnyWordSpec with Matchers with Give
       value should include ("case class CreateTicket(")
       value should include ("def toRecord(): Record")
       value should include ("def toDataStore(): Record")
-      value should include ("case m: Record => createC(m)")
+      value should include ("org.goldenport.convert.ValueReader.recordReader[CreateTicket]((record: Record) => createC(record)).readC(value)")
       value should not include ("extends org.simplemodeling.model.value.NominalScalar")
       value should not include ("extends Powertype")
 

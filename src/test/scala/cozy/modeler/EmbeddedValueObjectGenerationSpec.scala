@@ -12,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
  *  version May. 24, 2026
  *  version Jun. 23, 2026
  *  version Jul. 15, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -46,14 +47,14 @@ class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with G
       val valuecontent = Files.readString(generatedvalue)
 
       entitycontent should include ("lines: Vector[OrderLine]")
-      entitycontent should include ("case m: org.goldenport.record.RecordPresentable => m.toRecord()")
+      entitycontent should include ("org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE")
       entitycontent should include ("_record_get_vector_as_c[org.sample.aggregatesinglerecord.value.OrderLine](record, INPUT_KEYS_LINES).flatMap {")
       valuecontent should include ("case class OrderLine(name: Name")
       valuecontent should include ("quantity: Int) extends org.goldenport.record.RecordPresentable")
       valuecontent should not include "name entries must have length >= 1"
       valuecontent should not include "name entries must have length <= 256"
       valuecontent should include ("given org.goldenport.convert.ValueReader[OrderLine]")
-      valuecontent should include ("case m: Record => createC(m)")
+      valuecontent should include ("org.goldenport.convert.ValueReader.recordReader[OrderLine]((record: Record) => createC(record)).readC(value)")
     }
 
     "generate single and optional embedded value object attributes" in {
