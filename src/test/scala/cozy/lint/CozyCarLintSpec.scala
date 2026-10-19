@@ -14,7 +14,8 @@ import play.api.libs.json.Json
  * @since   Jul.  7, 2026
  *  version Jul. 28, 2026
  *  version Aug. 25, 2026
- * @version Sep. 27, 2026
+ *  version Sep. 27, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -88,7 +89,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         }
       }
 
-      "accepts generated exact CNCF versions through integrated lint" in {
+      "accepts generated exact CNCF versions through integrated lint" taggedAs org.scalatest.tagobjects.Slow in {
         Given("generated compatible project-owned CNCF identities")
         val property = Prop.forAll(Gen.chooseNum(1, 19)) { patch =>
           _with_temp_dir("cozy-car-lint-compatibility-property") { dir =>
@@ -467,7 +468,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         }
       }
 
-      "classifies finite canonical and legacy entry-point choices deterministically" in {
+      "classifies finite canonical and legacy entry-point choices deterministically" taggedAs org.scalatest.tagobjects.Slow in {
         Given("finite choices of canonical user-guide presence")
         val property = Prop.forAll(Gen.chooseNum(0, 1)) { choice =>
           _with_temp_dir("cozy-car-lint-documentation-entry-point-property") { dir =>

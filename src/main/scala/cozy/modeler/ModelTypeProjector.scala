@@ -395,34 +395,38 @@ private[modeler] final class ModelTypeProjector(val context: ModelBuildContext) 
       pkg: MPackageRef,
       p: String
     ): Option[MAttributeType] = {
-      val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
-      val datatype: Option[org.goldenport.record.v2.DataType] = normalized match {
-        case "record" => None
-        case "entityid" => Some(org.goldenport.record.v2.XEntityId)
-        case "year" => Some(org.goldenport.record.v2.XYear)
-        case "yearmonth" => Some(org.goldenport.record.v2.XYearMonth)
-        case "month" => Some(org.goldenport.record.v2.XMonth)
-        case "monthday" => Some(org.goldenport.record.v2.XMonthDay)
-        case "day" => Some(org.goldenport.record.v2.XDay)
-        case "duration" => Some(org.goldenport.record.v2.XDuration)
-        case "date-time" => None
-        case _ =>
-          org.goldenport.record.v2.DataType.get(normalized).filter { datatype =>
-            datatype != org.goldenport.record.v2.XString || normalized == "string"
+      MBuiltinStructuredDataType.get(p).orElse {
+        val normalized = p.trim.toLowerCase(java.util.Locale.ROOT)
+        val datatype: Option[org.goldenport.record.v2.DataType] = normalized match {
+          case "entityid" => Some(org.goldenport.record.v2.XEntityId)
+          case "year" => Some(org.goldenport.record.v2.XYear)
+          case "yearmonth" => Some(org.goldenport.record.v2.XYearMonth)
+          case "month" => Some(org.goldenport.record.v2.XMonth)
+          case "monthday" => Some(org.goldenport.record.v2.XMonthDay)
+          case "day" => Some(org.goldenport.record.v2.XDay)
+          case "duration" => Some(org.goldenport.record.v2.XDuration)
+          case "date-time" => None
+          case _ => {
+            org.goldenport.record.v2.DataType.get(normalized).filter { datatype =>
+              datatype != org.goldenport.record.v2.XString || normalized == "string"
+            }
           }
-      }
-      MBuiltinStructuredDataType.get(p).orElse(datatype.map(MDataType(_))).orElse {
-        normalized match {
-          case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
-          case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
-          case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))
-          case "instant" => Some(MObjectAttributeType(MObjectRef.create("java.time.Instant")))
-          case "localdate" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDate")))
-          case "localtime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalTime")))
-          case "localdatetime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDateTime")))
-          case _ => PredefinedScalarCatalog.get(normalized).
-            flatMap(_.runtimeclassname).
-            map(x => MObjectAttributeType(MObjectRef.create(x)))
+        }
+        datatype.map(MDataType(_)).orElse {
+          normalized match {
+            case "blob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.BinaryBag")))
+            case "clob" => Some(MObjectAttributeType(MObjectRef.create("org.goldenport.bag.TextBag")))
+            case "datetime" | "date_time" => Some(MObjectAttributeType(MObjectRef.create("java.time.ZonedDateTime")))
+            case "instant" => Some(MObjectAttributeType(MObjectRef.create("java.time.Instant")))
+            case "localdate" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDate")))
+            case "localtime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalTime")))
+            case "localdatetime" => Some(MObjectAttributeType(MObjectRef.create("java.time.LocalDateTime")))
+            case _ => {
+              PredefinedScalarCatalog.get(normalized).
+                flatMap(_.runtimeclassname).
+                map(x => MObjectAttributeType(MObjectRef.create(x)))
+            }
+          }
         }
       }
     }

@@ -12,10 +12,12 @@ import CmlDynamicTopology.{TopologyLink, Topology}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlDynamicMetadataFixtureSpec._
+
   "Fixed Dynamic supplier resources" should {
     "complete declared facts" which {
       "DF-01 preserve all 42 records three Terms and seventeen complete carriers through strict publication" in {
@@ -169,7 +171,7 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
 
   "Active fixed-resource properties" should {
     "independent order and object reconstruction" which {
-      "DF-09 preserve both fixture modes under 42-record and seven independent carrier permutations" in {
+      "DF-09 preserve both fixture modes under 42-record and seven independent carrier permutations" taggedAs org.scalatest.tagobjects.Slow in {
         Given("independent index plans and both literal typed modes with recursive object-key reconstruction")
         val generator = for {
           core <- _permutation(42)
@@ -214,14 +216,6 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
     }
   }
 
-  private final case class Expected(
-    core: Vector[ElementRecord], terms: Vector[TermRecord], workflows: Vector[WorkflowProjection],
-    activities: Vector[ActivityProjection], flows: Vector[FlowProjection], machines: Vector[StateMachineProjection],
-    states: Vector[StateProjection], transitions: Vector[TransitionProjection], causal: Vector[CausalLinkProjection]
-  )
-  private final case class Mutation(path: Vector[String], update: JsValue => JsValue,
-    coordinate: String, kind: DynamicDiagnosticKind = InvalidShape,
-    detail: String = "The Dynamic value does not match the required v1 shape.")
   private val _wire_path = "extensions.cozy.cml.dynamic"
   private val _child_path = Vector("extensions", "cozy.cml.dynamic")
   private val _peer = "org.example.dynamic-handoff"
@@ -585,4 +579,15 @@ final class CmlDynamicMetadataFixtureSpec extends AnyWordSpec with Matchers with
   private def _right[A, B](value: Either[A, B]): B = {
     value match { case Right(result) => result; case Left(_) => fail("The authored fixture must be admitted before observation.") }
   }
+}
+
+private object CmlDynamicMetadataFixtureSpec {
+  private final case class Expected(
+    core: Vector[ElementRecord], terms: Vector[TermRecord], workflows: Vector[WorkflowProjection],
+    activities: Vector[ActivityProjection], flows: Vector[FlowProjection], machines: Vector[StateMachineProjection],
+    states: Vector[StateProjection], transitions: Vector[TransitionProjection], causal: Vector[CausalLinkProjection]
+  )
+  private final case class Mutation(path: Vector[String], update: JsValue => JsValue,
+    coordinate: String, kind: DynamicDiagnosticKind = InvalidShape,
+    detail: String = "The Dynamic value does not match the required v1 shape.")
 }

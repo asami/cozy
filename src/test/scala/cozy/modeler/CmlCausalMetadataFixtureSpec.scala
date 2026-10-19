@@ -13,9 +13,11 @@ import CmlCausalTraversal._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  */
 final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlCausalMetadataFixtureSpec._
+
   "Fixed Causal supplier handoff" should {
     "complete independent publication" which {
       "CF-01 retain both complete resources through publication read and canonical reconsumption" in {
@@ -193,7 +195,7 @@ final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with 
 
   "Active fixed-resource properties" should {
     "independent two-mode permutations" which {
-      "CF-08 preserve complete values and grounded questions in both actual modes for every sample" in {
+      "CF-08 preserve complete values and grounded questions in both actual modes for every sample" taggedAs org.scalatest.tagobjects.Slow in {
         Given("seed 42 independent catalog Term peer reference and recursive-key permutation plans without discards")
         val literals = Vector(false, true).map(_literal)
         val tags = Vector("declared", "absence", "elements-reordered", "terms-reordered", "projections-reordered", "references-reordered", "records-reordered")
@@ -245,15 +247,6 @@ final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with 
     }
   }
 
-  private final case class Literal(records: Vector[ElementRecord], actor: CmlUseCaseMetadata.ActorProjection,
-    usecase: CmlUseCaseMetadata.UseCaseProjection, workflow: WorkflowProjection, causal: Vector[CausalLinkProjection],
-    structure: Vector[CmlStructureMetadata.ElementProjection], terminology: Vector[CmlTerminologyMetadata.ElementProjection])
-  private final case class Oracle(wire: JsObject, records: Vector[ElementRecord], terms: Vector[TermRecord],
-    structure: CmlStructureMetadata.Graph, classification: CmlClassificationMetadata.Graph, dynamic: CmlDynamicMetadata.Graph,
-    usecase: CmlUseCaseMetadata.Graph, terminology: CmlTerminologyMetadata.Graph, causal: Vector[CausalLinkProjection],
-    actors: Vector[ActorOperations], aggregates: Vector[AggregateMembership], rules: Vector[RuleContext],
-    collaborators: Vector[CollaboratorContext], references: Vector[ModelReferences], gaps: Vector[CapabilityGap], links: Vector[TraversalLink])
-  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, diagnostic: CausalDiagnostic, absent: Boolean = false)
   private val _families = Vector("cozy.cml.structure", "cozy.cml.classification", "cozy.cml.dynamic", "cozy.cml.use-case", "cozy.cml.terminology")
   private val _gaps = Vector(Absent(NotDeclared, "No causal fact is declared."), Absent(NotRepresented, "The causal fact is not represented."),
     Absent(Unsupported, "The causal fact is unsupported."), Absent(NotApplicable, "The causal fact is not applicable."))
@@ -659,4 +652,16 @@ final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with 
   private def _traverse(raw: JsObject): Traversal = _right(CmlCausalTraversal.build(_right(CmlCausalMetadata.read(raw))))
   private def _diagnostic(kind: CausalDiagnosticKind, path: String, detail: String): CausalDiagnostic = CausalDiagnostic(kind, path, detail)
   private def _unknown(api: String): CausalDiagnostic = _diagnostic(UnknownElement, api + ".identity", "The Causal element identity is unknown or unaddressable.")
+}
+
+private object CmlCausalMetadataFixtureSpec {
+  private final case class Literal(records: Vector[ElementRecord], actor: CmlUseCaseMetadata.ActorProjection,
+    usecase: CmlUseCaseMetadata.UseCaseProjection, workflow: WorkflowProjection, causal: Vector[CausalLinkProjection],
+    structure: Vector[CmlStructureMetadata.ElementProjection], terminology: Vector[CmlTerminologyMetadata.ElementProjection])
+  private final case class Oracle(wire: JsObject, records: Vector[ElementRecord], terms: Vector[TermRecord],
+    structure: CmlStructureMetadata.Graph, classification: CmlClassificationMetadata.Graph, dynamic: CmlDynamicMetadata.Graph,
+    usecase: CmlUseCaseMetadata.Graph, terminology: CmlTerminologyMetadata.Graph, causal: Vector[CausalLinkProjection],
+    actors: Vector[ActorOperations], aggregates: Vector[AggregateMembership], rules: Vector[RuleContext],
+    collaborators: Vector[CollaboratorContext], references: Vector[ModelReferences], gaps: Vector[CapabilityGap], links: Vector[TraversalLink])
+  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, diagnostic: CausalDiagnostic, absent: Boolean = false)
 }

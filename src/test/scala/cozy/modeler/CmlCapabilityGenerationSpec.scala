@@ -18,7 +18,7 @@ import CmlCapabilityGenerationSpec._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -348,7 +348,7 @@ final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with G
 
       "C64G16 preserve original syntax, target and acquisition failure vectors" in {
         Given("an actual parser error, a missing or wrong-kind target fact and an ordered rejected acquisition vector")
-        val broken = KaleidoxModel.parse(KaleidoxConfig.default, _primary_text.replace("\"elementId\":\"Application:Independent\"", "\"elementId\":\"broken\\\"quote\""))
+        val broken = KaleidoxModel.parse(KaleidoxConfig.default, "# ENV\nvalue = ]\n")
         val brokeninputs = Vector(SourceInput(_primary_scope, broken))
         val syntax = CmlCapabilityCml.normalize(brokeninputs).left.get
         val inputs = _inputs

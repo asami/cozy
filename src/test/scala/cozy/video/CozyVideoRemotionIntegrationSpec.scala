@@ -15,9 +15,10 @@ import io.circe.parser
  * @since   Jul. 18, 2026
  *  version Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
+@org.scalatest.tags.Slow
 final class CozyVideoRemotionIntegrationSpec
     extends AnyWordSpec
     with GivenWhenThen

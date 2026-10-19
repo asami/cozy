@@ -14,7 +14,7 @@ import org.goldenport.realm.Realm
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
  *  version Sep. 28, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -35,6 +35,7 @@ class ScalaGenerator(
   }
 
   def generate(p: MPackage): STree = {
+    PowertypePersistenceCodes.requireValid(model)
     ModelGenerationTarget.requireLogicalUiInput(logicalUi)
     ValidationMetadataScalaGenerator.requireInput(validationMetadata)
     generationTarget match {

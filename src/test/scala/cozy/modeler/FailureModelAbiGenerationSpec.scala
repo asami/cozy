@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -77,8 +77,8 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       save.source.line shouldBe Some(_line(Files.readString(input), "#### save"))
     }
 
-    "preserve original products with only declared source identity and operation metadata changes when declarations are absent" in {
-      Given("the immutable SOURCE baseline with removed source hashes, the selected fixture path and the accepted operation content metadata")
+    "preserve original products with declared provenance, operation metadata and canonical conversion delegates when declarations are absent" in {
+      Given("the immutable SOURCE baseline with the selected fixture path, accepted operation metadata and SimpleModeler 52aea03 canonical delegates")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
       val expected = groups.map(group => _legacy_expected(group, _base.resolve((group \ "fixture").as[String])))
@@ -90,6 +90,9 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         val outputs = Vector(1, 2).map { repetition =>
           val output = _output(s"legacy-$index-$repetition")
           _run(route, input, output)
+          Then("generated JSON provenance equals the normalized actual input path")
+          val metadata = Json.parse(Files.readString(output.resolve("target/cozy/model-metadata.json")))
+          (metadata \ "source" \ "path").as[String] shouldBe input.toAbsolutePath.normalize().toString
           _all_bytes(output)
         }
         (FailureModelCml.requireDefinitions(_load(input)), outputs)
@@ -115,7 +118,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       emptyjson shouldBe Json.obj("schemaVersion" -> "cozy.failure-model.v1", "components" -> Json.arr())
     }
 
-    "adapt only selected source identity and the four accepted operation content declarations" in {
+    "adapt only selected source identity, four operation content declarations and fixed canonical conversion delegates" in {
       Given("the historical Workflow fixture and a selected source path containing spaces and Unicode")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
@@ -143,16 +146,22 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       yaml should not include "  sha256:"
       new String(unchanged.toArray, UTF_8) shouldBe originalpath
 
-      And("the exact four operation content additions leave every historical line intact and do not authorize other contract changes")
+      And("the four operation content additions preserve every line outside the explicitly adopted conversion helpers")
       val additions = Vector("beginReview", "submitReview", "supplyInput", "reviseChange").map(name =>
         s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
-      component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe files(componentpath).linesIterator.mkString("\n")
+      component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe
+        _current_conversion_delegates(componentpath, files(componentpath)).linesIterator.mkString("\n")
       additions.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
+      component should include("_record_get_as_c[Record](record, keys)")
+      component should include("ValueReader.vector(vr, allowSingle = true), ctx)")
+      component should not include "private def _record_get_vector_of_record_c"
+      component.replace("allowSingle = true", "allowSingle = false") should not be component
+      component.replace("(vr, allowSingle = true), ctx)", "(vr, allowSingle = true), otherContext)") should not be component
       component.replace("BaseContent.Builder(\"beginReview\")", "BaseContent.Builder(\"wrongOperation\")") should not be component
       component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
     }
 
-    "bind historical expected metadata to one hundred independent locations while preserving every other byte" in {
+    "bind historical expected metadata to one hundred independent locations while preserving bytes outside declared adaptations" taggedAs org.scalatest.tagobjects.Slow in {
       Given("four historical raw groups and independently chosen input locations containing spaces and Unicode")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
@@ -163,7 +172,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       val componentpath = "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
       val operations = Vector("beginReview", "submitReview", "supplyInput", "reviseChange")
 
-      When("ScalaCheck binds only expected input paths and the fixed existing Operation content across all four groups")
+      When("ScalaCheck binds expected input paths, fixed Operation content and canonical delegates across all four groups")
       val property = Prop.forAll(locations) { location =>
         groups.foreach { group =>
           val fixture = (group \ "fixture").as[String]
@@ -180,21 +189,21 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
             (group \ "route").as[String] == "modeler-scala"
           val changedpaths = metadatapaths ++ (if (componentchanged) Set(componentpath) else Set.empty[String])
           original.filterNot { case (path, _) => changedpaths.contains(path) }.foreach { case (path, bytes) =>
-            expected(path) shouldBe bytes
+            expected(path) shouldBe _current_conversion_delegates(path, new String(bytes.toArray, UTF_8)).getBytes(UTF_8).toVector
           }
           if (componentchanged) {
             val component = new String(expected(componentpath).toArray, UTF_8)
             val contentlines = operations.map(name => s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
             contentlines.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
             component.linesIterator.filterNot(contentlines.contains).mkString("", "\n", "\n").getBytes(UTF_8).toVector shouldBe
-              original(componentpath)
+              _current_conversion_delegates(componentpath, new String(original(componentpath).toArray, UTF_8)).getBytes(UTF_8).toVector
           }
         }
         true
       }
       val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100).withInitialSeed(Seed(73L)), property)
 
-      Then("one hundred reproducible samples preserve all other metadata, compiler, versions, inventories and request/response bytes except the three adopted adaptations, without discards")
+      Then("one hundred reproducible samples preserve all other metadata, compiler, versions, inventories and request/response bytes outside the declared adaptations, without discards")
       withClue(result.toString) { result.passed shouldBe true }
       result.succeeded should be >= 100
       result.discarded shouldBe 0
@@ -374,7 +383,8 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         val metadata = Json.parse(Files.readString(output.resolve("target/cozy/model-metadata.json")))
         (metadata \ "source" \ "path").as[String] shouldBe input.toAbsolutePath.normalize().toString
         Files.readString(output.resolve("target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala")) shouldBe
-          _legacy_text("workflow-semantic-outcome.cml", "modeler-scala", "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala")
+          _current_conversion_delegates("target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala",
+            _legacy_text("workflow-semantic-outcome.cml", "modeler-scala", "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala"))
       }
       submit.delta.entries.head.source.sectionPath shouldBe "SERVICE/ReviewService/OPERATION/submitReview/FAILURE-MODEL/network-partition"
     }
@@ -430,7 +440,40 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         }
       case _ => text
     }
-    expected.getBytes(UTF_8).toVector
+    _current_conversion_delegates(path, expected).getBytes(UTF_8).toVector
+  }
+  // Fixed expected-source adaptations from SimpleModeler 52aea03, never from generated output.
+  // Only these four historical products contain the superseded private conversion helpers.
+  private def _current_conversion_delegates(path: String, text: String): String = {
+    val values = Set(
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/CountryCode.scala",
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala")
+    val components = Set(
+      "src/main/scala/domain/impl/ComponentFactory.scala",
+      "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")
+    def _replace_method_(source: String, name: String, declaration: String): String = {
+      val pattern = ("(?ms)^  private def " + java.util.regex.Pattern.quote(name) +
+        "(?=[\\[(]).*?^  }\\n(?:  \\n)?").r
+      pattern.findAllMatchIn(source).size shouldBe 1
+      pattern.replaceFirstIn(source, java.util.regex.Matcher.quoteReplacement(declaration))
+    }
+    val projected = if (values.contains(path))
+      _replace_method_(text, "_to_external_value",
+        "  private def _to_external_value(v: Any): Any =\n" +
+        "    org.simplemodeling.model.value.ModelValueEncoder.encodeC(v).TAKE\n  \n")
+    else text
+    if ((values ++ components).contains(path) && projected.contains("  private def _record_get_record(")) {
+      val record = _replace_method_(projected, "_record_get_record",
+        "  private def _record_get_record(record: Record, keys: List[String]): Consequence[Option[Record]] =\n" +
+        "    _record_get_as_c[Record](record, keys)\n  \n")
+      val vector = _replace_method_(record, "_record_get_vector_as_c",
+        "  private def _record_get_vector_as_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A]): Consequence[Option[Vector[A]]] =\n" +
+        "    _record_get_as_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true))\n  \n")
+      val contextual = _replace_method_(vector, "_record_get_vector_as_context_c",
+        "  private def _record_get_vector_as_context_c[A](record: Record, keys: List[String])(using vr: org.goldenport.convert.ValueReader[A], ctx: org.goldenport.context.ExecutionContext): Consequence[Option[Vector[A]]] =\n" +
+        "    _record_get_as_context_c[Vector[A]](record, keys)(using org.goldenport.convert.ValueReader.vector(vr, allowSingle = true), ctx)\n  \n")
+      _replace_method_(contextual, "_record_get_vector_of_record_c", "")
+    } else projected
   }
   private def _legacy_expected(group: JsObject, input: Path): Map[String, Vector[Byte]] = {
     val operationgroup = (group \ "fixture").as[String] == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&

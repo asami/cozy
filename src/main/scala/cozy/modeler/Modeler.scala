@@ -55,7 +55,7 @@ import scala.collection.mutable
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
  *  version Sep. 28, 2026
- * @version Oct. 18, 2026
+ * @version Oct. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -824,6 +824,7 @@ object Modeler {
       val statemachines = stateMachine.classes.values.map(_state_machine_projector.projectStateMachine)
       val xs = entities ++ values ++ datatypes ++ powertypes ++ statemachines
       val a = SimpleModel(xs.toVector)
+      PowertypePersistenceCodes.requireValid(a)
       if (includecomponents) {
         val comps = _component_projector.complementComponents(a)
         a.add(comps)
@@ -859,6 +860,8 @@ object Modeler {
       predefinedResultCatalog: PredefinedResultCatalog,
     componentStyleCatalog: ComponentStyleCatalog
   ): ModelBuilder = {
+      if (p.errors.nonEmpty)
+        RAISE.syntaxErrorFault(p.errors.map(_.en).mkString("; "))
       FailureModelCml.requireDefinitions(p)
       CompositeStateMachineCml.validate(p)
       val relationships = ModelerRelationshipCml.relationshipDefinitions(p)

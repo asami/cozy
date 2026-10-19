@@ -107,6 +107,29 @@ generation provenance remains build-time metadata.
 
 ## Review and Publication Gates
 
+### Explicit Snapshot source-build inputs
+
+For local development CARs, `package-car` accepts the paired options
+`--source-cncf-version` and `--source-cozy-version`. Both must be nonblank
+Snapshot coordinates and the canonical component version must be a Snapshot.
+Before normal package admission, a narrow projection changes only the version
+of the single canonical CNCF compile dependency and `build.cozyVersion` in the
+unmerged metadata. Organization/artifact spelling, other dependencies, authored
+keys, identity, source policies and runtime compatibility remain unchanged.
+Partial pairs and missing or multiple canonical CNCF coordinates fail.
+
+The source pair names actual compile/generator inputs. It neither supplies
+runtime support nor replaces resolved-JAR evidence: all existing descriptor,
+compatibility, ABI and provenance gates still apply. The selected CNCF version
+must independently appear in the project-owned runtime `tested` set and satisfy
+the authored minimum, maximum and exclusions. No flags retains ordinary package
+behavior. The sbt-cozy opt-in supplies the native source project's packaged JAR
+and derives this pair from its effective generation metadata.
+
+These flags do not change publication admission or published/default build
+coordinates. A development CAR built against a different source pair is not
+thereby publishable against the canonical project's compile/generator pair.
+
 CAR lint and the Review Provider evaluate the same unmerged project contract
 before resolved-JAR admission. An accepted report exposes the exact generator,
 compile coordinate, and runtime range; a rejected report preserves the same

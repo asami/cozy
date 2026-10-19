@@ -1,6 +1,35 @@
 import sbt.ScriptedPlugin
 import sbt.ScriptedPlugin.autoImport._
 import org.goldenport.cozy.CozyPlugin.autoImport._
+import cozy.build.CozySimpleModelerDevelopmentBuild
+
+lazy val simpleModelerSourceDirectory =
+  CozySimpleModelerDevelopmentBuild.resolveSourceDirectory(
+    file("."), sys.env.get("TEXTUS_SIMPLEMODELER_CNCF_SOURCE_ROOT")
+  ).fold(errors => sys.error(errors.mkString("\n")), directory => directory)
+
+lazy val simpleModelerSourceProject =
+  simpleModelerSourceDirectory.map(source => RootProject(source.toURI))
+
+lazy val validateCozySimpleModelerDevelopment =
+  settingKey[Unit]("Validate loaded SimpleModeler development coordinates against Cozy")
+
+validateCozySimpleModelerDevelopment := { () }
+
+lazy val simpleModelerSourceSettings: Seq[Def.Setting[_]] =
+  simpleModelerSourceProject.toSeq.flatMap { source =>
+    Seq(
+      validateCozySimpleModelerDevelopment :=
+        CozySimpleModelerDevelopmentBuild.validateCoordinates(
+          (source / organization).value,
+          (source / moduleName).value,
+          (source / version).value,
+          (source / scalaVersion).value,
+          simplemodelerVersion,
+          scalaVersion.value
+        ).fold(errors => sys.error(errors.mkString("\n")), identity)
+    )
+  }
 
 cozyCoursierChannelPath := "repository/cozy/coursier-channel.json"
 
@@ -40,6 +69,10 @@ lazy val cncfCollaboratorApiVersion = "0.2.0"
 scalaVersion := "2.12.18"
 // Tests temporarily change JVM-global Locale and must not overlap.
 Test / parallelExecution := false
+// FULL retains basic integration routes; repeated generation and native media
+// toolchains are opt-in HEAVY, using the same ScalaTest tag as CNCF.
+Test / test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-l", "org.scalatest.tags.Slow")
+Test / testOnly / testOptions := Seq.empty
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
 
 scalacOptions += "-deprecation"
@@ -91,7 +124,17 @@ libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.20-SNAPSHOT"
 val simplemodelerVersion =
   sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
+libraryDependencies ++= {
+  validateCozySimpleModelerDevelopment.value
+  if (simpleModelerSourceProject.isDefined) Seq.empty
+  else Seq("org.simplemodeling" %% "simplemodeler" % simplemodelerVersion)
+}
+
+excludeDependencies ++= (if (simpleModelerSourceProject.isDefined)
+  Seq(ExclusionRule("org.simplemodeling", "simplemodeler_2.12"))
+  else Seq.empty)
+
+Test / unmanagedSources += baseDirectory.value / "project" / "CozySimpleModelerDevelopmentBuild.scala"
 
 libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion
 
@@ -418,6 +461,7 @@ lazy val root = (project in file(".")).
   enablePlugins(ScriptedPlugin).
   enablePlugins(JavaAppPackaging).
   enablePlugins(org.goldenport.cozy.CozyPlugin).
+  dependsOn(simpleModelerSourceProject.toSeq.map(source => source % "compile->compile;runtime->runtime"): _*).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
@@ -459,4 +503,5 @@ lazy val root = (project in file(".")).
         }
       }
     }.value
-  )
+  ).
+  settings(simpleModelerSourceSettings)

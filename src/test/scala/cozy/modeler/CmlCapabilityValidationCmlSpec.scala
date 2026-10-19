@@ -15,7 +15,7 @@ import CmlCapabilityValidationSpec._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -134,7 +134,7 @@ final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers wit
 
       "C64V05 preserve parsed errors and explicit acquisition rejection instead of admitting emptiness" in {
         Given("an error-bearing real parsed model and four original unavailable, unauthorized, stale or unsupported scope diagnostics")
-        val parsed = KaleidoxModel.parse(KaleidoxConfig.default, _primary.replace("\"elementId\":\"Application:Independent\"", "\"elementId\":\"broken\\\"quote\""))
+        val parsed = KaleidoxModel.parse(KaleidoxConfig.default, "# ENV\nvalue = ]\n")
         val kinds = Vector(DiagnosticKind.Unavailable, DiagnosticKind.Unauthorized, DiagnosticKind.Stale, DiagnosticKind.Unsupported)
         val diagnostics = kinds.map(kind => Diagnostic(kind, "scope.acquire", None, Some(_source("acquisition-r9")), Vector.empty, "Original acquisition failure."))
         When("normalization sees the original parser errors and semantic validation receives each explicit Rejected scope")

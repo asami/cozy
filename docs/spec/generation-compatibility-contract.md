@@ -69,6 +69,37 @@ and test results supplies development evidence. Release admission remains
 immutable and requires an exact evidence-proven pair; version similarity and
 fallback inference never supply proof.
 
+For development, `TEXTUS_SIMPLEMODELER_CNCF_SOURCE_ROOT` explicitly selects
+the SimpleModeler source build used to prepare Cozy. It selects a build input,
+not the CNCF generation target, executing Cozy coordinate, or compatibility
+proof. Unset selection preserves the published backend and the existing
+`simplemodeler.version` system property, then `SIMPLEMODELER_VERSION`, then
+`1.1.26-SNAPSHOT` precedence. A selected checkout must have an absolute,
+canonical directory, `build.sbt`, and
+`src/main/scala/org/simplemodeling/SimpleModeler/SimpleModeler.scala` within
+that directory. Blank, relative, uncanonicalizable, incomplete, or overlapping
+selections fail before generation without artifact fallback. Source and Cozy
+roots must be disjoint, except for a direct normalized absolute lexical and
+canonical Cozy `.codex-workflow/checkouts/` child with an ASCII leaf matching
+`[A-Za-z0-9_][A-Za-z0-9_.-]*`; a lexical contained path cannot escape through
+symlinks.
+
+The loaded source project's actual organization and module must be
+`org.simplemodeling` and `simplemodeler`. Its actual version must equal the
+owning Cozy backend version, and its actual Scala version must equal Cozy's
+loaded Scala version (`1.1.26-SNAPSHOT` and `2.12.18` for the current default
+development build). These are settings-initialization checks, not source-text
+inference. Selected mode uses a source project dependency for compile/runtime
+and excludes the published `simplemodeler_2.12` implementation, including
+transitive copies. Unset mode adds no backend exclusion. Before invoking the
+Cozy CLI development launcher, the producer must prepare
+`cozyExportRuntimeClasspath`; the running generator must have exactly one
+class resource owned by the selected source's `target` output. Provenance,
+actual generated-source compilation, and specifications remain required to
+establish development compatibility. The directory itself supplies no proof.
+The executable selection and class-origin contract is
+[`CozySimpleModelerDevelopmentBuildSpec`](../../src/test/scala/cozy/modeler/CozySimpleModelerDevelopmentBuildSpec.scala).
+
 For CAR/SAR generation, sbt-cozy must reject a project missing its CNCF
 compile dependency or declaring more
 than one CNCF compile dependency declaration. Equivalent aliases or duplicate

@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -226,7 +226,7 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       }
     }
 
-    "publish generated valid article content across at least fifty isolated command trials" in {
+    "publish generated valid article content across at least fifty isolated command trials" taggedAs org.scalatest.tagobjects.Slow in {
       Given("small generated valid article text and independent package roots for every trial")
       val articletexts = Gen.choose(1, 24).flatMap(length => Gen.listOfN(length, Gen.alphaLowerChar)).map { characters =>
         s"# Revised article\n\n${characters.mkString}\n"

@@ -12,9 +12,11 @@ import CmlTerminologyNavigation.{TermLink, LocalTarget, ExternalTarget}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  */
 final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlTerminologyMetadataFixtureSpec._
+
   "Fixed Terminology handoff" should {
     "complete independent declarations" which {
       "TF-01 retain the entire declared resource through typed publication read and canonical reconsumption" in {
@@ -196,7 +198,7 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
 
   "Active fixed-resource properties" should {
     "independent occurrence permutations" which {
-      "TF-09 preserve both modes in every non-discarded sample with observable full-vector coverage" in {
+      "TF-09 preserve both modes in every non-discarded sample with observable full-vector coverage" taggedAs org.scalatest.tagobjects.Slow in {
         Given("seed 42 and independent remaining-index permutations for references catalogs Terms and both projection arrays")
         val literals = Vector(_literal(false), _literal(true))
         val tags = Vector("declared", "absence", "references-reordered", "records-reordered", "terms-reordered", "elements-reordered", "projections-reordered")
@@ -242,14 +244,6 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
     }
   }
 
-  private final case class Input(records: Vector[ElementRecord], terms: Vector[TermRecord],
-    elements: Vector[ElementProjection], projections: Vector[TermProjection])
-  private final case class Prefix(raw: JsObject, structure: CmlStructureMetadata.Graph,
-    classification: CmlClassificationMetadata.Graph, dynamic: CmlDynamicMetadata.Graph, usecase: CmlUseCaseMetadata.Graph)
-  private final case class Plan(refs: Vector[Vector[Int]], records: Vector[Int], terms: Vector[Int], elements: Vector[Int], projections: Vector[Int])
-  private final case class Failure(input: Input, typederrors: Vector[TerminologyDiagnostic], wireerrors: Vector[TerminologyDiagnostic])
-  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, coordinate: String,
-    kind: TerminologyDiagnosticKind = InvalidShape, detail: String = "The Terminology value does not match the required v1 shape.", absent: Boolean = false)
   private val _ta = TermId("terminology.a", "shared")
   private val _tb = TermId("terminology.b", "shared")
   private val _tu = TermId("terminology.a", "unused")
@@ -625,4 +619,15 @@ final class CmlTerminologyMetadataFixtureSpec extends AnyWordSpec with Matchers 
       _change(value, path, items => JsArray(order.map(items.as[Vector[JsValue]])))
     }
   }
+}
+
+private object CmlTerminologyMetadataFixtureSpec {
+  private final case class Input(records: Vector[ElementRecord], terms: Vector[TermRecord],
+    elements: Vector[ElementProjection], projections: Vector[TermProjection])
+  private final case class Prefix(raw: JsObject, structure: CmlStructureMetadata.Graph,
+    classification: CmlClassificationMetadata.Graph, dynamic: CmlDynamicMetadata.Graph, usecase: CmlUseCaseMetadata.Graph)
+  private final case class Plan(refs: Vector[Vector[Int]], records: Vector[Int], terms: Vector[Int], elements: Vector[Int], projections: Vector[Int])
+  private final case class Failure(input: Input, typederrors: Vector[TerminologyDiagnostic], wireerrors: Vector[TerminologyDiagnostic])
+  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, coordinate: String,
+    kind: TerminologyDiagnosticKind = InvalidShape, detail: String = "The Terminology value does not match the required v1 shape.", absent: Boolean = false)
 }

@@ -1,10 +1,20 @@
 # Phase 78: DataStore Logical Type Generation and Storage Mapping Metadata
 
-status=planned
+status=closed
+closed_at=2026-10-18
 planned_at=2026-10-05
 depends_on=goldenport-cncf Phase 100 DSM-100-02
 consumer=goldenport-cncf Phase 100 DSM-100-03, DSM-100-04, DSM-100-06
 checklist=[Phase 78 Checklist](phase-78-checklist.md)
+
+Delivery grouping (2026-10-18): P78-PRODUCER integrates canonical P78-01 through
+P78-04; P78-ACCEPTANCE owns P78-05. All five checklist sections are DONE.
+Both delivery Steps are accepted and committed. The generated consumer handoff,
+including separate-JVM restart/readback, is accepted. The sole comprehensive
+Phase review and its focused CPB-P78-001 repair closure are accepted, final Cozy
+FULL validation passed, and the final release records this Phase closure.
+The [consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+retains the provider-reopen/process-restart distinction and external ownership.
 
 ## Goal
 
@@ -58,7 +68,13 @@ Phase 78 does not independently define CNCF runtime mapping semantics. CNCF Phas
 - SQL TEXT is a physical storage mapping and must not redefine the application datatype.
 - JSON-looking String remains String when the declaration is String.
 
-Cozy generates declarations and metadata. Runtime JSON parsing, Record/Json reconstruction, provider reads/writes and malformed-payload handling belong to CNCF Phase 100.
+Cozy owns built-in structured semantic projection. SimpleModeler owns typed
+Scala generation, schema emission and declared row bindings. Core/CNCF own
+external decoding, physical mapping, provider reads/writes and restart/readback.
+Explicit external format selection belongs to that frozen decoder contract;
+it requires no new CML storage-format property. Unsupported or incompatible
+declaration diagnostics remain inherited generator responsibilities within the
+[supported bounds](../spec/datastore-logical-type-generation.md).
 
 ## Implementation direction
 
@@ -74,6 +90,31 @@ Implementation order:
 6. prove no active selected producer output depends on `Named("record")`;
 7. hand generated fixtures to CNCF DSM-100-03;
 8. close only after CNCF DSM-100-06 accepts the producer output in the declared roundtrip route.
+
+The selected acceptance route is CNCF `src/test/cozy/phase100-store.cml` ->
+existing `Test / sourceGenerators` -> generated Scala compilation ->
+`Phase100GeneratedStoreSpec` typed EntityStore SQLite reopen/readback. It uses
+CNCF's generated current runtime descriptor/version and explicit current Cozy
+development root, `-Dcncf.cozyGeneratorRoot=<Cozy checkout>`, after
+`cozyExportRuntimeClasspath`. Replace `<Cozy checkout>` with the selected absolute
+checkout path at execution. Cozy's existing 0.5.2-SNAPSHOT helper fixtures
+remain separate source-output checks. Actual compilation and recorded CNCF
+DSM-100-06 provider-reopen evidence are recorded in the
+[consumer handoff](../journal/2026/10/2026-10-18-phase-78-consumer-acceptance.md)
+for Cozy 0.3.3-SNAPSHOT and CNCF 0.5.3-SNAPSHOT. The CML fixture was regenerated
+and compiled through that consumer route; existing generated nested
+semantic-AST fixtures provide separate nested collection coverage. CNCF's
+executable specification accepts typed EntityStore memory/SQLite behavior and
+SQLite close/reopen readback within one JVM. Separate OS-process restart
+readback is accepted through the Cozy-owned Scala3 executable fixture
+`src/test/resources/cozy/modeler/phase78/GeneratedStoreProcessRestartSpec.scala`.
+The consumer compiles it against the same current generated Proposal; a writer
+JVM saves and terminates before a fresh reader JVM reconstructs independently
+expected values from the same SQLite database/entity identity. CPB-P78-001 is
+resolved by actual execution and independent focused closure. Existing nested
+fixture coverage remains separate. The [checklist](phase-78-checklist.md) records
+the completed final Cozy validation, review and release gates. CNCF Phase 100,
+Workbench and source-only migration ancestry integration remain separately owned.
 
 ## Executable specifications
 

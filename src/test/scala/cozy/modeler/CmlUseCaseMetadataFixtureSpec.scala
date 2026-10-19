@@ -14,10 +14,12 @@ import CmlUseCaseNavigation.{ExternalTarget, LocalTarget}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlUseCaseMetadataFixtureSpec._
+
   "Fixed Use Case handoff" should {
     "complete declared facts" which {
       "UF-01 retain every literal core source Term carrier and independent canonical wire value" in {
@@ -233,7 +235,7 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
 
   "Active fixed-resource properties" should {
     "independent observable order and recursive key reconstruction" which {
-      "UF-09 preserve both modes under six independent Catalog Actor and UseCase priority plans" in {
+      "UF-09 preserve both modes under six independent Catalog Actor and UseCase priority plans" taggedAs org.scalatest.tagobjects.Slow in {
         Given("six bounded independent priority vectors and literal declared and absence modes without discarded plans")
         val generator = for {
           declaredcore <- _priorities(49)
@@ -279,14 +281,6 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
       }
     }
   }
-
-  private final case class Expected(core: Vector[ElementRecord], terms: Vector[TermRecord],
-    actors: Vector[ActorProjection], usecases: Vector[UseCaseProjection])
-  private final case class Prefix(raw: JsObject, dynamic: CmlDynamicMetadata.Graph,
-    structure: CmlStructureMetadata.Graph, classification: CmlClassificationMetadata.Graph)
-  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, coordinate: String,
-    kind: UseCaseDiagnosticKind = InvalidShape, detail: String = "The Use Case value does not match the required v1 shape.")
-  private final case class ReferenceMutation(path: Vector[String], coordinate: String, wrong: ModelElementId)
 
   private val _wire_path = "extensions.cozy.cml.use-case"
   private val _child_path = Vector("extensions", namespace)
@@ -817,4 +811,14 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
   private def _right[A, B](value: Either[A, B]): B = {
     value match { case Right(result) => result; case Left(_) => fail("The authored fixture prerequisite must be admitted before observation.") }
   }
+}
+
+private object CmlUseCaseMetadataFixtureSpec {
+  private final case class Expected(core: Vector[ElementRecord], terms: Vector[TermRecord],
+    actors: Vector[ActorProjection], usecases: Vector[UseCaseProjection])
+  private final case class Prefix(raw: JsObject, dynamic: CmlDynamicMetadata.Graph,
+    structure: CmlStructureMetadata.Graph, classification: CmlClassificationMetadata.Graph)
+  private final case class Mutation(path: Vector[String], update: JsValue => JsValue, coordinate: String,
+    kind: UseCaseDiagnosticKind = InvalidShape, detail: String = "The Use Case value does not match the required v1 shape.")
+  private final case class ReferenceMutation(path: Vector[String], coordinate: String, wrong: ModelElementId)
 }

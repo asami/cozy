@@ -12,9 +12,11 @@ import CmlSemanticPublication._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 18, 2026
  */
 final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CmlSemanticPublicationSpec._
+
   "Semantic publication admission" should {
     "complete typed suppliers" which {
       Vector("declared", "absence").foreach { mode =>
@@ -217,7 +219,7 @@ final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with Gi
       }
     }
     "active recursive object-key invariance" which {
-      "SP-08 retain both complete modes under seed 42 with at least one hundred successful samples and no discards" in {
+      "SP-08 retain both complete modes under seed 42 with at least one hundred successful samples and no discards" taggedAs org.scalatest.tagobjects.Slow in {
         Given("seed 42 a no-discard integer generator and literal mandatory coverage categories")
         val generator = Gen.choose(1, Int.MaxValue)
         val tags = Vector("declared", "absence", "reconstructed-objects", "literal-arrays-and-nulls")
@@ -275,16 +277,6 @@ final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with Gi
     Absent(NotDeclared, "No admitted Use Case metadata is supplied."),
     Absent(NotDeclared, "No admitted Terminology metadata is supplied."),
     Absent(NotDeclared, "No admitted Causal metadata is supplied.")
-  )
-
-  private final case class Oracle(
-    envelope: CmlSemanticMetadata.Envelope,
-    structure: CmlStructureMetadata.Graph,
-    classification: CmlClassificationMetadata.Graph,
-    dynamic: CmlDynamicMetadata.Graph,
-    usecase: CmlUseCaseMetadata.Graph,
-    terminology: CmlTerminologyMetadata.Graph,
-    causal: CmlCausalMetadata.Graph
   )
 
   private def _oracle(raw: JsObject): Oracle = Oracle(
@@ -413,4 +405,16 @@ final class CmlSemanticPublicationSpec extends AnyWordSpec with Matchers with Gi
     val source = Source.fromInputStream(getClass.getResourceAsStream("/cozy/modeler/" + name), "UTF-8")
     try Json.parse(source.mkString).as[JsObject] finally source.close()
   }
+}
+
+private object CmlSemanticPublicationSpec {
+  private final case class Oracle(
+    envelope: CmlSemanticMetadata.Envelope,
+    structure: CmlStructureMetadata.Graph,
+    classification: CmlClassificationMetadata.Graph,
+    dynamic: CmlDynamicMetadata.Graph,
+    usecase: CmlUseCaseMetadata.Graph,
+    terminology: CmlTerminologyMetadata.Graph,
+    causal: CmlCausalMetadata.Graph
+  )
 }

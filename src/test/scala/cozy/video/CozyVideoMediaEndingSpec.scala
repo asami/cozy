@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 18, 2026
  */
 object CozyVideoMediaEndingSpec {
   private final class NativeRunner extends CozyVideo.VideoProcessRunner {
@@ -249,7 +249,7 @@ final class CozyVideoMediaEndingSpec
     }
 
     "retain actual encoded media in the native regression" which {
-      "preserve the late tone and opaque last card in both direct and final outputs" in {
+      "preserve the late tone and opaque last card in both direct and final outputs" taggedAs org.scalatest.tagobjects.Slow in {
         Given("the explicitly enabled Docker regression with a 0.36-second PCM16 mono 24k WAV, an independent early marker and a final 20ms tone")
         if (!sys.props.get("cozy.video.remotion.integration").contains("true"))
           cancel("Set -Dcozy.video.remotion.integration=true to execute the native media-ending regression.")

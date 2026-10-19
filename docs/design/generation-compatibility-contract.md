@@ -34,6 +34,41 @@ schema, owner/location, coordinate fields, immutable-only evidence pairs, pair
 uniqueness, and status semantics before admission; malformed evidence cannot
 produce `Supported`.
 
+Cozy owns development backend preparation. An explicit
+`TEXTUS_SIMPLEMODELER_CNCF_SOURCE_ROOT` is resolved once at build graph
+construction to a canonical SimpleModeler `RootProject`, with
+`compile->compile;runtime->runtime` dependency mapping. Admission rejects an
+empty, relative, uncanonicalizable, incomplete, or overlapping checkout and
+never falls back from an invalid selection. Only a direct normalized absolute
+lexical and canonical `.codex-workflow/checkouts/` child with an ASCII
+`[A-Za-z0-9_][A-Za-z0-9_.-]*` leaf permits containment in Cozy; namespace,
+directory, and marker symlinks cannot disguise overlap or lexical escape.
+External source aliases remain eligible when their canonical roots are
+disjoint. The pure build helper is also compiled into Test so the executable
+selection specification exercises the same admission logic.
+
+Loaded source settings, rather than parsed files or cached coordinates, must
+identify `org.simplemodeling:simplemodeler` with the exact owning
+`simplemodelerVersion` and Cozy `scalaVersion`. Validation is a setting and
+therefore happens before generation. Source mode omits the direct published
+backend and excludes transitive `org.simplemodeling:simplemodeler_2.12` from
+Cozy, preserving one generator implementation. The source producer's own
+settings and dependencies remain its responsibility. Unset mode keeps the
+published dependency, no new exclusion, and the original
+`simplemodeler.version` > `SIMPLEMODELER_VERSION` > `1.1.26-SNAPSHOT`
+precedence. BuildInfo continues to record the owning backend version.
+
+Prepare Cozy's existing `cozyExportRuntimeClasspath` before its development
+CLI is launched. The runtime export carries the selected compiled backend;
+the actual loaded generator has one class resource and an owner beneath that
+source checkout's `target`. The launcher consumes the export without nested
+SBT or publication. This source directory selects build input only. Exact CNCF
+target and Cozy generator coordinates, provenance validation, and actual
+generated-source compilation/specifications still establish compatibility;
+source selection creates neither persistent compatibility evidence nor a new
+ABI. The executable boundary is
+[`CozySimpleModelerDevelopmentBuildSpec`](../../src/test/scala/cozy/modeler/CozySimpleModelerDevelopmentBuildSpec.scala).
+
 For sbt-cozy runtime selection, the CNCF compile version is authoritative when
 no Cozy override is declared. The launcher runtime catalog projects only
 proven compatible pairs from Cozy generation evidence and selects the highest
