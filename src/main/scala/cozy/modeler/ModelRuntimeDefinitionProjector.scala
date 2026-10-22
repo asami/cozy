@@ -36,7 +36,7 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 21, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelRuntimeDefinitionProjector(
@@ -270,9 +270,9 @@ private[modeler] final class ModelRuntimeDefinitionProjector(
 
     private def _operation_definitions(
     ): Vector[MComponent.OperationDefinition] =
-      serviceOperation.normalizedServiceOperationDefinitions.
-        sortBy(_.name).
-        map { x =>
+      serviceOperation.serviceOperationDefinitions.
+        sortBy(_._2.name).
+        map { case (owner, x) =>
         MComponent.OperationDefinition(
           name = x.name,
           kind = x.kind.toString.toUpperCase,
@@ -340,7 +340,8 @@ private[modeler] final class ModelRuntimeDefinitionProjector(
           parameters = x.parameters.map { p =>
             _operation_field(p)
           },
-          resultFields = _operation_result_fields(x.outputType)
+          resultFields = _operation_result_fields(x.outputType),
+          serviceName = Some(owner)
         )
       }
 
