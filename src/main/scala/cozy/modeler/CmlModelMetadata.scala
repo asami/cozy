@@ -10,14 +10,16 @@ import org.goldenport.RAISE
 import org.goldenport.kaleidox.{CmlSectionFormat, Config => KaleidoxConfig, Model => KaleidoxModel}
 import org.goldenport.kaleidox.model.ComponentSubsystemModel
 import org.goldenport.kaleidox.model.OperationModel
+import org.goldenport.kaleidox.model.SchemaModel
 import org.goldenport.kaleidox.model.DataTypeModel.DataTypeClass
+import org.goldenport.kaleidox.model.ValueModel.ValueClass
 import org.goldenport.record.v2.{CFormat, CMaxLength, CMinLength, CRegex, Constraint}
 import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Jun. 23, 2026
  *  version Jul. 31, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlModelMetadata {
@@ -457,7 +459,8 @@ private[cozy] object CmlModelMetadata {
         cozyVersion = org.simplemodeling.cozy.BuildInfo.version
       ),
       surface = _surface(normalized, glossaryCategory, model),
-      modelElements = _with_ast_contracts(_model_elements(normalized, glossaryCategory), model),
+      modelElements = _with_ast_contracts(_model_elements(normalized, glossaryCategory), model) ++
+        _ast_local_value_elements(model, glossaryCategory),
       componentStyle = _component_style(model, componentStyleCatalog)
     )
   }
@@ -592,6 +595,52 @@ private[cozy] object CmlModelMetadata {
     case m: CRegex => s"pattern=${m.regex.regex}"
     case m: CFormat => s"format=${m.format}"
     case m => m.label
+  }
+
+  private def _ast_local_value_elements(model: KaleidoxModel, glossarycategory: String): Vector[Element] =
+    model.getServiceModel.toVector.flatMap(_.classes.values.toVector).flatMap { service =>
+      service.operations.operations.values.toVector.flatMap { operation =>
+        val inputkind = operation.kind.map(_operation_kind_name).map(_.toLowerCase(java.util.Locale.ROOT))
+        operation.input.value.toVector.map(_ast_local_value_element(_, inputkind, glossarycategory)) ++
+          operation.output.value.toVector.map(_ast_local_value_element(_, None, glossarycategory))
+      }
+    }
+
+  private def _ast_local_value_element(
+    value: ValueClass,
+    inputkind: Option[String],
+    glossarycategory: String
+  ): Element = {
+    val slug = _slugify(value.name)
+    val brief = value.getProperty("brief")
+    val summary = value.getProperty("summary").orElse(brief)
+    val fields = value.schemaClass.slots.flatMap {
+      case attribute: SchemaModel.Attribute =>
+        Some(Field(
+          attribute.name,
+          attribute.rawTypeName.getOrElse(attribute.domain.datatype.name),
+          attribute.domain.multiplicity.mark,
+          attribute.domain.constraints.map(_constraint_text).toVector
+        ))
+      case id: SchemaModel.Id =>
+        Some(Field(id.name, id.domain.datatype.name, id.domain.multiplicity.mark, id.domain.constraints.map(_constraint_text).toVector))
+      case _ => None
+    }
+    Element(
+      kind = "value",
+      name = value.name,
+      termid = s"${glossarycategory}:${slug}",
+      glossarypath = s"glossary/${glossarycategory}/${slug}.html",
+      descriptive = Descriptive(value.name, brief, summary, value.getProperty("description").orElse(summary)),
+      narrative = value.getProperty("narrative").orElse(value.getProperty("remarks")),
+      inputkind = inputkind,
+      fields = fields
+    )
+  }
+
+  private def _operation_kind_name(kind: OperationModel.OperationKind): String = kind match {
+    case OperationModel.OperationKind.Command => "COMMAND"
+    case OperationModel.OperationKind.Query => "QUERY"
   }
 
   private def _model_elements(model: KaleidoxModel, glossarycategory: String): Vector[Element] =
@@ -764,13 +813,28 @@ private[cozy] object CmlModelMetadata {
         base.glossarypath,
         base.descriptive,
         base.narrative,
-        _raw_services(lines, glossarycategory),
+        _with_ast_service_contracts(_raw_services(lines, glossarycategory), model),
         _actor_surfaces(model),
         _use_case_surfaces(model, block.name)
       )
     }
     Surface(component)
   }
+
+  private def _with_ast_service_contracts(services: Vector[ServiceSurface], model: KaleidoxModel): Vector[ServiceSurface] =
+    services.map { service =>
+      model.getServiceModel.flatMap(_.classes.get(service.name)).map { astservice =>
+        service.copy(operations = service.operations.map { operation =>
+          astservice.operations.getOperation(operation.name).map { astoperation =>
+            operation.copy(
+              operationtype = astoperation.kind.map(_operation_kind_name).orElse(operation.operationtype),
+              inputtype = astoperation.input.tpe,
+              outputtype = astoperation.output.tpe
+            )
+          }.getOrElse(operation)
+        })
+      }.getOrElse(service)
+    }
 
   private def _actor_surfaces(model: KaleidoxModel): Vector[ActorSurface] =
     model.takeActorModel.actors.map { actor =>

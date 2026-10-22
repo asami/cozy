@@ -1,7 +1,7 @@
 # CML Value and Datatype Contract
 
 status=accepted
-updated_at=2026-10-19
+updated_at=2026-10-22
 target_phase=16
 
 ## Scope
@@ -77,6 +77,31 @@ Normalization MUST preserve use-case, rule, scenario, precondition,
 postcondition, descriptive, and narrative metadata. Implementations MUST read
 structure from the CML AST and MUST NOT recover local schemas or metadata by
 scanning rendered text.
+
+The `cozy.cml.model-metadata.v1` source projection MUST retain each service's
+AST-normalized operation input and output type identities, including authored
+local Value names and deterministic anonymous names. Operation lookup MUST use
+the owning service and operation name together. Descriptive and narrative
+surface metadata remains attached to that same operation.
+
+Operation-local input and Result Values MUST appear as `value` model elements
+after the existing top-level elements, in service/operation AST order with input
+before output. Their fields MUST preserve AST slot order, nominal raw type
+names, effective multiplicity and typed domain constraints. Local input
+`inputKind` derives from the enclosing command/query; local Results remain
+ordinary Values with implicit operation-result semantics. Metadata MUST NOT
+invent a type for a missing contract or rename conflicting definitions.
+
+CAR ABI generation from this metadata MUST preserve these operation type
+identities and ordered field contracts, including requiredness projected from
+multiplicity. Existing strict missing-type and conflicting-definition checks
+remain authoritative. This is preservation within metadata v1 and the existing
+CAR ABI format, without a schema change. The `fromKaleidox` compatibility route
+retains its absent component surface and existing top-level element projection.
+
+`CmlOperationLocalMetadataSpec` documents named and anonymous local contracts,
+service-qualified operation identity, nominal fields, inherited optionality,
+JSON/YAML serialization and CAR ABI consumption through the existing parser.
 
 ## Model Kind Contract
 
