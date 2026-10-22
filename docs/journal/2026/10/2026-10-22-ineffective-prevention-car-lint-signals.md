@@ -20,6 +20,20 @@ Do not add another generation-Skill rule for this pattern. Repeated experience
 shows that literal prohibitions can cause equivalent or more elaborate
 workarounds and make Skills larger.
 
+There is a stronger reason than Skill size alone. Mentioning a defensive topic
+in a generation rule can increase its salience for the model. A rule such as
+"do not implement capacity reservation" may cause the model to treat capacity
+as an important design concern and invent a different preflight check,
+re-check, consistency check, ledger, or synchronization mechanism. The rule can
+therefore induce the very family of unnecessary machinery that it was intended
+to suppress.
+
+For recurring generation tendencies, avoid teaching the implementation model an
+incident catalog. Prefer post-generation observation from an external harness:
+let ordinary implementation proceed without making the suspicious topic
+artificially salient, then detect structural signals in CAR lint and evaluate
+their necessity in CBD Review.
+
 Cozy CAR lint will instead provide cheap deterministic structural signals.
 Semantic necessity is delegated to textus-cbd-support Review.
 
@@ -40,4 +54,6 @@ See [CAR Lint Signals for Ineffective Prevention](../../notes/car-lint-ineffecti
 
 - Cozy: deterministic evidence/signal extraction.
 - textus-cbd-support: Ineffective Prevention / Pseudo Guarantee semantic review.
-- Skills: remain compact; do not accumulate incident-specific prohibitions.
+- Skills: remain compact; do not accumulate incident-specific prohibitions or
+  make defensive topics salient merely because a previous model overengineered
+  them.
