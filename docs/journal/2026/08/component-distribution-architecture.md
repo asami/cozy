@@ -592,3 +592,32 @@ Each Subcomponent remains a normal Component with its own CAR.
 10. **Non-CNCF implementation artifacts are distributed through CAR but deployed using platform-native mechanisms.**
 11. **A Subsystem is an executable composition of Components.**
 12. **A single CAR implicitly acts as a single-Component Subsystem.**
+
+---
+
+# Application Function Generation Direction (2026-10-24)
+
+The current CNCF Function-first Application-tier contract refines the Function
+Subcomponent example above.
+
+Cozy generation should keep CML provider-neutral and generate the complete CNCF
+Container realization for every Application Service. Operations admitted as
+function-eligible are additionally projected to one common TypeScript Function
+core.
+
+The common TypeScript source is generated once. Thin local/test, AWS, and
+Google adapters bind that core to their execution platforms. At CAR packaging
+time the common core is copied into each platform Function Subcomponent CAR
+together with the corresponding adapter and deployment metadata, so each
+distributed CAR is self-contained.
+
+The initial normal generator target should be able to emit AWS and Google
+Function Subcomponents together rather than selecting one provider at source
+generation time. Local/test output is also generated so the Function
+realization can be tested against a local CNCF Domain tier, including
+representative Active/Standby and read/cache routing where the Domain profile
+requires it.
+
+This direction is planned in [Phase 87](../../phase/phase-87.md). The canonical
+semantic/distribution contracts remain CNCF Phase 75 and Phase 92.
+
