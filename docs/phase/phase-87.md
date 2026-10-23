@@ -124,3 +124,38 @@ ordinary CML generates:
 
 The generated CAR metadata must remain compatible with the accepted CNCF Phase
 92 Platform Subcomponent distribution contract.
+
+## P87-06: AuthHandle-aware Function security generation
+
+Generate the Function-side security boundary required by the CNCF AuthHandle
+contract without embedding the full CNCF authentication runtime in TypeScript.
+
+Generated common Function code and adapters must support this flow:
+
+1. receive external OAuth/OIDC credential evidence;
+2. perform only admitted cheap prechecks suitable for ingress/load shedding;
+3. resolve or reuse a bounded cached AuthHandle through the centralized User
+   Management/identity API;
+4. reuse the same valid AuthHandle while one Application Operation orchestrates
+   multiple Domain Components;
+5. call each Domain Function API with the Operation request, opaque AuthHandle,
+   generated Function/service identity and required observability context.
+
+Generated Function code must not:
+- decode AuthHandle into User/role/capability authority;
+- synthesize an authoritative CNCF SecurityContext/ExecutionContext;
+- require User DB credentials solely for context construction; or
+- treat a Function-local cache hit as Domain authorization.
+
+The local adapter must provide a deterministic test identity/AuthHandle provider
+that exercises the same Function ABI and Domain Function API contract without
+becoming a cloud emulator. Tests must cover cache hit/miss/expiry, rejected
+credential evidence, one-handle multi-Domain orchestration, Domain-side context
+construction, and preservation of Domain-local Capability/Guard authorization.
+
+AWS and Google adapters must keep provider-specific ingress/service identity and
+edge/deployment concerns outside the common TypeScript logic. Generated
+deployment metadata must expose bounded downstream concurrency/admission knobs
+where the platform profile supports them so Function autoscaling does not imply
+unbounded load on User Management or Domain tiers.
+
