@@ -5,11 +5,13 @@ phase=[Phase 87](phase-87.md)
 spec=[Explanatory Figures and Tables](../spec/document-project-explanatory-figures-and-tables.md)
 
 The initial planning-only record is superseded for execution by the explicit
-`cncf-goal-phase87` invocation on 2026-10-25. P87-01 documentation/source authoring is accepted by the parent after static
-checks, actual PNG inspection and independent Step review
-`cozy-p87-01-review-20261025@1` PASS. Its four items below are complete;
-the remaining 20 are open. Next: P87-02. P87-02–05 are not implemented;
-no runtime acceptance is claimed.
+`cncf-goal-phase87` invocation on 2026-10-25. P87-01 source authoring and
+P87-02 admission/materialization are accepted after their selected reviews.
+P87-02 validation: 76/76 across seven suites, then 23/23 across the two affected
+suites after the claims-only backlink repair; independent focused closure
+`cozy-p87-02-focused-source-review-20261025@1` PASS. Nine items are complete;
+15 remain open. Next: P87-03 native CLI/local-build integration. Article/PDF
+and Phase acceptance remain open.
 
 ## P87-01: Contract and representative authoring
 
@@ -20,11 +22,11 @@ no runtime acceptance is claimed.
 
 ## P87-02: Admission and exact correspondence
 
-- [ ] Admit Figure and Table as ordered body blocks using exact `coreRefs`, with at least one resolving claim per block.
-- [ ] Preserve global block IDs, recursive coverage, Document targets and explicit Summary omission resolution.
-- [ ] Validate column/row identities, authored order, string-cell shape and exact row widths without implicit coercion or inferred structure.
-- [ ] Admit declared project-contained inert image assets and report missing/unsafe/unsupported input or ordinary I/O failures.
-- [ ] Pass executable specifications for valid/invalid references, nested/shared-claim use, malformed tables and existing-document preservation.
+- [x] Admit Figure and Table as ordered body blocks using exact `coreRefs`, with at least one resolving claim per block.
+- [x] Preserve global block IDs, recursive coverage, Document targets and explicit Summary omission resolution.
+- [x] Validate column/row identities, authored order, string-cell shape and exact row widths without implicit coercion or inferred structure.
+- [x] Admit declared project-contained inert image assets and report missing/unsafe/unsupported input or ordinary I/O failures.
+- [x] Pass executable specifications for valid/invalid references, nested/shared-claim use, malformed tables and existing-document preservation.
 
 ## P87-03: Confirmation and reader HTML
 

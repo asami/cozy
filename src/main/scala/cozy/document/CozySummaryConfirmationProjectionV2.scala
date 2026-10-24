@@ -3,7 +3,7 @@ package cozy.document
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySummaryConfirmationProjectionV2 {
@@ -265,6 +265,8 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
         case value: CozyDocumentDescriptionV2.Note => Vector(("block", value.id) -> DocumentTarget(value.title, value.text))
         case value: CozyDocumentDescriptionV2.Paragraph => Vector(("block", value.id) -> DocumentTarget(section.heading, value.text))
         case value: CozyDocumentDescriptionV2.ListBlock => Vector(("block", value.id) -> DocumentTarget(section.heading, value.items.map(_.text).mkString("\n"))) ++ value.items.map(item => ("list-item", item.id) -> DocumentTarget(if (item.text.length > 120) section.heading else item.text, item.text))
+        case value: CozyDocumentDescriptionV2.Figure => Vector(("block", value.id) -> DocumentTarget(value.caption, value.caption + "\n" + value.alt))
+        case value: CozyDocumentDescriptionV2.Table => Vector(("block", value.id) -> DocumentTarget(value.caption, (Vector(value.caption) ++ value.columns.map(_.heading) ++ value.rows.flatMap(_.cells)).mkString("\n")))
         case value: CozyDocumentDescriptionV2.LogicalStructure =>
           val label = _step_label(value.stepRef, labels)
           Vector(("block", value.id) -> DocumentTarget(label, label))

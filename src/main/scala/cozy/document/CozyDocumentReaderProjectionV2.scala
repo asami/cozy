@@ -3,7 +3,7 @@ package cozy.document
 /*
  * @since   Sep. 14, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentReaderProjectionV2 {
@@ -14,16 +14,17 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
 
   private final case class DocumentTarget(kind: String, id: String, label: String, refs: CozyDocumentDescriptionV2.References)
 
-  def render(validated: CozyDocumentDescriptionV2.ValidatedDocument, vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary): Rendered = {
+  def render(validated: CozyDocumentDescriptionV2.ValidatedDocument, vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary, assets: CozyDocumentFigureAssets.Materialized = CozyDocumentFigureAssets.empty): Rendered = {
     _validate_vocabulary(validated, vocabulary)
     val targets = _document_targets(validated.description.document.sections, validated.description.labels.steps.map(value => value.stepRef -> value.text).toMap)
-    Rendered(_page(validated, vocabulary, targets))
+    Rendered(_page(validated, vocabulary, targets, assets))
   }
 
   private def _page(
     validated: CozyDocumentDescriptionV2.ValidatedDocument,
     vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary,
-    targets: Vector[DocumentTarget]
+    targets: Vector[DocumentTarget],
+    assets: CozyDocumentFigureAssets.Materialized
   ): String = {
     val description = validated.description
     val document = description.document
@@ -31,7 +32,7 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     val labels = description.labels.steps.map(value => value.stepRef -> value.text).toMap
     val nodelabels = description.labels.nodes.map(value => value.nodeRef -> value.text).toMap
     val chrome = vocabulary.chrome
-    val sections = document.sections.map(section => _section(section, vocabulary, labels, nodelabels, core, 2)).mkString
+    val sections = document.sections.map(section => _section(section, vocabulary, labels, nodelabels, core, 2, assets)).mkString
     val containment = _containment_surface(core.core.root, labels, chrome)
     val correspondence = core.depthFirstSteps.map(step => _correspondence_step(step, targets, labels, vocabulary)).mkString
     val flows = core.depthFirstSteps.map(step => _flow_step(step, labels, vocabulary)).mkString
@@ -39,6 +40,7 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     s"""<!doctype html>
        |<html lang="${_html(description.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(document.title)}</title><style>
        |:root{color-scheme:light dark;--background:#f7f8fb;--foreground:#182230;--card:#fff;--muted:#eef2f7;--muted-foreground:#607086;--border:#d7dee8;--primary:#2d67b1;--primary-soft:#e8f1fc;--primary-foreground:#133b6e;--font-sans:Inter,"Hiragino Sans","Yu Gothic",sans-serif;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace}@media (prefers-color-scheme:dark){:root{--background:#111720;--foreground:#e7edf5;--card:#171f2a;--muted:#202b39;--muted-foreground:#a6b3c3;--border:#334154;--primary:#75aef0;--primary-soft:#203955;--primary-foreground:#e3f0ff}}*{box-sizing:border-box}body{margin:0;color:var(--foreground);background:var(--background);font-family:var(--font-sans);line-height:1.6}a{color:var(--primary)}button,summary{font:inherit}.reader-page{max-width:1500px;margin:0 auto;padding:24px}.reader-header{padding-bottom:17px;border-bottom:1px solid var(--border)}.reader-kicker{margin:0;color:var(--muted-foreground);font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}.reader-header h1{margin:3px 0 0;font-size:clamp(25px,3vw,38px);letter-spacing:-.035em}.status{display:flex;flex-wrap:wrap;gap:9px 17px;margin:12px 0 0;color:var(--muted-foreground);font-size:12px}.status strong{color:var(--foreground)}.reader-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.75fr);gap:18px;margin-top:18px;align-items:start}.reader-primary,.core-secondary{min-width:0;border:1px solid var(--border);background:var(--card)}.reader-primary{padding:clamp(20px,3vw,36px)}.reader-primary>h2{margin:0 0 18px;font-size:13px;color:var(--muted-foreground);letter-spacing:.035em}.document-section{margin:21px 0}.document-section h2,.document-section h3,.document-section h4,.document-section h5,.document-section h6{margin:0 0 6px;line-height:1.35}.document-block{margin:10px 0}.document-block p{margin:6px 0;font-size:15px}.document-list{margin:6px 0;padding-left:1.5rem;font-size:15px}.document-list-item{margin:6px 0}.document-example,.document-note{padding:0 0 0 17px;border-left:3px solid var(--border)}.document-example h3,.document-note h3{font-size:15px}.logical-structure{padding:0 0 0 17px;border-left:3px solid var(--border)}.logical-structure summary{display:inline;font-size:13px;cursor:pointer}.references{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.reference-link{display:inline-flex;align-items:baseline;gap:4px;padding:2px 6px;border:1px solid var(--border);background:var(--muted);font-family:var(--font-mono);font-size:10px;text-decoration:none}.reference-label{font-family:var(--font-sans);font-weight:650}.reference-kind,.target-kind{color:var(--muted-foreground);font-family:var(--font-sans);font-size:9px;font-weight:700;text-transform:uppercase}.identity{font-family:var(--font-mono);font-size:.82em;color:var(--muted-foreground);overflow-wrap:anywhere}.core-secondary{padding:14px}.core-secondary>h2{margin:0 0 10px;font-size:14px}.core-surface{margin:10px 0;border-top:1px solid var(--border);padding-top:10px}.core-surface>summary{cursor:pointer;color:var(--foreground);font-weight:750}.core-surface:focus-visible,.core-surface>summary:focus-visible,a:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.containment-tree,.prose-targets,.claim-list,.flow-list,.structure-list{margin:8px 0;padding-left:1.25rem}.containment-tree{list-style:none;padding-left:0}.containment-tree ul{list-style:none;margin:5px 0 0;padding-left:16px;border-left:1px solid var(--border)}.containment-tree li{margin:6px 0}.containment-link{display:inline-block;padding:3px 6px;text-decoration:none}.core-step,.flow-step,.structure-step{margin:12px 0;padding:10px;border:1px solid var(--border);background:var(--background)}.core-step h3,.flow-step h3,.structure-step h3{margin:0 0 7px;font-size:13px}.core-step h3 a,.flow-step h3 a,.structure-step h3 a{text-decoration:none}.step-pattern{display:inline-flex;margin-left:4px;padding:2px 6px;border:1px solid var(--border);border-radius:999px;background:var(--primary-soft);color:var(--primary-foreground);font-size:10px;font-weight:750}.prose-targets{font-size:12px}.prose-targets li,.claim-list li,.flow-list li,.structure-list li{margin:5px 0}.prose-targets a{text-decoration:none}.edge-mark{color:var(--primary);font-weight:850;font-size:18px;line-height:1}.type-wording{color:var(--muted-foreground);font-weight:650}.structure-tag{display:inline-flex;align-items:center;padding:2px 6px;border:1px solid var(--border);border-radius:999px;background:var(--primary-soft);color:var(--primary-foreground);font-size:10px;font-weight:750}.structure-relations{display:grid;gap:8px}.structure-relation{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;padding:7px;border:1px solid var(--border)}.structure-node{min-width:0}.structure-node a{font-weight:700}.structure-node small{display:block;color:var(--muted-foreground);font-size:10px}.structure-unconnected{margin:9px 0}.structure-unconnected li{list-style:none;margin:5px 0}.flow-list{font-size:12px}.flow-list a{font-weight:650;text-decoration:none}.flow-transition{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:7px}.flow-transition .type-wording{text-align:center}.audit{margin-top:10px;color:var(--muted-foreground);font-size:11px}.audit summary{cursor:pointer;color:var(--foreground);font-weight:700}@media screen and (min-width:851px){.core-secondary{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}}@media (max-width:850px){.reader-page{padding:14px}.reader-layout{grid-template-columns:1fr;margin-top:16px}.core-secondary{position:static;max-height:none;overflow:visible}}@media print{.reader-page{max-width:none}.core-surface[open]{}a{color:inherit}.core-secondary{position:static;max-height:none;overflow:visible}}
+       |.document-figure img{max-width:100%;height:auto}.document-table table{width:100%;max-width:100%;table-layout:fixed;border-collapse:collapse}.document-table th,.document-table td{padding:6px;border:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}
        |</style></head><body><main id="document-reader" class="reader-page" data-document-id="${_html(description.id)}" data-core-id="${_html(core.core.id)}"><header class="reader-header"><p class="reader-kicker">${_html(chrome.pageHeading)}</p><h1>${_html(document.title)}</h1><div id="status-region" class="status" aria-label="${_html(chrome.statusHeading)}"><span><strong>${_html(chrome.coverageComplete)}</strong></span><span><strong>${_html(chrome.currentSources)}</strong></span><span><strong>${_html(chrome.admittedState)}</strong></span><span><strong>${_html(chrome.noUnresolvedReferences)}</strong></span></div></header><div class="reader-layout"><article id="prose-region" class="reader-primary" aria-label="${_html(chrome.proseHeading)}" aria-describedby="status-region"><h2>${_html(chrome.proseHeading)}</h2><div id="document-content" class="reader-content">$sections</div></article><aside id="core-secondary" class="core-secondary" aria-label="${_html(chrome.containmentHeading)}"><h2>${_html(chrome.containmentHeading)}</h2>$containment<details id="correspondence-surface" class="core-surface" data-core-surface="correspondence" data-reader-surface="correspondence"><summary>${_html(chrome.proseHeading)}</summary>$correspondence</details><details id="flow-surface" class="core-surface" data-core-surface="flow" data-reader-surface="flow"><summary><span class="edge-mark" aria-hidden="true">⇢</span> ${_html(chrome.flowHeading)}</summary>$flows</details><details id="structure-surface" class="core-surface" data-core-surface="structure" data-reader-surface="structure"><summary><span class="edge-mark" aria-hidden="true">→</span> ${_html(chrome.structureHeading)}</summary>$structures</details></aside></div></main></body></html>""".stripMargin
   }
 
@@ -48,11 +50,12 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     labels: Map[String, String],
     nodelabels: Map[String, String],
     core: CozyDocumentLogicTree.ValidatedCore,
-    level: Int
+    level: Int,
+    assets: CozyDocumentFigureAssets.Materialized
   ): String = {
     val heading = math.min(6, level)
-    val blocks = section.blocks.map(block => _block(block, vocabulary, labels, nodelabels, core)).mkString
-    val children = section.sections.map(child => _section(child, vocabulary, labels, nodelabels, core, level + 1)).mkString
+    val blocks = section.blocks.map(block => _block(block, vocabulary, labels, nodelabels, core, assets)).mkString
+    val children = section.sections.map(child => _section(child, vocabulary, labels, nodelabels, core, level + 1, assets)).mkString
     val attributes = _reference_attributes(section.coreRefs) + s""" data-document-kind="section" data-document-id="${_html(section.id)}""""
     s"""<section id="document-section-${_html(section.id)}" class="document-section" data-reference-target="true"$attributes><h$heading>${_html(section.heading)}</h$heading>$blocks$children</section>"""
   }
@@ -62,7 +65,8 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary,
     labels: Map[String, String],
     nodelabels: Map[String, String],
-    core: CozyDocumentLogicTree.ValidatedCore
+    core: CozyDocumentLogicTree.ValidatedCore,
+    assets: CozyDocumentFigureAssets.Materialized
   ): String = block match {
     case value: CozyDocumentDescriptionV2.Paragraph =>
       val attributes = _reference_attributes(value.coreRefs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}""""
@@ -77,6 +81,14 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     case value: CozyDocumentDescriptionV2.Note =>
       val attributes = _reference_attributes(value.coreRefs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}""""
       s"""<aside id="document-block-${_html(value.id)}" class="document-block document-note" data-reference-target="true"$attributes><h3>${_html(value.title)}</h3><p>${_html(value.text)}</p>${_reference_links(value.coreRefs, labels, nodelabels, core, vocabulary)}</aside>"""
+    case value: CozyDocumentDescriptionV2.Figure =>
+      val attributes = _reference_attributes(value.coreRefs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}""""
+      s"""<figure id="document-block-${_html(value.id)}" class="document-block document-figure" data-reference-target="true"$attributes><img src="${_html(assets.dataUri(value.asset))}" alt="${_html(value.alt)}"><figcaption>${_html(value.caption)}</figcaption>${_reference_links(value.coreRefs, labels, nodelabels, core, vocabulary)}</figure>"""
+    case value: CozyDocumentDescriptionV2.Table =>
+      val attributes = _reference_attributes(value.coreRefs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}""""
+      val headings = value.columns.map(column => s"""<th scope="col" data-table-column-id="${_html(column.id)}">${_html(column.heading)}</th>""").mkString
+      val rows = value.rows.map(row => s"""<tr data-table-row-id="${_html(row.id)}">${row.cells.map(cell => s"<td>${_html(cell)}</td>").mkString}</tr>""").mkString
+      s"""<div id="document-block-${_html(value.id)}" class="document-block document-table" data-reference-target="true"$attributes><table><caption>${_html(value.caption)}</caption><thead><tr>$headings</tr></thead><tbody>$rows</tbody></table>${_reference_links(value.coreRefs, labels, nodelabels, core, vocabulary)}</div>"""
     case value: CozyDocumentDescriptionV2.LogicalStructure =>
       val refs = CozyDocumentDescriptionV2.References(Vector(value.stepRef), Vector.empty, Vector.empty, Vector.empty, Vector.empty)
       val attributes = _reference_attributes(refs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}" data-step-ref="${_html(value.stepRef)}""""
@@ -113,7 +125,8 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     labels: Map[String, String],
     vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary
   ): String = {
-    val steptargets = targets.filter(value => value.refs.steps.contains(step.id))
+    val claimids = step.claims.map(_.id).toSet
+    val steptargets = targets.filter(value => value.refs.steps.contains(step.id) || value.refs.claims.exists(claimids.contains))
     val targetlinks = steptargets.map { target =>
       s"""<li data-prose-target-kind="${_html(target.kind)}" data-prose-target-id="${_html(target.id)}"><a href="#document-${_html(target.kind)}-${_html(target.id)}"><span class="target-kind">${_html(target.kind)}</span> ${_html(target.label)} <span class="identity">${_html(target.id)}</span></a></li>"""
     }.mkString
@@ -204,7 +217,7 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
   }
 
   private def _reference_attributes(refs: CozyDocumentDescriptionV2.References): String =
-    s""" data-core-steps="${_html(refs.steps.mkString(" "))}" data-core-claims="${_html(refs.claims.mkString(" "))}" data-core-nodes="${_html(refs.nodes.mkString(" "))}" data-core-relations="${_html(refs.relations.mkString(" "))}" data-core-flows="${_html(refs.flows.mkString(" "))}"""
+    s""" data-core-steps="${_html(refs.steps.mkString(" "))}" data-core-claims="${_html(refs.claims.mkString(" "))}" data-core-nodes="${_html(refs.nodes.mkString(" "))}" data-core-relations="${_html(refs.relations.mkString(" "))}" data-core-flows="${_html(refs.flows.mkString(" "))}""""
 
   private def _document_targets(sections: Vector[CozyDocumentDescriptionV2.Section], labels: Map[String, String]): Vector[DocumentTarget] =
     sections.flatMap { section =>
@@ -215,6 +228,8 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
           DocumentTarget("block", value.id, value.id, value.coreRefs) +: value.items.map(item => DocumentTarget("list-item", item.id, item.text, item.coreRefs))
         case value: CozyDocumentDescriptionV2.Example => Vector(DocumentTarget("block", value.id, value.title, value.coreRefs))
         case value: CozyDocumentDescriptionV2.Note => Vector(DocumentTarget("block", value.id, value.title, value.coreRefs))
+        case value: CozyDocumentDescriptionV2.Figure => Vector(DocumentTarget("block", value.id, value.caption, value.coreRefs))
+        case value: CozyDocumentDescriptionV2.Table => Vector(DocumentTarget("block", value.id, value.caption, value.coreRefs))
         case value: CozyDocumentDescriptionV2.LogicalStructure =>
           Vector(DocumentTarget("block", value.id, labels(value.stepRef), CozyDocumentDescriptionV2.References(Vector(value.stepRef), Vector.empty, Vector.empty, Vector.empty, Vector.empty)))
       }

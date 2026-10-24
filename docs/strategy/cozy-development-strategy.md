@@ -17,9 +17,11 @@ alternative text and table headings/rows/cells. Existing Summary diagrams
 remain a separate explicit selection. The
 [specification](../spec/document-project-explanatory-figures-and-tables.md)
 and [checklist](../phase/phase-87-checklist.md) make the current capability gap
-and actual future JA/EN acceptance obligations explicit. P87-01 is accepted for documentation/source authoring after parent checks and
-independent Step review PASS. Next: P87-02; P87-02–05 remain unimplemented
-and runtime acceptance obligations remain open. Existing priorities and closed Phases are preserved.
+and actual future JA/EN acceptance obligations explicit. P87-01 source authoring
+and P87-02 admission/materialization are accepted after focused specifications,
+protected Step review and independent repair closure. Next: P87-03 native
+CLI/local-build integration; article/PDF and Phase acceptance remain open.
+Existing priorities and closed Phases are preserved.
 
 ## DataStore producer status — 2026-10-18
 

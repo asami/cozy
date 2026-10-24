@@ -14,11 +14,13 @@ confirmation/reader HTML, the derived SmartDox article and article PDF.
 
 The initial user direction on 2026-10-25 authorized specification and Phase
 planning only. The later explicit `cncf-goal-phase87` invocation authorizes
-current execution under the frozen parent plan. P87-01 is accepted for documentation/source authoring after parent static
-checks, actual PNG inspection and independent Step review
-`cozy-p87-01-review-20261025@1` PASS. Its four checklist items are complete;
-the remaining 20 are open. Next: P87-02 admission and executable specifications.
-P87-02–05 are not implemented; no runtime acceptance is claimed.
+current execution under the frozen parent plan. P87-01 source authoring and
+P87-02 admission/materialization are accepted. P87-02 passed 76 specifications
+across seven suites and, after its claims-only backlink repair, 23 specifications
+across the two affected suites. Protected Step review and independent focused
+closure `cozy-p87-02-focused-source-review-20261025@1` accepted the implementation.
+Nine checklist items are complete; the remaining 15 are open. Next: P87-03
+native CLI/local-build integration. Article/PDF and Phase acceptance remain open.
 
 ## Existing foundation and capability gap
 
@@ -28,10 +30,11 @@ P87-02–05 are not implemented; no runtime acceptance is claimed.
 - [Phases 60 and 60.1](phase-60.1.md) supply the native structure/reader/article
   HTML targets and the Core -> Document -> derived article authority boundary.
 - [Phase 40](phase-40.md) supplies the existing native article-PDF route.
-- The current Document v1/v2 loaders admit only five block kinds. Figure and
-  Table models, admission, target traversal, asset inputs and projections are
-  not implemented. Existing Core claims/Nodes/Relations and five-category
-  `coreRefs` are the correspondence mechanism to reuse.
+- At Phase entry the Document loaders admitted five block kinds. P87-02 adds
+  Figure/Table to unreleased v2, strict claim/table admission, contained raster
+  materialization, pure HTML output and Summary omission traversal. Existing
+  v1 remains unchanged. Native command/build connections and article/PDF
+  continuity remain pending; existing five-category `coreRefs` retain meaning.
 
 These are capability dependencies, not instructions to reopen their closed
 Phases or to modify existing priorities.
