@@ -1,0 +1,86 @@
+schema: cozy.document-description.v2
+id: tier-protection-document-en
+core:
+  id: tier-protection
+locale: en
+document:
+  title: "Tier balance and protection responsibilities"
+  sections:
+    - id: tier-protection-explanation
+      heading: "Schematic comparison and protection coverage"
+      coreRefs:
+        steps: [tier-protection]
+        claims: [claim-tier-balance, claim-protection-coverage]
+        nodes: [tier-a, tier-b, protection-target, performance-security, protection-mechanism, application-location]
+        relations: [tier-a-balances, tier-b-balances, target-mechanism, target-location]
+        flows: [tier-protection-flow]
+      blocks:
+        - id: tier-protection-introduction
+          kind: paragraph
+          text: "This schematic considers performance and security for both Tier A and Tier B and maps protection targets to mechanisms and application locations. It allocates illustrative responsibilities; it reports no measured performance, identifies no actual product tiers and asserts no actual protection guarantees."
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-tier-balance, claim-protection-coverage]
+            nodes: []
+            relations: []
+            flows: []
+        - id: tier-comparison
+          kind: figure
+          asset: images/tier-balance-en.png
+          caption: "Schematic of performance and security as considerations within both Tier A and Tier B. Area and placement express no measured values or ranking."
+          alt: "Two panels, Tier A on the left and Tier B on the right, each contain Performance and Security. Both dimensions apply to both tiers; there are no numerical values or performance rankings."
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-tier-balance]
+            nodes: [tier-a, tier-b, performance-security]
+            relations: [tier-a-balances, tier-b-balances]
+            flows: []
+      sections:
+        - id: protection-explanation
+          heading: "Protection responsibility mapping"
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-protection-coverage]
+            nodes: [protection-target, protection-mechanism, application-location]
+            relations: [target-mechanism, target-location]
+            flows: []
+          blocks:
+            - id: protection-coverage
+              kind: table
+              caption: "Schematic responsibility allocation mapping each protection target to a mechanism and application location; it asserts no actual protection guarantees."
+              columns:
+                - id: target
+                  heading: "Protection target"
+                - id: mechanism
+                  heading: "Mechanism"
+                - id: location
+                  heading: "Application location"
+              rows:
+                - id: service-boundary
+                  cells: ["Service boundary", "Access control", "Service entry"]
+                - id: data-boundary
+                  cells: ["Data boundary", "Encryption", "Storage and transfer"]
+              coreRefs:
+                steps: [tier-protection]
+                claims: [claim-protection-coverage]
+                nodes: [protection-target, protection-mechanism, application-location]
+                relations: [target-mechanism, target-location]
+                flows: []
+          sections: []
+labels:
+  steps:
+    - stepRef: tier-protection
+      text: "Tiers and protection"
+  nodes:
+    - nodeRef: tier-a
+      text: "Tier A"
+    - nodeRef: tier-b
+      text: "Tier B"
+    - nodeRef: protection-target
+      text: "Protection target"
+    - nodeRef: performance-security
+      text: "Performance and security"
+    - nodeRef: protection-mechanism
+      text: "Protection mechanism"
+    - nodeRef: application-location
+      text: "Application location"

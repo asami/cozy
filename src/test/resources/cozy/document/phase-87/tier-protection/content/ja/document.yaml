@@ -1,0 +1,86 @@
+schema: cozy.document-description.v2
+id: tier-protection-document-ja
+core:
+  id: tier-protection
+locale: ja
+document:
+  title: "ティアのバランスと保護責務"
+  sections:
+    - id: tier-protection-explanation
+      heading: "比較と保護範囲の模式例"
+      coreRefs:
+        steps: [tier-protection]
+        claims: [claim-tier-balance, claim-protection-coverage]
+        nodes: [tier-a, tier-b, protection-target, performance-security, protection-mechanism, application-location]
+        relations: [tier-a-balances, tier-b-balances, target-mechanism, target-location]
+        flows: [tier-protection-flow]
+      blocks:
+        - id: tier-protection-introduction
+          kind: paragraph
+          text: "この模式例は、ティアAとティアBのそれぞれで性能とセキュリティを検討し、保護対象・仕組み・適用場所の責務を対応付けます。実測性能や実在製品のティアを示さず、実際の保護保証を主張するものでもありません。"
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-tier-balance, claim-protection-coverage]
+            nodes: []
+            relations: []
+            flows: []
+        - id: tier-comparison
+          kind: figure
+          asset: images/tier-balance-ja.png
+          caption: "ティアAとティアBのそれぞれに性能とセキュリティの検討軸を置く模式図。面積や配置は測定値や優劣を表しません。"
+          alt: "左右にティアAとティアBのパネルがあり、各パネル内に性能とセキュリティを並べています。両ティアで二つの軸を検討することを示し、数値や性能順位は示しません。"
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-tier-balance]
+            nodes: [tier-a, tier-b, performance-security]
+            relations: [tier-a-balances, tier-b-balances]
+            flows: []
+      sections:
+        - id: protection-explanation
+          heading: "保護責務の対応"
+          coreRefs:
+            steps: [tier-protection]
+            claims: [claim-protection-coverage]
+            nodes: [protection-target, protection-mechanism, application-location]
+            relations: [target-mechanism, target-location]
+            flows: []
+          blocks:
+            - id: protection-coverage
+              kind: table
+              caption: "保護対象ごとに仕組みと適用場所を対応付けた模式的な責務配分。実際の保護保証を示しません。"
+              columns:
+                - id: target
+                  heading: "保護対象"
+                - id: mechanism
+                  heading: "仕組み"
+                - id: location
+                  heading: "適用場所"
+              rows:
+                - id: service-boundary
+                  cells: ["サービス境界", "アクセス制御", "サービス入口"]
+                - id: data-boundary
+                  cells: ["データ境界", "暗号化", "保存と転送"]
+              coreRefs:
+                steps: [tier-protection]
+                claims: [claim-protection-coverage]
+                nodes: [protection-target, protection-mechanism, application-location]
+                relations: [target-mechanism, target-location]
+                flows: []
+          sections: []
+labels:
+  steps:
+    - stepRef: tier-protection
+      text: "ティアと保護責務"
+  nodes:
+    - nodeRef: tier-a
+      text: "ティアA"
+    - nodeRef: tier-b
+      text: "ティアB"
+    - nodeRef: protection-target
+      text: "保護対象"
+    - nodeRef: performance-security
+      text: "性能とセキュリティ"
+    - nodeRef: protection-mechanism
+      text: "保護の仕組み"
+    - nodeRef: application-location
+      text: "適用場所"

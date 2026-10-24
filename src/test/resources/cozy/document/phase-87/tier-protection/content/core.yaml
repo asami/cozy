@@ -1,0 +1,42 @@
+schema: cozy.content-core.logic-tree.v1
+id: tier-protection
+root:
+  id: tier-protection
+  semanticRole: explanation
+  claims: [claim-tier-balance, claim-protection-coverage]
+  structure:
+    pattern: mapping
+    nodes:
+      - id: tier-a
+        role: source
+      - id: tier-b
+        role: source
+      - id: protection-target
+        role: source
+      - id: performance-security
+        role: target
+      - id: protection-mechanism
+        role: target
+      - id: application-location
+        role: target
+    relations:
+      - id: tier-a-balances
+        relationType: maps-to
+        from: tier-a
+        to: performance-security
+      - id: tier-b-balances
+        relationType: maps-to
+        from: tier-b
+        to: performance-security
+      - id: target-mechanism
+        relationType: maps-to
+        from: protection-target
+        to: protection-mechanism
+      - id: target-location
+        relationType: maps-to
+        from: protection-target
+        to: application-location
+  flow:
+    id: tier-protection-flow
+    transitions: []
+  steps: []

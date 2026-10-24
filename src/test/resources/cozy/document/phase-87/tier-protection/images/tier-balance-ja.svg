@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+<title>ティアごとの検討軸</title>
+<desc>各ティアで両方の軸を検討する. 模式図：面積・配置は測定値や優劣を表しません</desc>
+<rect width="1200" height="620" fill="white"/>
+<g font-family="Hiragino Sans, sans-serif" fill="#172d43" text-anchor="middle">
+<text x="600" y="72" font-size="40" font-weight="600">ティアごとの検討軸</text>
+<text x="600" y="122" font-size="27">各ティアで両方の軸を検討する</text>
+<rect x="60" y="165" width="510" height="330" rx="24" fill="#eaf3fa" stroke="#47677e" stroke-width="3"/>
+<text x="315" y="225" font-size="38" font-weight="600">ティアA</text>
+<rect x="105" y="260" width="420" height="80" rx="12" fill="white" stroke="#7d919f" stroke-width="2"/>
+<text x="315" y="312" font-size="34">性能</text>
+<rect x="105" y="370" width="420" height="80" rx="12" fill="white" stroke="#7d919f" stroke-width="2"/>
+<text x="315" y="422" font-size="34">セキュリティ</text>
+<rect x="630" y="165" width="510" height="330" rx="24" fill="#edf5ef" stroke="#47677e" stroke-width="3"/>
+<text x="885" y="225" font-size="38" font-weight="600">ティアB</text>
+<rect x="675" y="260" width="420" height="80" rx="12" fill="white" stroke="#7d919f" stroke-width="2"/>
+<text x="885" y="312" font-size="34">性能</text>
+<rect x="675" y="370" width="420" height="80" rx="12" fill="white" stroke="#7d919f" stroke-width="2"/>
+<text x="885" y="422" font-size="34">セキュリティ</text>
+<text x="600" y="560" font-size="25">模式図：面積・配置は測定値や優劣を表しません</text>
+</g>
+</svg>

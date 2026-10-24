@@ -1,5 +1,17 @@
 # docs/phase
 
+## Document body figures and tables — in progress — 2026-10-25
+
+[Phase 87](phase-87.md) / [checklist](phase-87-checklist.md) is IN PROGRESS under the later explicit `cncf-goal-phase87` invocation.
+P87-01 is accepted for documentation/source authoring after parent checks and
+independent Step review PASS. Next: P87-02; P87-02–05 remain unimplemented
+and runtime acceptance remains open. It adds claim-linked figure/table body blocks, localized explanatory
+content, native confirmation/reader HTML and continuity into the existing
+SmartDox article/PDF routes. The
+[specification](../spec/document-project-explanatory-figures-and-tables.md)
+keeps Core meaning separate from presentation and leaves current runtime
+support and all other Phase priorities unchanged.
+
 ## POWERTYPE persistence-code follow-up — 2026-10-19
 
 [Implementation plan](powertype-persistence-code-plan.md): Workbench Phase 1
