@@ -19,8 +19,10 @@ P87-02 admission/materialization are accepted. P87-02 passed 76 specifications
 across seven suites and, after its claims-only backlink repair, 23 specifications
 across the two affected suites. Protected Step review and independent focused
 closure `cozy-p87-02-focused-source-review-20261025@1` accepted the implementation.
-Nine checklist items are complete; the remaining 15 are open. Next: P87-03
-native CLI/local-build integration. Article/PDF and Phase acceptance remain open.
+P87-03 native CLI/local-build integration passed 51/51 specifications across
+five suites and protected review `cozy-p87-03-review-20261025@1` PASS.
+Thirteen checklist items are complete; 11 remain open. Next: P87-04 derived
+article and actual paired PDF continuity. Phase acceptance remains open.
 
 ## Existing foundation and capability gap
 
@@ -33,8 +35,9 @@ native CLI/local-build integration. Article/PDF and Phase acceptance remain open
 - At Phase entry the Document loaders admitted five block kinds. P87-02 adds
   Figure/Table to unreleased v2, strict claim/table admission, contained raster
   materialization, pure HTML output and Summary omission traversal. Existing
-  v1 remains unchanged. Native command/build connections and article/PDF
-  continuity remain pending; existing five-category `coreRefs` retain meaning.
+  v1 remains unchanged. P87-03 supplies native command/build connections and
+  used-image dependency handling. Article/PDF continuity remains pending;
+  existing five-category `coreRefs` retain meaning.
 
 These are capability dependencies, not instructions to reopen their closed
 Phases or to modify existing priorities.

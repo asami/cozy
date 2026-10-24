@@ -7,14 +7,14 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationCommand {
-  private final case class Request(core: String, document: String, vocabulary: String, summary: Option[String], kind: String, save: String)
+  private final case class Request(core: String, document: String, vocabulary: String, summary: Option[String], kind: String, save: String, projectroot: Option[String])
 
   private val _required_options = Set("core", "document", "vocabulary", "kind", "save")
-  private val _options = _required_options + "summary"
+  private val _options = _required_options ++ Set("summary", "project-root")
 
   def execute(args: List[String]): Boolean = args match {
     case "document-project" :: "confirmation" :: "render" :: rest =>
@@ -24,12 +24,20 @@ private[cozy] object CozyDocumentConfirmationCommand {
           if (request.summary.nonEmpty) _fail("CONFIRMATION_CLI", "$.command", "--kind document does not accept --summary")
           val validated = CozyDocumentDescriptionV2.loadDocument(_input_path(request.core, "core"), _input_path(request.document, "document"))
           val vocabulary = CozyDocumentConfirmationVocabulary.loadDocument(_input_path(request.vocabulary, "vocabulary"), validated.description.locale)
-          val rendered = CozyDocumentConfirmationProjectionV2.render(validated, vocabulary)
+          val assets = request.projectroot match {
+            case Some(value) => CozyDocumentFigureAssets.materialize(_input_path(value, "project-root"), validated)
+            case None =>
+              if (CozyDocumentFigureAssets.references(validated).nonEmpty)
+                _fail("CONFIRMATION_CLI", "$.command", "--project-root is required for figure assets")
+              CozyDocumentFigureAssets.empty
+          }
+          val rendered = CozyDocumentConfirmationProjectionV2.render(validated, vocabulary, assets)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
           println(s"Cozy Document Confirmation Render\nkind: document\ncore: ${validated.core.core.id}\ndocument: ${validated.description.id}\noutput: $destination")
           true
         case "summary" =>
+          if (request.projectroot.nonEmpty) _fail("CONFIRMATION_CLI", "$.command", "--kind summary does not accept --project-root")
           val summary = request.summary.getOrElse(_fail("CONFIRMATION_CLI", "$.command", "--kind summary requires exactly --core <core.yaml> --document <document.yaml> --vocabulary <vocabulary.yaml> --summary <summary.yaml> --kind summary --save <output.html>"))
           val validated = CozyDocumentDescriptionV2.loadSummary(_input_path(request.core, "core"), _input_path(request.document, "document"), _input_path(summary, "summary"))
           val vocabulary = CozyDocumentConfirmationVocabulary.loadSummary(_input_path(request.vocabulary, "vocabulary"), validated.description.locale)
@@ -58,7 +66,7 @@ private[cozy] object CozyDocumentConfirmationCommand {
     }
     val values = _parse_(args, Map.empty)
     if (!_required_options.subsetOf(values.keySet)) _fail("CONFIRMATION_CLI", "$.command", "requires --core <core.yaml> --document <document.yaml> --vocabulary <vocabulary.yaml> --kind <document|summary> --save <output.html>")
-    Request(values("core"), values("document"), values("vocabulary"), values.get("summary"), values("kind"), values("save"))
+    Request(values("core"), values("document"), values("vocabulary"), values.get("summary"), values("kind"), values("save"), values.get("project-root"))
   }
 
   private def _input_path(value: String, label: String): Path =

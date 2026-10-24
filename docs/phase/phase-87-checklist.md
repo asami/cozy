@@ -9,9 +9,11 @@ The initial planning-only record is superseded for execution by the explicit
 P87-02 admission/materialization are accepted after their selected reviews.
 P87-02 validation: 76/76 across seven suites, then 23/23 across the two affected
 suites after the claims-only backlink repair; independent focused closure
-`cozy-p87-02-focused-source-review-20261025@1` PASS. Nine items are complete;
-15 remain open. Next: P87-03 native CLI/local-build integration. Article/PDF
-and Phase acceptance remain open.
+`cozy-p87-02-focused-source-review-20261025@1` PASS. P87-03 native CLI/local-build
+integration passed 51/51 across five suites and protected review
+`cozy-p87-03-review-20261025@1` PASS. Thirteen items are complete; 11 remain
+open. Next: P87-04 derived articles and actual paired PDFs. Phase acceptance
+remains open.
 
 ## P87-01: Contract and representative authoring
 
@@ -30,10 +32,10 @@ and Phase acceptance remain open.
 
 ## P87-03: Confirmation and reader HTML
 
-- [ ] Materialize selected assets outside the pure projections and produce self-contained HTML without runtime network access.
-- [ ] Render semantic figures/captions/alternative text and accessible tables with complete localized text and source order.
-- [ ] Preserve exact typed highlight/reveal and reader backlink behavior for Figure/Table blocks; keep logic-tree labels concise.
-- [ ] Pass focused executable specifications for real asset inputs, escaping, deterministic output, keyboard/navigation behavior and existing block forms.
+- [x] Materialize selected assets outside the pure projections and produce self-contained HTML without runtime network access.
+- [x] Render semantic figures/captions/alternative text and accessible tables with complete localized text and source order.
+- [x] Preserve exact typed highlight/reveal and reader backlink behavior for Figure/Table blocks; keep logic-tree labels concise.
+- [x] Pass focused executable specifications for real asset inputs, escaping, deterministic output, keyboard/navigation behavior and existing block forms.
 
 ## P87-04: Derived article and PDF continuity
 

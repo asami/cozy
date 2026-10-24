@@ -5,8 +5,9 @@
 [Phase 87](phase-87.md) / [checklist](phase-87-checklist.md) is IN PROGRESS under the later explicit `cncf-goal-phase87` invocation.
 P87-01 source authoring and P87-02 admission/materialization are accepted after
 focused specifications, protected Step review and independent repair closure.
-Next: P87-03 native CLI/local-build integration; article/PDF and Phase acceptance
-remain open. It adds claim-linked figure/table body blocks, localized explanatory
+P87-03 native CLI/local-build integration is accepted after 51/51 specifications
+and protected review PASS. Next: P87-04 derived articles and actual paired PDFs;
+Phase acceptance remains open. It adds claim-linked figure/table body blocks, localized explanatory
 content, native confirmation/reader HTML and continuity into the existing
 SmartDox article/PDF routes. The
 [specification](../spec/document-project-explanatory-figures-and-tables.md)

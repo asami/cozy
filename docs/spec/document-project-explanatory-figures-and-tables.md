@@ -3,9 +3,12 @@
 Status: normative additive unreleased v2 contract; implementation in progress for [Phase 87](../phase/phase-87.md).
 Recorded: 2026-10-25 (Asia/Tokyo).
 
-This document freezes the Phase 87 source and rendering contract. Runtime
-admission and renderer implementation remain in progress; no support or
-validation PASS is claimed by this source-authoring Step.
+This document freezes the Phase 87 source and rendering contract. P87-02
+implements runtime/source admission, asset materialization and pure confirmation
+and reader projections. P87-03 implements native confirmation command and
+Document local-build integration. SmartDox article/PDF continuity remains
+P87-04 work; these integration notes do not claim Phase closure or validation
+PASS.
 Implementation acceptance is tracked only in the
 [Phase 87 checklist](../phase/phase-87-checklist.md).
 
@@ -15,11 +18,11 @@ A figure or table is an authored explanation of a Core claim, displayed in
 the corresponding body passage. It is not a large logic-tree node or an
 unrelated attachment.
 
-Current `CozyDocumentDescriptionV2.Block` and its loader admit only paragraph,
-list, example, note and logical-structure. Existing Summary `diagram` selects
-Core Steps, Nodes and edges for a concise presentation; it is not a body
-figure or table. Phase 87 extends the current unreleased Document v2 model
-with explicit `figure` and `table` blocks. It preserves existing v2 documents
+At Phase 87 entry, `CozyDocumentDescriptionV2.Block` and its loader admitted
+only paragraph, list, example, note and logical-structure. P87-02 extends that
+existing unreleased Document v2 model and both loader routes with explicit
+`figure` and `table` blocks. Existing Summary `diagram` selects Core Steps,
+Nodes and edges for a concise presentation; it is not a body figure or table. It preserves existing v2 documents
 and the separate closed v1 contract; it introduces no parallel Document DSL.
 
 The existing [v2 description contract](document-project-document-and-summary-description-v2.md),
@@ -60,8 +63,8 @@ global section/block/list-item ID uniqueness, Core coverage, Document target
 collection and Summary omission target resolution. They are ordinary `block`
 targets for an authored Summary omission; no Summary figure selection is inferred.
 
-The following exact source shape is frozen by P87-01; executable
-specifications and loader admission belong to P87-02. No other fields are
+The following exact source shape is frozen by P87-01 and implemented by
+P87-02 with executable specifications and both loader routes. No other fields are
 admitted.
 
 | Kind | Required fields |
@@ -114,13 +117,23 @@ must not acquire filesystem/network access. Confirmation and reader HTML keep
 their portable, self-contained behavior by embedding admitted inert image
 content through an explicit asset-materialization boundary. Materialization supplies immutable values containing exact declared references,
 embedded data URIs and actual input paths. Pure renderers consume those values
-and perform no filesystem or network access. Their existing overload supplies
-an empty asset collection and fails explicitly when a Figure needs an asset.
+and perform no filesystem or network access. Source-compatible two-argument
+render calls supply an empty asset collection and fail explicitly when a
+Figure needs an asset; no JVM binary overload compatibility is promised.
 SVG requires a separately planned safe route; no sanitizer is introduced.
 
-Confirmation accepts optional `--project-root`. Its absence remains compatible
-for asset-free Documents; a Figure without a root fails with an actionable
-missing-root diagnostic. Local-build already supplies the explicit root.
+The native confirmation `render --kind document` command accepts optional
+`--project-root <path>`. Its absence remains compatible for asset-free and
+table-only Documents; a Figure without a root fails before output with
+`CONFIRMATION_CLI` and `--project-root is required for figure assets`. A supplied
+root is admitted by the asset boundary, without current-directory inference;
+asset diagnostics retain their original code and path. `--kind summary`
+rejects `--project-root` because it has no image projection.
+
+P87-03 local-build supplies the explicit project root, admits the selected
+Document and materializes its used images before freshness evaluation. It
+retains the admitted Document and materialized values in the Plan for both
+native Document renderers, without repeated parsing or materialization.
 
 Render figures as semantic `figure`/`figcaption` with authored alternative text,
 and tables as semantic `table`/`caption` with explicit column-header semantics.
@@ -172,7 +185,7 @@ and exact gap, not worked around by silently changing another repository.
 
 ## 6. Required executable and visible acceptance
 
-Future executable specifications must cover:
+Required executable and workflow specifications cover:
 
 - both block kinds in nested sections, source ordering and shared-claim use;
 - exact claims and typed references, duplicate IDs, unknown fields/kinds,
@@ -193,7 +206,12 @@ Use the repository's Given/When/Then, `should` and appropriate property-based
 specification style. Lightweight semantic/HTML regressions remain in normal
 FULL; expensive native PDF or large-generation cases follow the existing
 HEAVY policy but the selected representative PDF acceptance remains required.
-P87-01 authors sources only and executes none of these validations.
+P87-01 authored the sources only. P87-02 supplies the admission/materialization
+and pure-projection specifications; P87-03 adds native command/build coverage
+in `CozyDocumentFigureTableBuildSpec`, including controlled timestamps and an
+actual valid raster-pixel change. Article/PDF acceptance remains assigned to
+P87-04. Each Step's validation and acceptance are recorded by the parent in
+the Phase checklist, not inferred from this capability description.
 
 The [decided design and source inventory](../design/document-project-explanatory-figures-and-tables.md)
 and [representative Core](../../src/test/resources/cozy/document/phase-87/tier-protection/content/core.yaml)
