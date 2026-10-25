@@ -35,7 +35,8 @@ import scala.collection.JavaConverters._
  *  version Jun.  8, 2026
  *  version Jun. 18, 2026
  *  version Jul. 28, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectYamlConfig {
@@ -110,12 +111,16 @@ private[cozy] object CozyProjectYamlConfig {
         flatMap(_.asArray).
         getOrElse(Vector.empty)
     def merge(overrideConfig: Config): Config =
-      Config(
-        values ++ overrideConfig.values,
-        lists ++ overrideConfig.lists,
-        overrideConfig.json.orElse(json),
-        authoredkeys ++ overrideConfig.authoredkeys
-      )
+      (json, overrideConfig.json) match {
+        case (Some(base), Some(overlay)) => _config_from_json(base.deepMerge(overlay))
+        case _ =>
+          Config(
+            values ++ overrideConfig.values,
+            lists ++ overrideConfig.lists,
+            overrideConfig.json.orElse(json),
+            authoredkeys ++ overrideConfig.authoredkeys
+          )
+      }
   }
   object Config {
     val empty: Config = Config(Map.empty, Map.empty)

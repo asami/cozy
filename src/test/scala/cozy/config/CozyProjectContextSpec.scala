@@ -12,11 +12,70 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "CozyProjectContext" should {
+    "shared and local defaults" which {
+      "retain shared structured values and provenance when local defaults override selected fields" in {
+        _with_work("shared-overlay") { root =>
+          Given("user, shared conf/cozy and local .cozy defaults")
+          val home = _directory(root.resolve("home"))
+          _set_home(home)
+          val project = _directory(root.resolve("project"))
+          val user = _write(home.resolve(".cozy/config.yaml"), "generation:\n  backend: user\n  user: retained\n")
+          val shared = _write(project.resolve("conf/cozy/config.yaml"), "project:\n  id: shared-project\ngeneration:\n  backend: shared\n  source_dir: src/shared\nrepositories:\n  car:\n    - shared-a\n    - shared-b\npublication:\n  pages:\n    - title: shared-a\n    - title: shared-b\n")
+          val local = _write(project.resolve(".cozy/config.yaml"), "generation:\n  backend: local\nrepositories:\n  car: []\npublication:\n  pages:\n    - title: local-only\n")
+
+          When("both the operation loader and Project Context read the same project")
+          val config = CozyProjectYamlConfig.loadOperationDefaults(project)
+          val context = CozyProjectContext.resolve(project)
+
+          Then("local values win, shared fields survive and lists leave no stale entries")
+          CozyProjectYamlConfig.operationDefaultFiles(project) shouldBe Vector(user, shared, local)
+          config.value("generation.backend") shouldBe Some("local")
+          config.value("generation.source_dir") shouldBe Some("src/shared")
+          config.value("generation.user") shouldBe Some("retained")
+          config.list("repositories.car") shouldBe empty
+          config.value("publication.pages.0.title") shouldBe Some("local-only")
+          config.value("publication.pages.1.title") shouldBe None
+          config.publicationPageJsons.size shouldBe 1
+          config.json.flatMap(_.hcursor.downField("generation").get[String]("source_dir").toOption) shouldBe Some("src/shared")
+          context.config.values shouldBe config.values
+          context.config.lists shouldBe config.lists
+          context.project.map(_.marker.path) shouldBe Some(shared)
+          context.project.flatMap(_.id.map(_.value)) shouldBe Some("shared-project")
+          context.valueProvenance("generation.source_dir").map(_.layer) shouldBe Some("project-conf")
+          context.valueProvenance("generation.source_dir").map(_.sourcePath) shouldBe Some(shared)
+          context.valueProvenance("generation.backend").map(_.sourcePath) shouldBe Some(local)
+          context.valueProvenance("publication.pages.1.title") shouldBe None
+          context.listProvenance("repositories.car") shouldBe None
+        }
+      }
+
+      "allow shared-only, local-only and absent configurations without reading root config.yaml" in {
+        _with_work("optional-config") { root =>
+          Given("an isolated home and projects with optional settings")
+          _set_home(_directory(root.resolve("home")))
+          val sharedonly = _directory(root.resolve("shared"))
+          val localonly = _directory(root.resolve("local"))
+          val absent = _directory(root.resolve("absent"))
+          _write(sharedonly.resolve("conf/cozy/config.yaml"), "generation:\n  backend: shared\n")
+          _write(localonly.resolve(".cozy/config.yaml"), "generation:\n  backend: local\n")
+          _write(absent.resolve("config.yaml"), "generation:\n  backend: unrelated\n")
+          Vector(sharedonly -> Some("shared"), localonly -> Some("local"), absent -> None).foreach { case (path, expected) =>
+            When("operation defaults and contexts are loaded")
+            val defaults = CozyProjectYamlConfig.loadOperationDefaults(path)
+            val context = CozyProjectContext.resolve(path)
+            Then("each supported file works alone and unrelated root YAML is not loaded")
+            defaults.value("generation.backend") shouldBe expected
+            context.config.value("generation.backend") shouldBe expected
+          }
+        }
+      }
+    }
+
     "discover the nearest direct project marker" which {
       "retain exact project configuration and provenance for a nested package" in {
         _with_work("nearest") { root =>

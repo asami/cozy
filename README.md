@@ -11,6 +11,13 @@ knowledge-centric workflow.
 
 ---
 
+## Project configuration
+
+Use `conf/cozy/config.yaml` for shared operation defaults and `.cozy/config.yaml`
+for local overrides. Either file may be absent; root `config.yaml` is not read.
+See [configuration layers](docs/spec/project-configuration-layers.md) for
+precedence, structured merge behavior and the sbt-cozy adapter settings.
+
 ## Key Features
 
 ### 🧩 1. Code Generation from CML
