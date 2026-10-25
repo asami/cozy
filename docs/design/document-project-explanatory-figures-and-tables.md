@@ -15,8 +15,8 @@ five-kind inventory at Phase entry is historical, not the current loader limit.
 | [Confirmation projection](../../src/main/scala/cozy/document/CozyDocumentConfirmationProjectionV2.scala) | P87-02 implements pure admitted-value Figure/Table HTML with immutable materialized assets, exact Core selection and shared selection/reveal behavior. |
 | [Reader projection](../../src/main/scala/cozy/document/CozyDocumentReaderProjectionV2.scala) | P87-02 implements pure Figure/Table HTML with the same asset values, native semantics, complete cells and exact backlinks. |
 | [Confirmation command](../../src/main/scala/cozy/document/CozyDocumentConfirmationCommand.scala) | P87-03 implements optional `--project-root` for Document rendering, asset materialization and the pure renderer call. Missing roots diagnose Figures before output; table-only/asset-free calls remain source compatible. Summary rejects the unused root. |
-| [Local-build command](../../src/main/scala/cozy/document/CozyDocumentProjectLocalBuildCommand.scala) | P87-03 retains exact authored configuration inputs and appends only the selected Document's actual used raster paths before freshness/collision checks. Plan retains the admitted Document and materialized values for both native Document renderers; article Plan remains independent. |
-| [Native SmartDox article HTML](../../src/main/scala/cozy/document/CozyDocumentProjectSmartDoxArticleHtml.scala) | Existing parser/HTML route; Result has asset paths but currently returns `Vector.empty`. Discover actual image nodes and embed their admitted raster content without adding Document dependencies. |
+| [Local-build command](../../src/main/scala/cozy/document/CozyDocumentProjectLocalBuildCommand.scala) | P87-03 retains exact authored configuration inputs and appends only the selected Document's actual used raster paths before freshness/collision checks. P87-04 adds the prepared native article model and its actual used images to the article Plan, independently of Document inputs. |
+| [Native SmartDox article HTML](../../src/main/scala/cozy/document/CozyDocumentProjectSmartDoxArticleHtml.scala) | P87-04 prepares the native `Dox` once, materializes actual depth-first `Img.src` references, attaches admitted data URIs only to native DOM image sources, and uses the existing HTML serializer. Result reports actual used paths without copying assets. |
 | [Existing article PDF](../../src/main/scala/cozy/media/CozyMediaPdf.scala) | Existing `article-pdf` media route and resource contract remain the PDF owner. Use this native route with reflected article content; no alternate PDF engine. |
 
 The outside sources below are read-only dependencies in the adjacent SmartDox
@@ -26,7 +26,7 @@ repository; no upstream edits are authorized.
 | --- | --- |
 | [Dox model](../../../smartdox/src/main/scala/org/smartdox/Dox.scala) | Native Img, Figure and Table forms exist. Consume these forms through existing transformations. |
 | [DoxLinesParser](../../../smartdox/src/main/scala/org/smartdox/parser/DoxLinesParser.scala) | `get_Image_Transition` recognizes image input; the annotation state wraps an image in Figure when a caption is present. Actual authored syntax must still be parsed through the production reader. |
-| [Dox2LatexConverter](../../../smartdox/src/main/scala/org/smartdox/converters/Dox2LatexConverter.scala) | `enter_Figure` emits image/caption/optional label; `enter_Table` uses longtable. `_image_source_file` and the resource-root route resolve local raster resources for image inclusion. Actual JA/EN PDF execution and visual inspection remain unverified. |
+| [Dox2LatexConverter](../../../smartdox/src/main/scala/org/smartdox/converters/Dox2LatexConverter.scala) | `enter_Figure` emits image/caption/optional label; `enter_Table` uses longtable. `_image_source_file` and the resource-root route resolve local raster resources for image inclusion. Actual JA/EN PDF execution and final visual inspection passed in P87-04 (44/44 selected specifications; independent Step review PASS). |
 
 No final syntax or end-to-end support claim follows from commented upstream
 tests. P87-04 must parse the actual sources and render the actual PDFs. A real
@@ -57,7 +57,7 @@ local-build integration; validation and acceptance remain parent-owned.
 Used Document assets extend only selected Document targets. The P87-03 Plan
 admits and materializes once, before freshness even for a reusable output, and
 renders from retained values. Table-only Documents add no image inputs.
-P87-04 owns extending article inputs from actual parsed article image nodes. Keep exact existing authored configuration
+P87-04 extends article inputs from actual parsed article image nodes. Keep exact existing authored configuration
 inputs; append used raster paths before freshness evaluation without globs,
 extra configuration asset lists or Document-to-article dependency leakage.
 Ordinary output/reuse policy remains unchanged, without new management hashes
@@ -86,6 +86,62 @@ pure-projection specifications and P87-03 native command/build specifications.
 The latter use copied JA/EN fixtures under `target/phase87/spec`, exact selected
 input reports, controlled timestamps and changed valid raster pixels. The
 adopted diagrams remain authored locale content; only work-fixture images are
-mutated. Derived `index.dox`, actual article asset integration and PDF evidence
-remain P87-04 responsibilities. Article reflection uses the existing authoring
-route, with no second generator.
+mutated. P87-04 adds paired authored `articles/<locale>/index.dox` and
+`media.yaml`. The sources retain the Document's full localized disclaimer,
+figure caption, nested headings, complete table caption, column order and two
+rows. Source Figure/Table `#+LABEL` declarations retain origin block identities
+for authored correspondence. The native parser retains the Table label but does
+not propagate the Figure label; no extra HTML metadata or PDF anchors are
+promised. Ordinary paragraphs use no annotation.
+The introduction paragraph marks its complete localized text with native
+`<span lang="ja">` or `<span lang="en">` body inline syntax for the existing
+native `--locale` selection. Section titles do not parse inline HTML markup.
+Locale directories and media language alone do not satisfy that source contract;
+actual PDF execution and visual acceptance remain required.
+Core correspondence remains compositional through admitted Document claims and
+these same explanations. Article reflection uses the existing authoring route,
+with no second generator or correspondence DSL.
+
+## Native article attachment and PDF acceptance boundary
+
+`Prepared(sourcePath, document, assets)` is owned by the native article adapter
+object. Preparation preserves the existing filename-aware parser and discovers
+image references from actual `Dox.elements` in depth-first first-use order.
+URI admission rejects schemes, authority, absolute paths, queries and fragments;
+`URI.getPath` decodes once before the shared canonical-root PNG/JPEG materializer.
+The original native Dox model is retained, without generic `copyV` AST rewrites.
+
+Rendering creates the DOM with the same default SmartDox context and
+`Dox2HtmlTransformer.Rule.default.toDox2DomHtmlTransformerRule`. It attaches
+admitted data URIs to each native image using its exact source URI mapping,
+then calls `HtmlTransformerBase.to_html`. Other DOM content remains native.
+The local-build Plan retains this prepared article before freshness, appends
+only actual used raster paths and renders from those values. This is independent
+of Core, localized Document, unselected images and SVG masters.
+
+PDF resource declarations use ordinary `cozy.media.v1`, the existing
+`CozyMediaPdf` producer and explicit selected-figure `receipt.inputs`. No PDF
+projection, producer, receipt ABI or cache is added. The checked-in descriptors
+use `dox pdf`; the explicit HEAVY acceptance changes only the copied descriptor
+renderer command to current Java plus the actual exported development classpath
+and `org.smartdox.service.SmartDoxService pdf`. This resolves the native runtime
+explicitly without depending on the installed legacy PATH wrapper.
+
+Fast article specifications assemble projects under
+`target/phase87/spec/<uuid>/<locale>.dox`. The single paired native PDF scenario
+is tagged Slow, requires `cozyExportRuntimeClasspath`, invokes normal
+`CozyMedia.build` with its default process runner and retains actual JA/EN PDFs
+under `target/phase87/pdf-acceptance/<uuid>/`. PDFBox observes real page/image
+counts and readable complete content. The scenario demonstrates current reuse,
+Document/unselected-asset independence and one actual English raster rebuild.
+`target/phase87/pdf-acceptance-latest.json` records paths, counts and producer
+reports for visual inspection, without hashes or copied-source evidence.
+Native external tool failures remain test failures with retained diagnostics.
+On 2026-10-25 the complete selected run passed 44/44 specifications across six
+suites, including actual paired PDFs and one English used-raster rebuild.
+The parent and independent Step reviewer inspected both final pages: complete
+localized content and diagrams, readable captions/cells, no overlap or clipping.
+The native business format retains Japanese automatic figure/table prefixes in
+English; this separately owned SmartDox follow-up is DEV-P87-001. Duplicate
+dependency logging resources are HYG-P87-002. Neither is hidden or patched in
+Cozy. Phase integration/FULL/comprehensive review and closure remain pending.

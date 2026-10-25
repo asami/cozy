@@ -11,8 +11,11 @@ P87-02 validation: 76/76 across seven suites, then 23/23 across the two affected
 suites after the claims-only backlink repair; independent focused closure
 `cozy-p87-02-focused-source-review-20261025@1` PASS. P87-03 native CLI/local-build
 integration passed 51/51 across five suites and protected review
-`cozy-p87-03-review-20261025@1` PASS. Thirteen items are complete; 11 remain
-open. Next: P87-04 derived articles and actual paired PDFs. Phase acceptance
+`cozy-p87-03-review-20261025@1` PASS. P87-04 native article/PDF continuity passed 44/44 specifications across six
+suites, including actual JA/EN PDFs, used English raster rebuild and current reuse.
+Both final PDFs were visually inspected by the parent and independent reviewer;
+Step review `cozy-p87-04-review-20261025@1` PASS. Eighteen checklist items are
+complete; six remain open. Next: P87-05 integrated acceptance. Phase acceptance
 remains open.
 
 ## P87-01: Contract and representative authoring
@@ -39,11 +42,11 @@ remains open.
 
 ## P87-04: Derived article and PDF continuity
 
-- [ ] Reflect accepted Document figures/tables into `index.dox` using actual supported SmartDox syntax and the existing article-authoring route.
-- [ ] Carry the selected assets and full table content through native article HTML and the existing article-PDF route without a parallel renderer.
-- [ ] Declare used-asset dependencies and prove an actual used image update rebuilds only affected outputs under the existing reuse rules.
-- [ ] Prove a Document-only change and unselected assets do not spuriously invalidate an independently current SmartDox article target.
-- [ ] Render and visibly inspect actual JA and EN article PDFs for the representative figure and table; retain readable captions/cells and correct correspondence.
+- [x] Reflect accepted Document figures/tables into `index.dox` using actual supported SmartDox syntax and the existing article-authoring route.
+- [x] Carry the selected assets and full table content through native article HTML and the existing article-PDF route without a parallel renderer.
+- [x] Declare used-asset dependencies and prove an actual used image update rebuilds only affected outputs under the existing reuse rules.
+- [x] Prove a Document-only change and unselected assets do not spuriously invalidate an independently current SmartDox article target.
+- [x] Render and visibly inspect actual JA and EN article PDFs for the representative figure and table; retain readable captions/cells and correct correspondence.
 
 ## P87-05: Integrated acceptance and closure
 

@@ -1,0 +1,21 @@
+# Tier balance and protection responsibilities
+
+## Schematic comparison and protection coverage
+
+<span lang="en">This schematic considers performance and security for both Tier A and Tier B and maps protection targets to mechanisms and application locations. It allocates illustrative responsibilities; it reports no measured performance, identifies no actual product tiers and asserts no actual protection guarantees.</span>
+
+#+CAPTION: Schematic of performance and security as considerations within both Tier A and Tier B. Area and placement express no measured values or ranking.
+#+LABEL: tier-comparison
+[[images/tier-balance-en.png]]
+
+### Protection responsibility mapping
+
+#+CAPTION: Schematic responsibility allocation mapping each protection target to a mechanism and application location; it asserts no actual protection guarantees.
+#+LABEL: protection-coverage
+| Protection target | Mechanism | Application location |
+|-----
+| Service boundary | Access control | Service entry |
+| Data boundary | Encryption | Storage and transfer |
+|-----
+
+- [[https://example.com/tier-protection][Reference link]]

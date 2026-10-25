@@ -34,7 +34,8 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     output: Path,
     locale: Option[String],
     document: Option[CozyDocumentDescriptionV2.ValidatedDocument],
-    assets: CozyDocumentFigureAssets.Materialized
+    assets: CozyDocumentFigureAssets.Materialized,
+    article: Option[CozyDocumentProjectSmartDoxArticleHtml.Prepared]
   )
 
   private val _schema = "cozy.document-project.local-build-targets.v1"
@@ -133,11 +134,13 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
       }
       val assets = document.map(CozyDocumentFigureAssets.materialize(project, _)).getOrElse(CozyDocumentFigureAssets.empty)
-      val inputs = baseinputs ++ assets.sourcePaths.map(path => _project_relative(project, path) -> path)
+      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project)) else None
+      val usedassets = article.map(_.assets).getOrElse(assets)
+      val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
       val output = _output(project, contract)
       if (inputs.exists { case (_, input) => output == input || output.startsWith(input) })
         _failure("target output collides with a declared source", id)
-      Plan(project, contract, definition, inputs, output, locale, document, assets)
+      Plan(project, contract, definition, inputs, output, locale, document, assets, article)
     })
 
     def _visit_(id: String): Unit = {
@@ -203,7 +206,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val vocabulary = _vocabulary(plan, validated)
       CozyDocumentReaderProjectionV2.render(validated, vocabulary, plan.assets).html
     case "smartdox-article-html" =>
-      CozyDocumentProjectSmartDoxArticleHtml.render(_input(plan, "index.dox").getParent).html
+      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id))).html
     case value => _failure("target renderer is missing", value)
   }
 

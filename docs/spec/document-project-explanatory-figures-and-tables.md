@@ -6,9 +6,9 @@ Recorded: 2026-10-25 (Asia/Tokyo).
 This document freezes the Phase 87 source and rendering contract. P87-02
 implements runtime/source admission, asset materialization and pure confirmation
 and reader projections. P87-03 implements native confirmation command and
-Document local-build integration. SmartDox article/PDF continuity remains
-P87-04 work; these integration notes do not claim Phase closure or validation
-PASS.
+Document local-build integration. P87-04 native article/PDF continuity is
+accepted after 44/44 specifications, actual paired PDF inspection and independent
+Step review PASS. Phase closure remains pending.
 Implementation acceptance is tracked only in the
 [Phase 87 checklist](../phase/phase-87-checklist.md).
 
@@ -176,6 +176,34 @@ table headings/cells/order, and their Core correspondence. Format-appropriate
 image derivatives and PDF pagination may differ; independently authored
 replacement explanations, dropped rows and invented content are not allowed.
 
+The native article adapter prepares `index.dox` once with
+`Dox2Parser.parseWithFilename(Config.default, "index.dox", source)`. It discovers
+actual `Img.src` nodes by depth-first traversal of `Dox.elements`, admits only
+relative local URIs without scheme, authority, query or fragment, and decodes
+each URI path once. The shared PNG/JPEG materializer admits those selected
+paths against the canonical explicit project root before freshness evaluation.
+Repeated references produce one input in first-use order. Missing or unsafe
+used images fail even when an existing article output would otherwise be
+current.
+
+`Prepared` retains the source path, native Document and immutable materialized
+assets. Rendering uses SmartDox's default `Dox2DomHtmlTransformer` rule and
+context, changes only native DOM image `src` attributes to the admitted data
+URIs, and serializes with the existing `HtmlTransformerBase`. It preserves the
+native article metadata, ordinary links, captions and complete table structure.
+It does not rebuild the Dox AST, copy assets or write outputs. `Result.assets`
+reports actual selected image paths. The source-compatible `render(project)`
+entry delegates to preparation and rendering of that retained value.
+
+Article PDF remains owned by `CozyMedia.build` and `CozyMediaPdf`. Its ordinary
+`cozy.media.v1` descriptor declares a same-locale prebuilt infographic and a
+distinct `article-pdf` resource with `articleMedia.role: article_pdf`, PDF media
+type, business LaTeX format and the native SmartDox renderer. The selected
+figure is an explicit `receipt.inputs` entry with role `figure` and
+normalization `bytes`. This uses the existing declared-input/currentness
+mechanism; it adds no PDF cache or source-digest protocol. `publicPath` values
+are metadata and do not publish anything.
+
 Phase 87 must demonstrate this complete route for one paired JA/EN tier
 comparison figure and one protection-coverage table. Real files must be read
 and actual selected article PDFs inspected; a source-string assertion or a
@@ -210,7 +238,40 @@ P87-01 authored the sources only. P87-02 supplies the admission/materialization
 and pure-projection specifications; P87-03 adds native command/build coverage
 in `CozyDocumentFigureTableBuildSpec`, including controlled timestamps and an
 actual valid raster-pixel change. Article/PDF acceptance remains assigned to
-P87-04. Each Step's validation and acceptance are recorded by the parent in
+P87-04. Its authored paired articles are
+[Japanese](../../src/test/resources/cozy/document/phase-87/tier-protection/articles/ja/index.dox)
+and [English](../../src/test/resources/cozy/document/phase-87/tier-protection/articles/en/index.dox).
+Fixture assembly copies each selected article and its media descriptor to a
+fresh project root, alongside the actual Core, localized Documents and images;
+the authored image paths remain relative to that assembled root.
+
+`CozyDocumentFigureTableArticleSpec` exercises the actual parser, native DOM
+rendering and used-image local-build behavior in ordinary FULL. The single
+paired scenario in `CozyDocumentFigureTablePdfSpec` is tagged
+`org.scalatest.tags.Slow` and requires explicit HEAVY selection. It requires
+the real `target/cozy.d/runtime-classpath.txt` export and configures only the
+copied media descriptors with the current Java executable, `-cp`, that actual
+classpath and `org.smartdox.service.SmartDoxService pdf`. Normal
+`CozyMedia.build` invokes the native service through its default process runner;
+no installed PATH wrapper or substituted PDF producer is used.
+
+The native scenario retains real JA/EN projects and PDFs under
+`target/phase87/pdf-acceptance/<uuid>/`, checks pages, recursive PDF image
+resources and full readable localized content with PDFBox, observes the exact
+used inputs, demonstrates reuse and unrelated-source independence, and
+actually rebuilds English once after a valid raster-pixel change. The ordinary
+local index `target/phase87/pdf-acceptance-latest.json` records actual paths,
+counts and reports for parent inspection. Missing tool/runtime prerequisites
+fail normally with retained diagnostics; they are not canceled or replaced by
+mock PDF bytes. On 2026-10-25 the selected HEAVY scenario passed with actual
+JA/EN PDFs, one English raster rebuild and full text/image/input checks. Both
+final PDFs were visually inspected by the parent and independent Step reviewer.
+Native English business-format automatic 図/表 prefixes remain
+[DEV-P87-001](../journal/2026/10/2026-10-25-phase-87-development-candidate-follow-up.md);
+authored localized captions and cells are preserved. No English automatic-chrome
+acceptance or unexecuted HEAVY combination is claimed.
+
+Each Step's validation and acceptance are recorded by the parent in
 the Phase checklist, not inferred from this capability description.
 
 The [decided design and source inventory](../design/document-project-explanatory-figures-and-tables.md)

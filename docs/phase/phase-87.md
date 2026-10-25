@@ -21,8 +21,12 @@ across the two affected suites. Protected Step review and independent focused
 closure `cozy-p87-02-focused-source-review-20261025@1` accepted the implementation.
 P87-03 native CLI/local-build integration passed 51/51 specifications across
 five suites and protected review `cozy-p87-03-review-20261025@1` PASS.
-Thirteen checklist items are complete; 11 remain open. Next: P87-04 derived
-article and actual paired PDF continuity. Phase acceptance remains open.
+P87-04 native article/PDF continuity passed 44/44 specifications across six
+suites, including actual JA/EN PDFs, used English raster rebuild and current reuse.
+Both final PDFs were visually inspected by the parent and independent reviewer;
+Step review `cozy-p87-04-review-20261025@1` PASS. Eighteen checklist items are
+complete; six remain open. Next: P87-05 integrated acceptance. Phase acceptance
+remains open.
 
 ## Existing foundation and capability gap
 
@@ -36,8 +40,9 @@ article and actual paired PDF continuity. Phase acceptance remains open.
   Figure/Table to unreleased v2, strict claim/table admission, contained raster
   materialization, pure HTML output and Summary omission traversal. Existing
   v1 remains unchanged. P87-03 supplies native command/build connections and
-  used-image dependency handling. Article/PDF continuity remains pending;
-  existing five-category `coreRefs` retain meaning.
+  used-image dependency handling. P87-04 supplies native article image
+  dependencies and accepted paired article/PDF continuity; existing
+  five-category `coreRefs` retain meaning.
 
 These are capability dependencies, not instructions to reopen their closed
 Phases or to modify existing priorities.
