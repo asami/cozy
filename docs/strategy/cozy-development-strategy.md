@@ -30,6 +30,15 @@ cancellations). All 24 closure criteria and the separate HYG-P87-001/002 and
 DEV-P87-001 follow-ups are bound to the final local release.
 Existing priorities and closed Phases are preserved.
 
+## Application Function generation — planned — 2026-10-25
+
+[Phase 88](../phase/phase-88.md) retains the GitHub-side Application Function
+Subcomponent Generation plan and its CNCF Phase 75/92 dependencies. It keeps
+provider-neutral CML, complete Container realization, common TypeScript logic,
+local/AWS/Google adapters and AuthHandle-aware security generation. The incoming
+planned Phase 87 was renumbered to preserve the closed figure/table Phase 87;
+no implementation, acceptance or priority change is introduced by this sync.
+
 ## DataStore producer status — 2026-10-18
 
 [Phase 78](../phase/phase-78.md) is CLOSED. Declared String, XJson,

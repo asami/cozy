@@ -19,6 +19,14 @@ SmartDox article/PDF routes. The
 keeps Core meaning separate from presentation and preserves existing v1,
 asset-free v2 behavior and all other Phase priorities.
 
+## Application Function generation — planned — 2026-10-25
+
+[Phase 88](phase-88.md) retains the incoming Application Function Subcomponent
+Generation plan, including local/AWS/Google adapters and the AuthHandle-aware
+Function security boundary. It was renumbered from the incoming planned Phase
+87 to preserve the closed figure/table Phase 87. Scope and priorities are
+unchanged; no implementation or acceptance is claimed.
+
 ## POWERTYPE persistence-code follow-up — 2026-10-19
 
 [Implementation plan](powertype-persistence-code-plan.md): Workbench Phase 1
