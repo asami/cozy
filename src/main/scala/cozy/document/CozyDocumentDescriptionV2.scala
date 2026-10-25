@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
  * @since   Sep. 12, 2026
  *  version Sep. 14, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionV2 {
@@ -37,6 +37,10 @@ private[cozy] object CozyDocumentDescriptionV2 {
   final case class ListBlock(id: String, items: Vector[ListItem], coreRefs: References) extends Block
   final case class Example(id: String, title: String, text: String, coreRefs: References) extends Block
   final case class Note(id: String, title: String, text: String, coreRefs: References) extends Block
+  final case class Figure(id: String, asset: String, caption: String, alt: String, coreRefs: References) extends Block
+  final case class TableColumn(id: String, heading: String)
+  final case class TableRow(id: String, cells: Vector[String])
+  final case class Table(id: String, caption: String, columns: Vector[TableColumn], rows: Vector[TableRow], coreRefs: References) extends Block
   final case class LogicalStructure(id: String, stepRef: String) extends Block
   final case class Section(
     id: String,
@@ -355,13 +359,49 @@ private[cozy] object CozyDocumentDescriptionV2 {
         val text = _text(_string(fields, "text", path), s"$path.text")
         val block: Block = if (_string(fields, "kind", path) == "example") Example(id, title, text, refs) else Note(id, title, text, refs)
         ParsedBlock(block, _coverage(refs), DocumentTargets(Set.empty, Set(id), Set.empty))
+      case "figure" =>
+        _exact_fields(fields, Set("id", "kind", "asset", "caption", "alt", "coreRefs"), path)
+        val refs = _explanation_references(fields, path, core)
+        val figure = Figure(id, _text(_string(fields, "asset", path), s"$path.asset"),
+          _text(_string(fields, "caption", path), s"$path.caption"), _text(_string(fields, "alt", path), s"$path.alt"), refs)
+        ParsedBlock(figure, _coverage(refs), DocumentTargets(Set.empty, Set(id), Set.empty))
+      case "table" =>
+        _exact_fields(fields, Set("id", "kind", "caption", "columns", "rows", "coreRefs"), path)
+        val refs = _explanation_references(fields, path, core)
+        val columns = _array(_field(fields, "columns", path), s"$path.columns").zipWithIndex.map { case (item, index) =>
+          val columnpath = s"$path.columns[$index]"
+          val column = _object(item, columnpath)
+          _exact_fields(column, Set("id", "heading"), columnpath)
+          TableColumn(_id(_string(column, "id", columnpath), s"$columnpath.id"), _text(_string(column, "heading", columnpath), s"$columnpath.heading"))
+        }
+        if (columns.isEmpty) _fail("DESCRIPTION_V2_TABLE", s"$path.columns", "must contain at least one column")
+        _unique(columns.map(_.id), s"$path.columns", "table column id")
+        val rows = _array(_field(fields, "rows", path), s"$path.rows").zipWithIndex.map { case (item, index) =>
+          val rowpath = s"$path.rows[$index]"
+          val row = _object(item, rowpath)
+          _exact_fields(row, Set("id", "cells"), rowpath)
+          val cells = _array(_field(row, "cells", rowpath), s"$rowpath.cells").zipWithIndex.map { case (cell, cellindex) =>
+            _string_value(cell, s"$rowpath.cells[$cellindex]")
+          }
+          if (cells.size != columns.size) _fail("DESCRIPTION_V2_TABLE", s"$rowpath.cells", "must contain exactly one string cell per column")
+          TableRow(_id(_string(row, "id", rowpath), s"$rowpath.id"), cells)
+        }
+        if (rows.isEmpty) _fail("DESCRIPTION_V2_TABLE", s"$path.rows", "must contain at least one row")
+        _unique(rows.map(_.id), s"$path.rows", "table row id")
+        ParsedBlock(Table(id, _text(_string(fields, "caption", path), s"$path.caption"), columns, rows, refs), _coverage(refs), DocumentTargets(Set.empty, Set(id), Set.empty))
       case "logical-structure" =>
         _exact_fields(fields, Set("id", "kind", "stepRef"), path)
         val step = _id(_string(fields, "stepRef", path), s"$path.stepRef")
         if (!core.stepsById.contains(step)) _fail("DESCRIPTION_V2_REFERENCE", s"$path.stepRef", "must resolve to a Core Step")
         ParsedBlock(LogicalStructure(id, step), Coverage(steps = Set(step)), DocumentTargets(Set.empty, Set(id), Set.empty))
-      case _ => _fail("DESCRIPTION_V2_BLOCK_KIND", s"$path.kind", "must be paragraph, list, example, note, or logical-structure")
+      case _ => _fail("DESCRIPTION_V2_BLOCK_KIND", s"$path.kind", "must be paragraph, list, example, note, figure, table, or logical-structure")
     }
+  }
+
+  private def _explanation_references(fields: JsonObject, path: String, core: CozyDocumentLogicTree.CoreStructure): References = {
+    val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", core, required = false)
+    if (refs.claims.isEmpty) _fail("DESCRIPTION_V2_REFERENCE", s"$path.coreRefs.claims", "must contain at least one resolved Core claim")
+    refs
   }
 
   private def _list_item(

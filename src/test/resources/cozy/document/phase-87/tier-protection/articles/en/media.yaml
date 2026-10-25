@@ -1,0 +1,18 @@
+{
+  "schema": "cozy.media.v1",
+  "knowledge": {"id": "phase-87/tier-protection", "source": "index.dox"},
+  "receipt": {"inputs": [{"id": "figure-tier-comparison", "role": "figure", "path": "images/tier-balance-en.png", "normalization": "bytes"}]},
+  "resources": [
+    {
+      "id": "infographic-en", "kind": "infographic", "language": "en",
+      "source": "images/tier-balance-en.png", "build": "prebuilt",
+      "articleMedia": {"role": "infographic", "publicPath": "/articles/phase-87/tier-protection/tier-balance-en.png"}
+    },
+    {
+      "id": "article-pdf-en", "kind": "document", "language": "en",
+      "source": "index.dox", "output": "target/cozy-media/article-en.pdf", "build": "article-pdf",
+      "articleMedia": {"role": "article_pdf", "mediaType": "application/pdf", "label": "Article PDF", "publicPath": "/articles/phase-87/tier-protection/article-en.pdf"},
+      "articlePdf": {"latexFormat": "business", "infographic": "infographic-en", "renderer": {"name": "smartdox-pdf", "version": "2.4.19-SNAPSHOT", "command": ["dox", "pdf"]}}
+    }
+  ]
+}

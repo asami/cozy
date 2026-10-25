@@ -1,7 +1,9 @@
 package cozy.document
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 import java.util.Locale
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +12,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep. 14, 2026
- * @version Sep. 14, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSmartDoxArticleHtmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -56,16 +58,17 @@ final class CozyDocumentProjectSmartDoxArticleHtmlSpec extends AnyWordSpec with 
 
     "disclose the direct renderer binding without installing outputs or assets" in {
       _with_temp_dir("cozy-document-project-smartdox-article-binding") { root =>
-        Given("an admitted .dox project whose only rendering input is index.dox")
+        Given("an admitted .dox project with index.dox and its actual selected raster image")
         val project = _project(root)
 
         When("the article adapter renders the direct source")
         val rendered = CozyDocumentProjectSmartDoxArticleHtml.render(project)
 
-        Then("the typed result identifies SmartDox, the direct source, and no copied assets")
+        Then("the typed result identifies SmartDox, the direct source and used image without copying assets")
         rendered.rendererIdentity shouldBe "smartdox-2.4.19-SNAPSHOT"
         rendered.sourcePath shouldBe project.resolve("index.dox").toAbsolutePath.normalize()
-        rendered.assets shouldBe Vector.empty
+        rendered.assets shouldBe Vector(project.resolve("figure.png"))
+        rendered.html should include("data:image/png;base64,")
         Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("cache"), LinkOption.NOFOLLOW_LINKS) shouldBe false
@@ -110,6 +113,7 @@ final class CozyDocumentProjectSmartDoxArticleHtmlSpec extends AnyWordSpec with 
   private def _project(root: Path): Path = {
     val project = Files.createDirectories(root.resolve("article.dox"))
     _write(project.resolve("index.dox"), _article_source)
+    ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "png", project.resolve("figure.png").toFile)
     project
   }
 
@@ -140,7 +144,8 @@ final class CozyDocumentProjectSmartDoxArticleHtmlSpec extends AnyWordSpec with 
     intercept[RuntimeException](body)
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
-    val root = Files.createTempDirectory(name)
+    val parent = Files.createDirectories(Paths.get("target/phase87/spec").toAbsolutePath.normalize())
+    val root = Files.createTempDirectory(parent, name).toRealPath()
     try body(root)
     finally {
       val stream = Files.walk(root)

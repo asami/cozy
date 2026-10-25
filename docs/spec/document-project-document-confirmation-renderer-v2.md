@@ -168,3 +168,18 @@ It MUST prove marked Structure/Flow headings, marked exact prose Relation
 chips and LogicalStructure references, and unmarked containment navigation.
 Its vocabulary is test-only and is not a Cozy locale resource or Article 9
 driver.
+
+## Phase 87 additive figure/table amendment
+
+Phase 87 extends render input with supplied immutable materialized PNG/JPEG
+asset values. Materialization occurs outside this pure projection; no file or
+network access is permitted here. The existing overload supplies empty assets
+and fails explicitly if a Figure needs an asset. Render semantic figure,
+figcaption, authored alt and native table/caption/column headers, preserving
+escaping, order, exact typed selection/reveal and keyboard/print behavior.
+Embedded inert data URIs preserve self-contained output.
+
+The [explanatory figure/table contract](document-project-explanatory-figures-and-tables.md)
+supersedes only the earlier closed-kind, asset and pure-input clauses for this
+extension. Implementation and executable acceptance are in progress; no PASS
+is claimed. Phase 71 hash-removal semantics remain authoritative.

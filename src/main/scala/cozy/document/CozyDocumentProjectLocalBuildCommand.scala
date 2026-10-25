@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 14, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 25, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectLocalBuildCommand {
@@ -32,7 +32,10 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     definition: TargetDefinition,
     inputs: Vector[(String, Path)],
     output: Path,
-    locale: Option[String]
+    locale: Option[String],
+    document: Option[CozyDocumentDescriptionV2.ValidatedDocument],
+    assets: CozyDocumentFigureAssets.Materialized,
+    article: Option[CozyDocumentProjectSmartDoxArticleHtml.Prepared]
   )
 
   private val _schema = "cozy.document-project.local-build-targets.v1"
@@ -124,13 +127,20 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val contract = contracts.getOrElse(id, _failure("missing target producer", id))
       val definition = configuration.definitions.getOrElse(id, _failure("missing target definition", id))
       val locale = _locale_for(id, contract, definition.inputs)
-      val inputs = Vector(_config_relative -> configuration.path) ++ definition.inputs.map { relative =>
+      val baseinputs = Vector(_config_relative -> configuration.path) ++ definition.inputs.map { relative =>
         relative -> CozyDocumentProject._direct_file(project, relative, s"local-build $id input")
       }
+      val document = locale.map { selectedlocale =>
+        CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
+      }
+      val assets = document.map(CozyDocumentFigureAssets.materialize(project, _)).getOrElse(CozyDocumentFigureAssets.empty)
+      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project)) else None
+      val usedassets = article.map(_.assets).getOrElse(assets)
+      val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
       val output = _output(project, contract)
       if (inputs.exists { case (_, input) => output == input || output.startsWith(input) })
         _failure("target output collides with a declared source", id)
-      Plan(project, contract, definition, inputs, output, locale)
+      Plan(project, contract, definition, inputs, output, locale, document, assets, article)
     })
 
     def _visit_(id: String): Unit = {
@@ -190,22 +200,18 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     case "document-structure-html" =>
       val validated = _document(plan)
       val vocabulary = _vocabulary(plan, validated)
-      CozyDocumentConfirmationProjectionV2.render(validated, vocabulary).html
+      CozyDocumentConfirmationProjectionV2.render(validated, vocabulary, plan.assets).html
     case "document-reader-html" =>
       val validated = _document(plan)
       val vocabulary = _vocabulary(plan, validated)
-      CozyDocumentReaderProjectionV2.render(validated, vocabulary).html
+      CozyDocumentReaderProjectionV2.render(validated, vocabulary, plan.assets).html
     case "smartdox-article-html" =>
-      CozyDocumentProjectSmartDoxArticleHtml.render(_input(plan, "index.dox").getParent).html
+      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id))).html
     case value => _failure("target renderer is missing", value)
   }
 
-  private def _document(plan: Plan): CozyDocumentDescriptionV2.ValidatedDocument = {
-    val core = _input(plan, "content/core.yaml")
-    val locale = plan.locale.getOrElse(_failure("document target locale is missing", plan.contract.id))
-    val document = _input(plan, s"content/$locale/document.yaml")
-    CozyDocumentDescriptionV2.loadDocument(core, document)
-  }
+  private def _document(plan: Plan): CozyDocumentDescriptionV2.ValidatedDocument =
+    plan.document.getOrElse(_failure("document target admission is missing", plan.contract.id))
 
   private def _vocabulary(
     plan: Plan,

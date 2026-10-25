@@ -70,3 +70,18 @@ id-valid sources through production V2 admission and proves identical reader
 HTML for unchanged semantics. The reader continues to receive only current
 semantic values; this does not change its output, vocabulary, or any Phase
 completion status.
+
+## Phase 87 additive figure/table amendment
+
+Phase 87 extends the reader input with supplied immutable materialized
+PNG/JPEG asset values. The projection remains pure with no filesystem or
+network access; the existing overload supplies empty assets and fails
+explicitly if a Figure needs one. Render semantic figure/figcaption/alt and
+accessible table/caption/column headers, preserving exact Core membership,
+source order, complete cells, backlinks, keyboard access and print behavior.
+Embedded inert data URIs preserve self-contained output.
+
+The [explanatory figure/table contract](document-project-explanatory-figures-and-tables.md)
+supersedes only the earlier closed-kind, asset and pure-input clauses for this
+extension. Implementation and executable acceptance are in progress; no PASS
+is claimed. Phase 71 hash-removal semantics remain authoritative.

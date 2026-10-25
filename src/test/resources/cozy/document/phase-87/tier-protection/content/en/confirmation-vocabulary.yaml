@@ -1,0 +1,106 @@
+schema: cozy.document-confirmation-vocabulary.v1
+locale: en
+document:
+  chrome:
+    pageHeading: Document confirmation
+    statusHeading: Confirmation status
+    coverageComplete: All required coverage is complete
+    currentSources: Sources are current
+    admittedState: Inputs are admitted
+    noUnresolvedReferences: There are no unresolved references
+    containmentHeading: Logic tree
+    flowHeading: Structure between steps
+    structureHeading: Structure within a step
+    proseHeading: Document preview
+    logicalPatternHeading: Logical pattern
+    nodesHeading: Node
+    nodeRoleHeading: Node role
+    relationsHeading: Relations
+    noDirectChildFlowTransitions: There are no direct-child flow transitions
+    logicalStructureReference: Corresponding logical structure
+    identitiesHeading: Claim ID audit
+  logicalPatterns:
+    sequence: Sequence
+    mapping: Mapping
+    dependency-map: Dependency map
+    causal-chain: Causal chain
+  nodeRoles:
+    step: Step
+    source: Source
+    target: Target
+    dependency: Dependency
+    dependent: Dependent
+    cause: Cause
+    effect: Effect
+  relationTypes:
+    next: Next
+    maps-to: Maps to
+    depends-on: Depends on
+    causes: Causes
+    enables: Enables
+  flowTypes:
+    next: Next
+    maps-to: Maps to
+    depends-on: Depends on
+    causes: Causes
+    enables: Enables
+summary:
+  chrome:
+    pageHeading: Summary confirmation
+    statusHeading: Confirmation status
+    selectedSourcesCurrentAndAdmitted: Selected summary sources are current and admitted
+    noUnresolvedSelectedReferences: There are no unresolved selected references
+    navigationHeading: Summary navigation
+    semanticPanelHeading: Selected semantic explanation
+    emphasisHeading: Emphasis
+    retainedPointsHeading: Retained on this slide
+    diagramHeading: Detailed source and diagram correspondence
+    diagramItemsHeading: Diagram items
+    diagramEdgesHeading: Diagram edges
+    emptyDiagramMessage: This summary unit has no authored diagram
+    sourcesHeading: Sources and editorial decisions
+    omissionsHeading: Summary omissions
+    rationaleHeading: Rationale
+  sourceCategories:
+    steps: Step
+    claims: Claims
+    nodes: Node
+    relations: Structure within a step
+    flows: Structure between steps
+  diagramItemKinds:
+    step: Step
+    node: Node
+  relationTypes:
+    next: Next
+    maps-to: Maps to
+    depends-on: Depends on
+    causes: Causes
+    enables: Enables
+  flowTypes:
+    next: Next
+    maps-to: Maps to
+    depends-on: Depends on
+    causes: Causes
+    enables: Enables
+  inverseRelationTypes:
+    next: Previous
+    maps-to: Mapped from
+    depends-on: Depended on by
+    causes: Caused by
+    enables: Enabled by
+  inverseFlowTypes:
+    next: Previous
+    maps-to: Mapped from
+    depends-on: Depended on by
+    causes: Caused by
+    enables: Enabled by
+  documentTargetKinds:
+    section: Section
+    block: Body block
+    list-item: List item
+  omissionDispositions:
+    omitted: Omitted
+    condensed: Condensed
+  directions:
+    forward: Forward
+    inverse: Inverse

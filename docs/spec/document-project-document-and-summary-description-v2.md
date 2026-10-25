@@ -134,3 +134,17 @@ Core, Document, and Summary models store no source hashes. Current supplied
 bytes are parsed on every load; rejection remains for real logical-ID,
 semantic-reference, locale, path, UTF-8, YAML, and closed non-binding-schema
 defects.
+
+## Phase 87 additive figure/table amendment
+
+Phase 87 adds exactly the `figure` and `table` block shapes specified in the
+linked contract to unreleased Document v2. They retain recursive ordering,
+global section/block/list-item ID uniqueness, five-category references, complete
+coverage and ordinary block omission targets. Each requires resolving claims.
+Table row and column IDs are unique in separate table-local namespaces. All
+other closed fields, Summary diagrams and v1 behavior remain unchanged.
+
+The [explanatory figure/table contract](document-project-explanatory-figures-and-tables.md)
+supersedes only the earlier closed-kind, asset and pure-input clauses for this
+extension. Implementation and executable acceptance are in progress; no PASS
+is claimed. Phase 71 hash-removal semantics remain authoritative.
