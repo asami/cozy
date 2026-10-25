@@ -24,9 +24,12 @@ five suites and protected review `cozy-p87-03-review-20261025@1` PASS.
 P87-04 native article/PDF continuity passed 44/44 specifications across six
 suites, including actual JA/EN PDFs, used English raster rebuild and current reuse.
 Both final PDFs were visually inspected by the parent and independent reviewer;
-Step review `cozy-p87-04-review-20261025@1` PASS. Eighteen checklist items are
-complete; six remain open. Next: P87-05 integrated acceptance. Phase acceptance
-remains open.
+Step review `cozy-p87-04-review-20261025@1` PASS. P87-05 integrated acceptance passed 47/47 specifications across four suites
+and independent Step review `cozy-p87-05-review-20261025@1` PASS. Its ordinary
+FULL [executable specification](../../src/test/scala/cozy/document/CozyDocumentFigureTableAcceptanceSpec.scala)
+connects the three native HTML targets for JA and EN; accepted P87-04 native PDF
+evidence remains separately attributed. Twenty-one checklist items are complete;
+three remain open: the sole Phase review, final FULL and distinct final closure.
 
 ## Existing foundation and capability gap
 

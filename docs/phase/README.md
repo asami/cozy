@@ -8,7 +8,9 @@ focused specifications, protected Step review and independent repair closure.
 P87-03 native CLI/local-build integration is accepted after 51/51 specifications
 and protected review PASS. P87-04 native article/PDF continuity is accepted
 after 44/44 specifications, actual paired PDF inspection and Step review PASS.
-Next: P87-05 integrated acceptance; Phase acceptance remains open. It adds claim-linked figure/table body blocks, localized explanatory
+P87-05 integrated acceptance is accepted after 47/47 specifications and Step
+review PASS. The sole Phase review, final FULL and distinct final closure remain
+open; no successor is started. It adds claim-linked figure/table body blocks, localized explanatory
 content, native confirmation/reader HTML and continuity into the existing
 SmartDox article/PDF routes. The
 [specification](../spec/document-project-explanatory-figures-and-tables.md)

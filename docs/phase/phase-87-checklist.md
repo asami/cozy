@@ -14,9 +14,12 @@ integration passed 51/51 across five suites and protected review
 `cozy-p87-03-review-20261025@1` PASS. P87-04 native article/PDF continuity passed 44/44 specifications across six
 suites, including actual JA/EN PDFs, used English raster rebuild and current reuse.
 Both final PDFs were visually inspected by the parent and independent reviewer;
-Step review `cozy-p87-04-review-20261025@1` PASS. Eighteen checklist items are
-complete; six remain open. Next: P87-05 integrated acceptance. Phase acceptance
-remains open.
+Step review `cozy-p87-04-review-20261025@1` PASS. P87-05 integrated acceptance passed 47/47 specifications across four suites
+and independent Step review `cozy-p87-05-review-20261025@1` PASS. Its ordinary
+FULL [executable specification](../../src/test/scala/cozy/document/CozyDocumentFigureTableAcceptanceSpec.scala)
+connects the three native HTML targets for JA and EN; accepted P87-04 native PDF
+evidence remains separately attributed. Twenty-one checklist items are complete;
+three remain open: the sole Phase review, final FULL and distinct final closure.
 
 ## P87-01: Contract and representative authoring
 
@@ -50,9 +53,9 @@ remains open.
 
 ## P87-05: Integrated acceptance and closure
 
-- [ ] Accept the complete Core -> localized Document -> confirmation/reader -> derived article -> actual PDF route for both representative explanations and locales.
-- [ ] Preserve old v1/v2 document behavior, Summary explicit-selection semantics, hash-removal policy and FULL/HEAVY separation.
-- [ ] Complete required focused/integration validation and proportional independent Step reviews.
+- [x] Accept the complete Core -> localized Document -> confirmation/reader -> derived article -> actual PDF route for both representative explanations and locales.
+- [x] Preserve old v1/v2 document behavior, Summary explicit-selection semantics, hash-removal policy and FULL/HEAVY separation.
+- [x] Complete required focused/integration validation and proportional independent Step reviews.
 - [ ] Complete the sole comprehensive Phase review and any required focused repair closure.
 - [ ] Complete required final Cozy FULL validation and the selected native PDF acceptance, without claiming unexecuted HEAVY combinations.
 - [ ] Persist accepted follow-ups, exact delivery/final commits and canonical Phase/checklist/index/strategy closure through the applicable execution workflow.
