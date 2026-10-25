@@ -1,6 +1,6 @@
 # Document Project Explanatory Figures and Tables
 
-Status: normative additive unreleased v2 contract; implementation in progress for [Phase 87](../phase/phase-87.md).
+Status: normative additive unreleased v2 contract; implementation accepted in [Phase 87](../phase/phase-87.md).
 Recorded: 2026-10-25 (Asia/Tokyo).
 
 This document freezes the Phase 87 source and rendering contract. P87-02
@@ -8,7 +8,9 @@ implements runtime/source admission, asset materialization and pure confirmation
 and reader projections. P87-03 implements native confirmation command and
 Document local-build integration. P87-04 native article/PDF continuity is
 accepted after 44/44 specifications, actual paired PDF inspection and independent
-Step review PASS. Phase closure remains pending.
+Step review PASS. P87-05 integrated acceptance, the sole comprehensive Phase
+review and final ordinary FULL are accepted; canonical local closure is recorded
+in the Phase checklist.
 Implementation acceptance is tracked only in the
 [Phase 87 checklist](../phase/phase-87-checklist.md).
 

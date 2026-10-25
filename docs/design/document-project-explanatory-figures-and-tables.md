@@ -1,6 +1,6 @@
 # Document Project Explanatory Figures and Tables Design
 
-Status: decided Phase 87 boundaries; implementation in progress.
+Status: decided Phase 87 boundaries; implementation accepted.
 The [normative contract](../spec/document-project-explanatory-figures-and-tables.md)
 owns behavior; the [Phase checklist](../phase/phase-87-checklist.md) owns acceptance.
 This inventory records current source capabilities and remaining integration
@@ -144,4 +144,7 @@ localized content and diagrams, readable captions/cells, no overlap or clipping.
 The native business format retains Japanese automatic figure/table prefixes in
 English; this separately owned SmartDox follow-up is DEV-P87-001. Duplicate
 dependency logging resources are HYG-P87-002. Neither is hidden or patched in
-Cozy. Phase integration/FULL/comprehensive review and closure remain pending.
+Cozy. P87-05 integrated acceptance passed 47/47; the sole comprehensive Phase
+review passed and final ordinary FULL passed 3,972 tests with zero failures
+(23 existing cancellations). The Phase checklist and distinct local release
+binding record final closure; these are reporting updates, not new contracts.

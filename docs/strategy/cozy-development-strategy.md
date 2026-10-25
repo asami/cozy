@@ -5,10 +5,11 @@ Updated: 2026-10-25 (Asia/Tokyo)
 
 Status: active
 
-## Document explanation figures and tables — in progress — 2026-10-25
+## Document explanation figures and tables — closed — 2026-10-25
 
-[Phase 87](../phase/phase-87.md) is IN PROGRESS under the later explicit
-`cncf-goal-phase87` invocation, following the initial planning-only record. It represents figures and tables
+[Phase 87](../phase/phase-87.md) is CLOSED under local release binding
+`cozy-p87-release-20261025@1`, effective after its distinct native commit and
+closure receipt are verified. The initial planning-only record is retained. It represents figures and tables
 as localized body explanations linked to explicit Core claims, retaining short
 logic-tree labels and correspondence through confirmation/reader HTML, derived
 SmartDox articles and the existing article-PDF route. Core owns the claims,
@@ -16,15 +17,17 @@ compared subjects/axes and Relations; Documents own image references/captions/
 alternative text and table headings/rows/cells. Existing Summary diagrams
 remain a separate explicit selection. The
 [specification](../spec/document-project-explanatory-figures-and-tables.md)
-and [checklist](../phase/phase-87-checklist.md) make the current capability gap
-and actual future JA/EN acceptance obligations explicit. P87-01 source authoring
+and [checklist](../phase/phase-87-checklist.md) record the accepted capability
+and actual JA/EN acceptance. P87-01 source authoring
 and P87-02 admission/materialization are accepted after focused specifications,
 protected Step review and independent repair closure. P87-03 native CLI/local-build
 integration is accepted after 51/51 specifications and protected review PASS.
 P87-04 native article/PDF continuity is accepted after 44/44 specifications,
 actual paired PDF inspection and independent Step review PASS. P87-05 integrated acceptance is accepted after 47/47 specifications and
-independent Step review PASS. The sole Phase review, final FULL and distinct
-final closure remain open.
+independent Step review PASS. The sole comprehensive Phase review passed,
+and final ordinary FULL passed 3,972 tests with zero failures (23 existing
+cancellations). All 24 closure criteria and the separate HYG-P87-001/002 and
+DEV-P87-001 follow-ups are bound to the final local release.
 Existing priorities and closed Phases are preserved.
 
 ## DataStore producer status — 2026-10-18
@@ -1771,7 +1774,7 @@ Origin:
 | DEV-035 | [CNCF Phase 77 design authority](https://github.com/asami/goldenport-cncf/blob/766df74a3bcd6e8286c5ef88fa2bf1bf9fbae036/docs/phase/phase-77.md), [Candidate-Admission producer ABI](../design/cml-candidate-admission-producer-abi.md), and a demonstrated absence of `JudgmentAction` / `Judgment` producer semantics in the current Cozy Scala source and executable specifications | Supply the minimum versioned, provider-neutral CML StateMachine/Workflow Candidate-Admission Model producer contract that enables CNCF Phase 77 development: explicit candidate-producing Action classification, typed candidate/result/rationale/evidence requirements, deterministic admission boundary, provenance, diagnostics, and Phase 62.3 compatibility. CNCF retains runtime admission/progression/commitment, provider dispatch, transport, and `sm-workflow` implementation. | NEW_PHASE | [Phase 73](../phase/phase-73.md) CLOSED on 2026-09-23 after CB-73-01/02 repair, full validation, and independent re-review; CNCF Phase 77.1 CWF-77-04C subsequently accepted the producer ABI in `3006494c`. `DP-73-01` remains for later compatible-release consumption, not receiver creation or runtime completion. | RESOLVED |
 | DEV-036 | [2026-10-05 encoder selection request and placement decision](../journal/2026/10/2026-10-05-video-encoder-selection-and-benchmark-request.md); [main-route-first revision](../journal/2026/10/2026-10-08-phase-71-main-route-first.md) | Add explicit per-tool host/Docker configuration, local software/hardware encoder selection, Docker rendering with host encoding, and measured native/end-to-end comparison while preserving video semantics and the removal policy. | NEW_PHASE | [Phase 71.6](../phase/phase-71.6.md) CLOSED projection on 2026-10-11 under `P716-RELEASE-20261011@1`, effective only on parent verification of the distinct native release commit; all three Steps, actual representative mixed software/selected hardware execution and current hearing, 233 focused specifications in nine suites and sole full review PASS at ledger revision 8 accepted; three nonblocking maintenance Hygiene records retained; remaining combinations, benchmark and repository-full SBT deferred-not-run to [Phase 71.7](../phase/phase-71.7.md), PLANNED and unstarted | ADOPTED |
 | DEV-037 | [2026-10-11 joint video/audio quality-profile request and same-day ladder refinement](../journal/2026/10/2026-10-11-phase-71.8-video-quality-profile-plan.md) | Select picture/audio quality together with individual overrides across direct rendering and assembly. Rename current lightweight to new standard, shift existing upper settings upward and add a lower-quality faster practice profile. Preserve narration/end-card semantics; accept preset audio quality and practice speed through actual observations. | NEW_PHASE | [Phase 71.8](../phase/phase-71.8.md) CLOSED on 2026-10-13; release `bcd3ba2`; joint profiles, actual JA/EN listening and measured practice speed accepted; full Cozy suite and runtime classpath export passed | ADOPTED |
-| DEV-038 | User direction on 2026-10-25 to record claim-linked body figures/tables as specification and Phase planning | Add localized Figure/Table Document blocks grounded in Core claims, concise tree navigation, native HTML explanations and existing SmartDox article/PDF continuity, with actual paired JA/EN acceptance. | NEW_PHASE | [Phase 87](../phase/phase-87.md) / [checklist](../phase/phase-87-checklist.md), IN PROGRESS; P87-01–04 accepted; native article/PDF continuity passed 44/44 and actual paired PDF inspection; P87-05 integrated route accepted after 47/47 and Step review PASS; sole Phase review/FULL/final closure open | ADOPTED |
+| DEV-038 | User direction on 2026-10-25 to record claim-linked body figures/tables as specification and Phase planning | Add localized Figure/Table Document blocks grounded in Core claims, concise tree navigation, native HTML explanations and existing SmartDox article/PDF continuity, with actual paired JA/EN acceptance. | NEW_PHASE | [Phase 87](../phase/phase-87.md) / [checklist](../phase/phase-87-checklist.md), CLOSED under `cozy-p87-release-20261025@1` after native commit/receipt verification; all five Steps and 24 criteria accepted, actual paired PDFs inspected, sole Phase review PASS, final FULL 3,972 passed (23 existing cancellations), follow-ups retained | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the

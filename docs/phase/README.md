@@ -1,16 +1,18 @@
 # docs/phase
 
-## Document body figures and tables — in progress — 2026-10-25
+## Document body figures and tables — closed — 2026-10-25
 
-[Phase 87](phase-87.md) / [checklist](phase-87-checklist.md) is IN PROGRESS under the later explicit `cncf-goal-phase87` invocation.
+[Phase 87](phase-87.md) / [checklist](phase-87-checklist.md) is CLOSED under local release binding `cozy-p87-release-20261025@1`, effective
+after the distinct native release commit/closure receipt are verified.
 P87-01 source authoring and P87-02 admission/materialization are accepted after
 focused specifications, protected Step review and independent repair closure.
 P87-03 native CLI/local-build integration is accepted after 51/51 specifications
 and protected review PASS. P87-04 native article/PDF continuity is accepted
 after 44/44 specifications, actual paired PDF inspection and Step review PASS.
 P87-05 integrated acceptance is accepted after 47/47 specifications and Step
-review PASS. The sole Phase review, final FULL and distinct final closure remain
-open; no successor is started. It adds claim-linked figure/table body blocks, localized explanatory
+review PASS. The sole comprehensive Phase review passed; final ordinary FULL
+passed 3,972 tests with zero failures (23 existing cancellations). The final
+local closure binds all 24 criteria and the canonical follow-up journals. It adds claim-linked figure/table body blocks, localized explanatory
 content, native confirmation/reader HTML and continuity into the existing
 SmartDox article/PDF routes. The
 [specification](../spec/document-project-explanatory-figures-and-tables.md)
