@@ -96,7 +96,8 @@ Every Section, Block, and List Item MUST carry its stable typed identity and
 its exact `data-core-steps`, `data-core-claims`, `data-core-nodes`,
 `data-core-relations`, and `data-core-flows` membership. Selected highlighting
 MUST be the category-preserving intersection of those attributes and the
-selected Step's own ID, claims, nodes, Relations, and Flow ID. It MUST NOT be
+selected Step's own ID, claims, nodes, Relations, and Flow ID for Step selection,
+or only the exact selected claim ID in the claim category for claim selection. It MUST NOT be
 derived from content text, order, proximity, or parentage.
 
 The primary view MUST visibly state complete coverage, current sources,
@@ -183,3 +184,41 @@ The [explanatory figure/table contract](document-project-explanatory-figures-and
 supersedes only the earlier closed-kind, asset and pure-input clauses for this
 extension. Implementation and executable acceptance are in progress; no PASS
 is claimed. Phase 71 hash-removal semantics remain authoritative.
+
+## Additive own-claim navigation repair (COZY-CLAIM-NAV-01)
+
+Each Step with own claims MUST render a distinct `ol.step-claims` beneath its
+Step button and before recursive child Steps. This list MUST NOT add a
+containment `ul` or change one-`li`-per-Step containment. It uses the owner
+Step's `data-step-panel`; only the selected Step's list is initially visible,
+and print expands all claim lists. Empty claim sets MUST produce no list.
+
+Each own claim MUST have one native `button.claim-control` in Core order,
+with exact `data-claim-id`, owner `data-claim-step`, `data-claim-control`,
+initial `aria-pressed="false"`, and `aria-controls="prose-region"`. The visible
+`claim/<id>` is an explicit identity, not a fallback for generic wording.
+Secondary snippets MUST use only explicit Document `coreRefs.claims` from
+Paragraph text, List Item text, Example/Note text, and Figure/Table captions.
+List Block claim membership also contributes its items. A source item is
+included once per claim even when block and item both reference it; equal text
+from different sources MUST remain distinct and source order MUST be preserved.
+Section aggregate references, Step membership, LogicalStructure, text matching,
+proximity, and parentage MUST NOT infer snippet membership. A Section-only
+claim retains its identity with no synthesized snippet. All identities and
+complete authored snippets MUST be escaped and retained in the DOM; CSS may
+clamp snippets to three screen lines. The full right-hand prose is unchanged.
+
+Claim activation MUST select its owner Step and preserve that Step's active
+Structure, Flow, and claim list. Only the exact claim category participates in
+highlight matching; Step, node, Relation, and Flow selections are empty.
+Claim pressed state follows that exact control. Step activation MUST reset all
+claim pressed states and restore the existing Step membership selection.
+Both activation paths share the existing reveal gates, native keyboard
+behavior, and focus preservation; initial rendering MUST NOT scroll.
+No Chrome field, schema, resource, authored edge, or child Step is added.
+
+Executable specifications MUST cover own claims alongside children, escaped
+snippets, exact/shared references, stable source order, block/item deduplication,
+distinct sources with equal prose, Section-only identities, empty claim sets,
+initial hidden/pressed state, deterministic output, exact-claim activation,
+and Step reset. Original full-prose coverage assertions remain in force.

@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -151,10 +151,10 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         html should include("Child heading")
         html should include("Example &lt;text&gt; &amp; &quot;quoted&quot;")
         html should include("Child note text")
-        html should not include("<code>claim/")
+        _prose_region(html) should not include("<code>claim/")
         html should not include("<code>node/")
         html should not include("<code>flow/")
-        _occurrences(html, "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 2
+        _occurrences(_prose_region(html), "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 2
       }
     }
 
@@ -209,6 +209,124 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         html should not include("https://")
         html should not include("<canvas")
         html should not include("fetch(")
+      }
+    }
+
+    "navigate own claims before child Steps with exact source-ordered authored snippets" in {
+      _with_temp_dir("cozy-document-confirmation-v2-claims") { root =>
+        Given("an admitted parent with own claims, child claims and shared explicit references")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validated.core)
+
+        When("the claim navigation is projected from exact Document references")
+        val html = CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary).html
+        val parentclaim = fixture.root.claims.head.id
+        val childclaim = fixture.child.claims.head.id
+        val parentbutton = _button_content(html, s"""data-claim-id="$parentclaim"""")
+        val childbutton = _button_content(html, s"""data-claim-id="$childclaim"""")
+
+        Then("each own claim keeps its exact owner and native control before unchanged recursive containment")
+        html shouldBe CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary).html
+        fixture.validated.core.depthFirstSteps.foreach { step =>
+          step.claims.foreach { claim =>
+            val control = _tag(html, s"""data-claim-id="${claim.id}"""")
+            control should include("<button type=\"button\" class=\"claim-control\"")
+            control should include(s"""data-claim-step="${step.id}"""")
+            control should include("data-claim-control=\"true\"")
+            control should include("aria-pressed=\"false\"")
+            control should include("aria-controls=\"prose-region\"")
+            control should not include("data-step-control")
+          }
+        }
+        html should include(s"""<ol class="step-claims" data-step-panel="${fixture.root.id}">""")
+        html should include(s"""<ol class="step-claims" data-step-panel="${fixture.child.id}" hidden>""")
+        html.indexOf(s"""data-claim-id="$parentclaim"""") should be < html.indexOf(s"""data-step-id="${fixture.child.id}"""")
+        html.indexOf(s"""data-claim-id="$parentclaim"""") should be < html.indexOf(s"""data-claim-id="${fixture.root.claims(1).id}"""")
+        parentbutton should include(s"claim/$parentclaim</code>")
+        parentbutton should include("Shared &lt;text&gt; &amp; &quot;quoted&quot;")
+        parentbutton should not include("Shared <text>")
+        parentbutton should not include("Child note text")
+        parentbutton should not include("Unselected item")
+        _occurrences(parentbutton, "Root item &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 1
+        parentbutton.indexOf("Shared &lt;text&gt;") should be < parentbutton.indexOf("Root item &lt;text&gt;")
+        parentbutton.indexOf("Root item &lt;text&gt;") should be < parentbutton.indexOf("Example &lt;text&gt;")
+        childbutton should include("Example &lt;text&gt; &amp; &quot;quoted&quot;")
+        childbutton should include("Child note text")
+        _occurrences(childbutton, "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 1
+        _occurrences(_prose_region(html), "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 2
+        html should include(".claim-control:focus-visible")
+        html should include(".step-claims[hidden]{display:none}")
+        html should include("@media print{.step-claims[hidden]{display:block}")
+        html should include("-webkit-line-clamp:3")
+        html should include("activate(control.getAttribute('data-claim-step'))")
+        html should include("highlight({steps:new Set(),claims:new Set([control.getAttribute('data-claim-id')]),nodes:new Set(),relations:new Set(),flows:new Set()},true)")
+        html should include("claimcontrols.forEach(item=>item.setAttribute('aria-pressed','false'))")
+        html should include("addEventListener('click',()=>selectclaim(control))")
+      }
+    }
+
+    "retain identity-only claims covered solely by Section references and omit empty claim lists" in {
+      _with_temp_dir("cozy-document-confirmation-v2-section-claims") { root =>
+        Given("a strictly admitted document whose parent claims are covered only by its Section")
+        val fixture = _fixture(root)
+        val parentclaims = fixture.root.claims.map(_.id)
+        val document = _document(fixture.validated.core)
+        val sectionstart = document.indexOf("      coreRefs:")
+        val sectionend = document.indexOf('\n', sectionstart)
+        val sectiononly = document.substring(0, sectionend) + parentclaims.foldLeft(document.substring(sectionend)) { (text, claimid) =>
+          text.replaceAll("""(?<=\[|, )""" + java.util.regex.Pattern.quote(claimid) + "(?:, )?", "")
+        }
+        val path = _write(root.resolve("section-only/ja/document.yaml"), sectiononly)
+        val admitted = CozyDocumentDescriptionV2.loadDocument(fixture.corepath, path)
+
+        When("the explicit Section coverage is rendered without inferred descendant snippets")
+        val html = CozyDocumentConfirmationProjectionV2.render(admitted, _vocabulary(admitted.core)).html
+
+        Then("the parent claims remain native identity-only entries")
+        parentclaims.foreach { claimid =>
+          val button = _button_content(html, s"""data-claim-id="$claimid"""")
+          button should include(s"claim/$claimid</code>")
+          button should not include("claim-snippet")
+        }
+        """<ol class="step-claims"[^>]*></ol>""".r.findFirstIn(html) shouldBe None
+      }
+    }
+
+    "omit navigation for a Step without claims while preserving claims of its children" in {
+      _with_temp_dir("cozy-document-confirmation-v2-empty-claims") { root =>
+        Given("an admitted Core whose root owns no claims and whose children retain their claims")
+        val fixture = _fixture(root)
+        val source = Files.readString(fixture.corepath, StandardCharsets.UTF_8)
+        _write(fixture.corepath, source.replace("  claims:\n    - series-position\n    - series-continuity", "  claims: []"))
+        val core = CozyDocumentLogicTree.loadCore(fixture.corepath)
+        val document = _write(root.resolve("empty-claims/ja/document.yaml"), _document(core))
+        val admitted = CozyDocumentDescriptionV2.loadDocument(fixture.corepath, document)
+
+        When("the root and child navigation are rendered")
+        val html = CozyDocumentConfirmationProjectionV2.render(admitted, _vocabulary(core)).html
+
+        Then("the root has no empty claim UI and child navigation remains available")
+        html should not include(s"""<ol class="step-claims" data-step-panel="${core.core.root.id}"""")
+        html should include(s"""data-claim-id="${fixture.child.claims.head.id}"""")
+        _tag(html, s"""data-step-id="${core.core.root.id}"""") should include("aria-pressed=\"true\"")
+      }
+    }
+
+    "preserve identical text from distinct explicit sources without duplicating a block and item membership" in {
+      _with_temp_dir("cozy-document-confirmation-v2-identical-claim-text") { root =>
+        Given("a parent paragraph and list item with equal text and both block and item claim references")
+        val fixture = _fixture(root)
+        val source = _document(fixture.validated.core).replace("Root item <text>", "Shared <text>")
+        val path = _write(root.resolve("identical-text/ja/document.yaml"), source)
+        val admitted = CozyDocumentDescriptionV2.loadDocument(fixture.corepath, path)
+
+        When("the parent claim snippets are projected")
+        val html = CozyDocumentConfirmationProjectionV2.render(admitted, _vocabulary(admitted.core)).html
+        val button = _button_content(html, s"""data-claim-id="${fixture.root.claims.head.id}"""")
+
+        Then("both explicit sources survive and the child-only equal paragraph adds no parent snippet")
+        _occurrences(button, "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 2
+        _occurrences(_prose_region(html), "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 3
       }
     }
 
@@ -386,6 +504,9 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
     require(closingstart >= 0, s"missing button closing tag for marker: $marker")
     html.substring(openingstart, closingstart + closingtag.length)
   }
+
+  private def _prose_region(html: String): String =
+    html.substring(html.indexOf("<section id=\"prose-region\""), html.indexOf("</main>"))
 
   private def _occurrences(value: String, part: String): Int = value.sliding(part.length).count(_ == part)
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)

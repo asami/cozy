@@ -3,7 +3,7 @@ package cozy.document
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct. 25, 2026
+ * @version Oct. 26, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationProjectionV2 {
@@ -48,7 +48,8 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
     val labels = description.labels.steps.map(value => value.stepRef -> value.text).toMap
     val nodelabels = description.labels.nodes.map(value => value.nodeRef -> value.text).toMap
     val selected = _selection(root)
-    val containment = s"""<ul class=\"containment-list\">${_containment(root, root.id, labels, vocabulary)}</ul>"""
+    val claimtexts = _claim_texts(description.document.sections)
+    val containment = s"""<ul class=\"containment-list\">${_containment(root, root.id, labels, vocabulary, claimtexts)}</ul>"""
     val flows = validated.core.depthFirstSteps.map(step => _flow_panel(step, root.id, labels, vocabulary)).mkString
     val structures = validated.core.depthFirstSteps.map(step => _structure_panel(step, root.id, labels, nodelabels, vocabulary)).mkString
     val prose = description.document.sections.map(section => _section(section, selected, vocabulary, labels, validated.core, 2, assets)).mkString
@@ -59,15 +60,47 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
        |.step-control small{display:block;color:var(--muted-foreground);font-size:10px;letter-spacing:.05em}.step-control b{display:block;overflow-wrap:anywhere;font-size:13px}.document-section{padding:0;border:0}.document-section.is-highlighted{background:none;border:0}.document-block{padding-left:17px;border-left:3px solid transparent;transition:background .18s ease,border-color .18s ease}.document-list-item{padding-left:8px;border-left:3px solid transparent}.structure-unconnected{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.structure-audit{margin-top:12px;color:var(--muted-foreground);font-size:11px}.structure-audit summary{cursor:pointer;color:var(--foreground);font-weight:700}.structure-audit dl{display:grid;grid-template-columns:max-content 1fr;gap:.25rem .6rem}.logical-structure-reference summary{display:inline;font-size:10px;cursor:pointer}@media screen and (min-width:851px){#containment-region{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}}.document-block,.document-list-item{scroll-margin-top:16px}
        |.structure-mark{display:inline-block;margin-right:4px;color:var(--primary);font-weight:800}.structure-tag{display:inline-flex;align-items:center;padding:2px 7px;border:1px solid var(--border);border-radius:999px;background:var(--primary-soft);color:var(--primary-foreground);font-size:10px;font-weight:750;line-height:1.4;white-space:nowrap;vertical-align:middle}.structure-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}.step-control .structure-tag{margin-bottom:3px}.refs .structure-tag{padding:0 4px;font-size:9px}
        |.document-figure img{max-width:100%;height:auto}.document-table table{width:100%;max-width:100%;table-layout:fixed;border-collapse:collapse}.document-table th,.document-table td{padding:6px;border:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}
+       |.step-claims{list-style:none;margin:5px 0 8px;padding:0 0 0 12px}.step-claims[hidden]{display:none}.claim-control{display:block;width:100%;padding:5px 8px;border:0;border-left:3px solid transparent;color:var(--foreground);background:var(--background);text-align:left;cursor:pointer}.claim-control:hover,.claim-control:focus-visible{outline:2px solid var(--primary);outline-offset:1px}.claim-control[aria-pressed="true"]{border-left-color:var(--primary);background:var(--primary-soft);color:var(--primary-foreground)}.claim-control .identity{display:block;overflow-wrap:anywhere}.claim-snippet{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;font-size:11px;overflow-wrap:anywhere}@media print{.step-claims[hidden]{display:block}.claim-snippet{display:block;overflow:visible}}
        |</style></head><body><div class="page" data-document-id="${_html(description.id)}" data-core-id="${_html(validated.core.core.id)}"><header class="header"><div><div class="kicker">${_html(description.document.title)}</div><h1>${_html(chrome.pageHeading)}</h1></div><div id="status-region" class="status" aria-label="${_html(chrome.statusHeading)}"><span><strong>${_html(chrome.coverageComplete)}</strong></span><span><strong>${_html(chrome.currentSources)}</strong></span><span><strong>${_html(chrome.admittedState)}</strong></span><span><strong>${_html(chrome.noUnresolvedReferences)}</strong></span></div></header><div class="guide"><span>Core：意味と論理構造</span><span></span><span>文書記述：読者に向けた文章化</span></div><main class="workspace"><section id="containment-region" class="panel" aria-label="${_html(chrome.containmentHeading)}"><div class="panel-head"><strong>${_html(chrome.containmentHeading)}</strong><span>Step / Claim / Relation</span></div>$containment<section id="structure-region" class="local" aria-label="${_html(chrome.structureHeading)}" aria-live="polite"><h2>${_structure_mark("structure")} ${_html(chrome.structureHeading)}</h2>$structures</section><details id="flow-region" class="local" aria-label="${_html(chrome.flowHeading)}" aria-live="polite"><summary>${_structure_mark("flow")} ${_html(chrome.flowHeading)}</summary>$flows</details></section><div class="binding" aria-label="Coreから文章への具体化"><span>文章へ具体化</span>→</div><section id="prose-region" class="panel document-prose" aria-label="${_html(chrome.proseHeading)}" aria-describedby="status-region"><div class="panel-head"><strong>${_html(chrome.proseHeading)}</strong><span>読者順</span></div><article class="article"><h2>${_html(labels(root.id))}</h2>$prose</article></section></main></div><script>
-       |(function(){const controls=Array.from(document.querySelectorAll('[data-step-control]'));const panels=Array.from(document.querySelectorAll('[data-step-panel]'));const targets=Array.from(document.querySelectorAll('[data-reference-target]'));const values=(element,name)=>(element.getAttribute(name)||'').split(' ').filter(Boolean);const select=(control,reveal=false)=>{const selected={steps:new Set([control.getAttribute('data-step-id')]),claims:new Set(values(control,'data-step-claims')),nodes:new Set(values(control,'data-step-nodes')),relations:new Set(values(control,'data-step-relations')),flows:new Set(values(control,'data-step-flows'))};controls.forEach(item=>item.setAttribute('aria-pressed',String(item===control)));panels.forEach(panel=>panel.hidden=panel.getAttribute('data-step-panel')!==control.getAttribute('data-step-id'));targets.forEach(target=>{const hit=['steps','claims','nodes','relations','flows'].some(kind=>values(target,'data-core-'+kind).some(value=>selected[kind].has(value)));target.classList.toggle('is-highlighted',hit);});if(reveal){const target=targets.find(item=>item.matches('.document-block.is-highlighted,.document-list-item.is-highlighted'));if(target){const bounds=target.getBoundingClientRect();if(bounds.top<16||bounds.bottom>window.innerHeight-16)target.scrollIntoView({block:bounds.height>window.innerHeight-32?'start':'center',inline:'nearest',behavior:'auto'});}}};controls.forEach(control=>control.addEventListener('click',()=>select(control,true)));select(controls.find(control=>control.getAttribute('aria-pressed')==='true')||controls[0]);}());
+       |(function(){const controls=Array.from(document.querySelectorAll('[data-step-control]'));const claimcontrols=Array.from(document.querySelectorAll('[data-claim-control]'));const panels=Array.from(document.querySelectorAll('[data-step-panel]'));const targets=Array.from(document.querySelectorAll('[data-reference-target]'));const values=(element,name)=>(element.getAttribute(name)||'').split(' ').filter(Boolean);const activate=(stepid)=>{controls.forEach(item=>item.setAttribute('aria-pressed',String(item.getAttribute('data-step-id')===stepid)));panels.forEach(panel=>panel.hidden=panel.getAttribute('data-step-panel')!==stepid);};const highlight=(selected,reveal)=>{targets.forEach(target=>{const hit=['steps','claims','nodes','relations','flows'].some(kind=>values(target,'data-core-'+kind).some(value=>selected[kind].has(value)));target.classList.toggle('is-highlighted',hit);});if(reveal){const target=targets.find(item=>item.matches('.document-block.is-highlighted,.document-list-item.is-highlighted'));if(target){const bounds=target.getBoundingClientRect();if(bounds.top<16||bounds.bottom>window.innerHeight-16)target.scrollIntoView({block:bounds.height>window.innerHeight-32?'start':'center',inline:'nearest',behavior:'auto'});}}};const select=(control,reveal=false)=>{const selected={steps:new Set([control.getAttribute('data-step-id')]),claims:new Set(values(control,'data-step-claims')),nodes:new Set(values(control,'data-step-nodes')),relations:new Set(values(control,'data-step-relations')),flows:new Set(values(control,'data-step-flows'))};activate(control.getAttribute('data-step-id'));claimcontrols.forEach(item=>item.setAttribute('aria-pressed','false'));highlight(selected,reveal);};const selectclaim=(control)=>{activate(control.getAttribute('data-claim-step'));claimcontrols.forEach(item=>item.setAttribute('aria-pressed',String(item===control)));highlight({steps:new Set(),claims:new Set([control.getAttribute('data-claim-id')]),nodes:new Set(),relations:new Set(),flows:new Set()},true);};controls.forEach(control=>control.addEventListener('click',()=>select(control,true)));claimcontrols.forEach(control=>control.addEventListener('click',()=>selectclaim(control)));select(controls.find(control=>control.getAttribute('aria-pressed')==='true')||controls[0]);}());
        |</script></body></html>""".stripMargin
   }
 
-  private def _containment(step: CozyDocumentLogicTree.Step, selectedid: String, labels: Map[String, String], vocabulary: Vocabulary): String = {
+  private def _containment(step: CozyDocumentLogicTree.Step, selectedid: String, labels: Map[String, String], vocabulary: Vocabulary, claimtexts: Map[String, Vector[String]]): String = {
     val pressed = step.id == selectedid
-    val children = if (step.steps.isEmpty) "" else step.steps.map(child => _containment(child, selectedid, labels, vocabulary)).mkString("<ul class=\"containment-list\">", "", "</ul>")
-    s"""<li><button type="button" class="step-control" title="${_html(step.id)}" data-step-control="true" data-step-id="${_html(step.id)}" data-step-claims="${_html(step.claims.map(_.id).mkString(" "))}" data-step-nodes="${_html(step.structure.nodes.map(_.id).mkString(" "))}" data-step-relations="${_html(step.structure.relations.map(_.id).mkString(" "))}" data-step-flows="${_html(step.flow.id)}" aria-pressed="$pressed" aria-controls="flow-${_html(step.id)} structure-${_html(step.id)} prose-region">${_pattern_tag(step.structure.pattern, vocabulary)}<b>${_html(labels(step.id))}</b></button>$children</li>"""
+    val claims = _claim_controls(step, selectedid, claimtexts)
+    val children = if (step.steps.isEmpty) "" else step.steps.map(child => _containment(child, selectedid, labels, vocabulary, claimtexts)).mkString("<ul class=\"containment-list\">", "", "</ul>")
+    s"""<li><button type="button" class="step-control" title="${_html(step.id)}" data-step-control="true" data-step-id="${_html(step.id)}" data-step-claims="${_html(step.claims.map(_.id).mkString(" "))}" data-step-nodes="${_html(step.structure.nodes.map(_.id).mkString(" "))}" data-step-relations="${_html(step.structure.relations.map(_.id).mkString(" "))}" data-step-flows="${_html(step.flow.id)}" aria-pressed="$pressed" aria-controls="flow-${_html(step.id)} structure-${_html(step.id)} prose-region">${_pattern_tag(step.structure.pattern, vocabulary)}<b>${_html(labels(step.id))}</b></button>$claims$children</li>"""
+  }
+
+  private def _claim_texts(sections: Vector[CozyDocumentDescriptionV2.Section]): Map[String, Vector[String]] = {
+    val entries = _claim_entries(sections)
+    entries.foldLeft(Map.empty[String, Vector[String]]) { case (texts, (claimid, text)) =>
+      texts.updated(claimid, texts.getOrElse(claimid, Vector.empty) :+ text)
+    }
+  }
+
+  private def _claim_entries(sections: Vector[CozyDocumentDescriptionV2.Section]): Vector[(String, String)] =
+    sections.flatMap { section =>
+      section.blocks.flatMap {
+        case value: CozyDocumentDescriptionV2.Paragraph => value.coreRefs.claims.map(_ -> value.text)
+        case value: CozyDocumentDescriptionV2.ListBlock =>
+          value.items.flatMap(item => (value.coreRefs.claims ++ item.coreRefs.claims).distinct.map(_ -> item.text))
+        case value: CozyDocumentDescriptionV2.Example => value.coreRefs.claims.map(_ -> value.text)
+        case value: CozyDocumentDescriptionV2.Note => value.coreRefs.claims.map(_ -> value.text)
+        case value: CozyDocumentDescriptionV2.Figure => value.coreRefs.claims.map(_ -> value.caption)
+        case value: CozyDocumentDescriptionV2.Table => value.coreRefs.claims.map(_ -> value.caption)
+        case _: CozyDocumentDescriptionV2.LogicalStructure => Vector.empty
+      } ++ _claim_entries(section.sections)
+    }
+
+  private def _claim_controls(step: CozyDocumentLogicTree.Step, selectedid: String, claimtexts: Map[String, Vector[String]]): String = {
+    val hidden = if (step.id == selectedid) "" else " hidden"
+    val controls = step.claims.map { claim =>
+      val snippets = claimtexts.getOrElse(claim.id, Vector.empty).map(text => s"""<span class="claim-snippet">${_html(text)}</span>""").mkString
+      s"""<li><button type="button" class="claim-control" data-claim-control="true" data-claim-id="${_html(claim.id)}" data-claim-step="${_html(step.id)}" aria-pressed="false" aria-controls="prose-region"><code class="identity">claim/${_html(claim.id)}</code>$snippets</button></li>"""
+    }.mkString
+    if (step.claims.isEmpty) "" else s"""<ol class="step-claims" data-step-panel="${_html(step.id)}"$hidden>$controls</ol>"""
   }
 
   private def _flow_panel(step: CozyDocumentLogicTree.Step, selectedid: String, labels: Map[String, String], vocabulary: Vocabulary): String = {

@@ -71,7 +71,7 @@ Readable text tags additionally expose the exact caller-owned pattern in Step
 buttons and selected Structure, and exact type wording in edges and prose
 references. A pattern tag is classification, not a containment edge.
 
-The native button uses the one
+The native Step button uses the one
 `aria-pressed` selection model consistently and programmatically controls the
 selected Flow panel, Structure panel, and prose region. The initial selection
 is the admitted root Step; inline script changes only presentation state when
@@ -151,3 +151,28 @@ The Phase 71.1 / P710-03-DM-08 hash-free V2 model deletion makes prior
 legacy-digest wording obsolete: metadata independence is now proven by
 production loader admission. This renderer remains a pure projection of the
 same semantic `ValidatedDocument` and changes no layout or output vocabulary.
+
+## Additive own-claim navigation repair (COZY-CLAIM-NAV-01)
+
+Each Step button is followed by its own claim list, before recursive child
+Step containment. The distinct ordered list shares the owner's panel identity
+and expands for print; Steps without claims have no list. Native claim
+buttons display exact `claim/<id>` identities and compact authored snippets.
+A private typed claim-to-text projection walks Document blocks and child
+Sections in source order, taking only explicit claim references. Paragraph,
+Example and Note contribute text; Figure and Table contribute captions.
+List items contribute text for the union of block and item claim membership,
+so each item occurs once per claim, while equal text from distinct sources
+survives. Section references and LogicalStructure contribute no snippets.
+All text is escaped and retained in the DOM, with a three-line screen clamp.
+Section-only claim coverage therefore yields a valid identity-only control.
+
+Claim activation retains the owner Step's selected state and active panels,
+sets the claim button's pressed state, and passes a selection containing only
+that exact claim to the shared highlight/reveal function. Step activation
+clears claim pressed states and restores its existing five-category membership
+selection. The initial root selection, full prose, keyboard activation,
+activation-only viewport reveal, and focus retention are unchanged. Claim
+buttons are outside the Step-control selector; containment, Structure, Flow,
+authored IDs, and pattern tags keep their existing semantics. This is private
+presentation behavior with no new vocabulary fields or authoring contract.
