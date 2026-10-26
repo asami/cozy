@@ -465,6 +465,8 @@ lazy val root = (project in file(".")).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
+      BuildInfoKey.action("sourceRevision")(scala.sys.process.Process(Seq("git", "rev-parse", "HEAD")).!!.trim),
+      BuildInfoKey.action("sourceModified")(scala.sys.process.Process(Seq("git", "status", "--porcelain")).!!.trim.nonEmpty),
       BuildInfoKey.action("scaffoldSbtVersion")(scaffoldSbtVersion),
       BuildInfoKey.action("sbtCozyVersion")(sbtCozyVersion),
       BuildInfoKey.action("scaffoldScalaVersion")(scaffoldScalaVersion),

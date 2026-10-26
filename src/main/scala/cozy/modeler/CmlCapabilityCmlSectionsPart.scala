@@ -13,7 +13,7 @@ import CmlCapabilityDeclarationJsonPart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 15, 2026
+ * @version Oct. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityCmlSectionsPart {
@@ -112,7 +112,7 @@ private[modeler] object CmlCapabilityCmlSectionsPart {
     _sequence(results ++ missing).map(x => JsObject(x))
   }
 
-  private def _original_roots(model: KaleidoxModel): Vector[LogicalSection] = {
+  private[modeler] def _original_roots(model: KaleidoxModel): Vector[LogicalSection] = {
     val sections = model.divisions.flatMap {
       case product: Product => product.productIterator.collectFirst { case section: LogicalSection => section }
       case _ => None
