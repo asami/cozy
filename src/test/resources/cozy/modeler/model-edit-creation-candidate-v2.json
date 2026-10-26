@@ -1,0 +1,303 @@
+{
+  "schemaVersion": "cozy.cml.model-edit-candidate.v2",
+  "source": {
+    "owner": "example",
+    "identity": "models/order.cml",
+    "revision": "r2"
+  },
+  "elements": [],
+  "relationships": [],
+  "removedRelationships": [],
+  "addedElements": [
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "repeat-purchase",
+        "revision": 1
+      },
+      "kind": "goal",
+      "title": "Repeat purchase",
+      "intent": "Place another order",
+      "fields": [],
+      "scope": [],
+      "acceptance": [],
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    },
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "submit-repeat",
+        "revision": 1
+      },
+      "kind": "slice",
+      "title": "Submit repeat order",
+      "intent": "Submit one explicitly selected repeat order",
+      "fields": [
+        {
+          "name": "requestId",
+          "datatype": "string",
+          "multiplicity": "1"
+        }
+      ],
+      "scope": [
+        {
+          "owner": "example",
+          "identity": "place-order",
+          "revision": 1
+        }
+      ],
+      "acceptance": [],
+      "lifecycle": "Proposed",
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    }
+  ],
+  "addedRelationships": [
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "customer-repeat",
+        "revision": 1
+      },
+      "kind": "actor-goal",
+      "from": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "customer",
+          "revision": 1
+        }
+      },
+      "to": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "repeat-purchase",
+          "revision": 1
+        }
+      },
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    },
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "repeat-place",
+        "revision": 1
+      },
+      "kind": "goal-use-case",
+      "from": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "repeat-purchase",
+          "revision": 1
+        }
+      },
+      "to": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "place-order",
+          "revision": 1
+        }
+      },
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    },
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "place-repeat",
+        "revision": 1
+      },
+      "kind": "use-case-slice",
+      "from": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "place-order",
+          "revision": 1
+        }
+      },
+      "to": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "submit-repeat",
+          "revision": 1
+        }
+      },
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    },
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "repeat-spec",
+        "revision": 1
+      },
+      "kind": "slice-specification",
+      "from": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "submit-repeat",
+          "revision": 1
+        }
+      },
+      "to": {
+        "kind": "specification",
+        "specification": {
+          "owner": "example/order",
+          "identity": "OrderSubmissionSpec",
+          "sourceRevision": "spec-r7"
+        }
+      },
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    },
+    {
+      "ref": {
+        "owner": "example",
+        "identity": "repeat-ticket",
+        "revision": 1
+      },
+      "kind": "slice-ticket",
+      "from": {
+        "kind": "local",
+        "ref": {
+          "owner": "example",
+          "identity": "submit-repeat",
+          "revision": 1
+        }
+      },
+      "to": {
+        "kind": "ticket",
+        "ticket": {
+          "provider": "github",
+          "owner": "example/order",
+          "externalIdentity": "I_kwDOOrderIssue42",
+          "observation": {
+            "state": "open",
+            "revision": "observed-r4"
+          }
+        }
+      },
+      "source": {
+        "owner": "example",
+        "identity": "models/order.cml",
+        "revision": "r2"
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "family": "actor",
+      "status": "present"
+    },
+    {
+      "family": "goal",
+      "status": "present"
+    },
+    {
+      "family": "use-case",
+      "status": "present"
+    },
+    {
+      "family": "slice",
+      "status": "present"
+    },
+    {
+      "family": "command",
+      "status": "present"
+    },
+    {
+      "family": "operation",
+      "status": "present"
+    },
+    {
+      "family": "aggregate",
+      "status": "present"
+    },
+    {
+      "family": "entity",
+      "status": "present"
+    },
+    {
+      "family": "domain-event",
+      "status": "present"
+    },
+    {
+      "family": "policy",
+      "status": "present"
+    },
+    {
+      "family": "component",
+      "status": "present"
+    },
+    {
+      "family": "query",
+      "status": "present"
+    },
+    {
+      "family": "view",
+      "status": "present"
+    },
+    {
+      "family": "actor-goal",
+      "status": "present"
+    },
+    {
+      "family": "goal-use-case",
+      "status": "present"
+    },
+    {
+      "family": "use-case-slice",
+      "status": "present"
+    },
+    {
+      "family": "slice-specification",
+      "status": "present"
+    },
+    {
+      "family": "slice-ticket",
+      "status": "present"
+    },
+    {
+      "family": "cause",
+      "status": "present"
+    },
+    {
+      "family": "reaction",
+      "status": "present"
+    },
+    {
+      "family": "dependency",
+      "status": "present"
+    },
+    {
+      "family": "context",
+      "status": "present"
+    }
+  ]
+}

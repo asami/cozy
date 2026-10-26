@@ -52,5 +52,6 @@ object CmlModelEditJson {
   implicit val elementReplacementFormat: OFormat[ElementReplacement] = _closed(Json.format[ElementReplacement], "expected", "replacement")
   implicit val relationshipReplacementFormat: OFormat[RelationshipReplacement] = _closed(Json.format[RelationshipReplacement], "expected", "replacement")
   implicit val candidateFormat: OFormat[Candidate] = _closed(Json.format[Candidate], "schemaVersion", "source", "elements", "relationships", "removedRelationships")
+  implicit val candidateV2Format: OFormat[CandidateV2] = _closed(Json.format[CandidateV2], "schemaVersion", "source", "elements", "relationships", "removedRelationships", "addedElements", "addedRelationships", "coverage")
   implicit val renderingFormat: OFormat[Rendering] = _closed(Json.format[Rendering], "schemaVersion", "source", "producer", "candidateSource", "text", "limitations")
 }

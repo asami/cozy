@@ -1,7 +1,8 @@
 # Source-owned model editing production
 
 Status: implemented and independently accepted, 2026-10-27.
-Consumer usage: CBD Support `cbd-phase12-model-edit-source-production`, revision 1.
+Consumer usage: CBD Support `cbd-phase12-model-edit-source-production`, revision 2
+(explicit candidate creation supplement to the accepted revision 1 delivery).
 
 This is an additive source-owner contract. Existing semantic-metadata,
 semantic-strength, Use Case and Causal v1 schemas and their accepted meaning
@@ -73,9 +74,9 @@ or prove that a source file exists. Unsupported data never becomes an empty grap
 Candidate operations replace explicit existing owned elements/relationships or
 remove exact existing owned relationships. Replacements preserve owner/identity
 and require a caller-supplied higher logical revision. The successor Source is
-explicit and must retain owner/identity with a different revision. New element
-creation and arbitrary legacy syntax edits are outside this initial rendering
-surface. Local endpoint revision changes require explicit corresponding edge
+explicit and must retain owner/identity with a different revision. Candidate v1
+does not create new records. Explicit candidate v2 supplies additions as described
+below; arbitrary legacy syntax edits remain unsupported. Local endpoint revision changes require explicit corresponding edge
 edits; the renderer does not infer relationships or silently repair references.
 
 Rendering validates the resulting graph, replaces only the declared MODEL-EDIT
@@ -91,6 +92,35 @@ produce <model.cml> <owner> <sourceIdentity> <sourceRevision>
 render-candidate <model.cml> <owner> <sourceIdentity> <sourceRevision> <candidate.json>
 read <publication.json>
 ```
+
+## Explicit candidate v2 additions
+
+`cozy.cml.model-edit-candidate.v2` has a distinct `CandidateV2` type, closed JSON
+reader `readCandidateV2`, renderer `renderCandidateV2`, and CLI operation
+`render-candidate-v2 <model.cml> <owner> <sourceIdentity> <sourceRevision> <candidate.json>`.
+The existing v1 candidate type, reader and CLI retain their original contract;
+neither entry silently falls back to the other version. Source and publication
+v1 schemas are unchanged because their existing typed records express additions.
+
+V2 requires the v1 replacement/removal fields plus `addedElements`,
+`addedRelationships` and the complete proposed `coverage` vector. The caller
+supplies every new stable owner/identity, positive revision, typed value and
+exact successor source attribution. New IDs cannot occupy any existing stable
+ID, even when selecting another revision or removing that relationship in the
+same candidate. Duplicate additions are rejected. Added records belong to the
+selected source owner and must declare the candidate successor source exactly.
+The final graph uses the existing strict type, endpoint and evidence admission.
+Coverage changes are explicit; adding facts never silently promotes Missing,
+Unavailable, Unsupported or External coverage to Present.
+
+This supports new Goal and Slice records and independent Actor–Goal,
+Goal–UseCase, UseCase–Slice, Slice–Specification and Slice–Ticket relationships
+inside an existing owned MODEL-EDIT document. Specification/Ticket endpoints
+refer to externally owned identities; adding a link creates no external resource.
+Existing Actor, UseCase and behavioral/causal records keep their IDs and source
+history. Canonical source creation/writing and CBD approval/promotion remain
+outside this rendering API. An actual creation-basis fixture has no Goal,
+Slice or trace edges; the v2 fixture adds them through real render/reprojection.
 
 It returns JSON on stdout; callers own candidate output destinations. Runtime
 classpath export supplies this main from the normal development runtime. No

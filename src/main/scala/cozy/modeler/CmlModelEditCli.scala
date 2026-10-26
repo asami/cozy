@@ -21,7 +21,10 @@ object CmlModelEditCli {
           flatMap(CmlModelEditProduction.renderCandidate(Paths.get(path), Source(owner, identity, revision), _)).map(Json.toJson(_))
       case Vector("read", path) =>
         _json_file(path).flatMap(CmlModelEditProduction.read).map(Json.toJson(_))
-      case _ => Left(Vector(Diagnostic("usage", "arguments", "produce <source.cml> <owner> <identity> <revision>; render-candidate <source.cml> <owner> <identity> <revision> <candidate.json>; read <publication.json>")))
+      case Vector("render-candidate-v2", path, owner, identity, revision, candidate) =>
+        _json_file(candidate).flatMap(CmlModelEditProduction.readCandidateV2).
+          flatMap(CmlModelEditProduction.renderCandidateV2(Paths.get(path), Source(owner, identity, revision), _)).map(Json.toJson(_))
+      case _ => Left(Vector(Diagnostic("usage", "arguments", "produce <source.cml> <owner> <identity> <revision>; render-candidate <source.cml> <owner> <identity> <revision> <candidate.json>; render-candidate-v2 <source.cml> <owner> <identity> <revision> <candidate-v2.json>; read <publication.json>")))
     }
     result match {
       case Right(value) => println(Json.stringify(value))

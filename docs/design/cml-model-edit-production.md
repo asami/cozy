@@ -31,8 +31,12 @@ source text. It uses the actual parsed root locations, including mixed `#` and
 Missing locations or a non-exact MODEL-EDIT header are an explicit unsupported
 rendering result. It returns a proposed string, not a canonical writer. Parsing that
 string through the same acquisition/production route supplies the successor
-projection. New record creation and arbitrary legacy syntax rewriting are
-explicit initial limitations. Caller-owned CBD candidate approval and canonical
+projection. The additive explicit CandidateV2 entry applies caller-declared
+record additions and coverage together with replacements before admitting the
+final graph. Ownership and stable-ID occupancy are checked against the original
+basis, including relationships removed in that candidate. V1 stays unchanged;
+there is no version fallback or identity allocator. Arbitrary legacy syntax
+rewriting remains unsupported. Caller-owned CBD candidate approval and canonical
 promotion remain outside Cozy.
 
 The public JVM CLI main provides an executable interoperability surface without

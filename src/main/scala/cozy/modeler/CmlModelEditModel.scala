@@ -8,6 +8,7 @@ object CmlModelEditModel {
   val schemaVersion = "cozy.cml.model-edit.v1"
   val publicationVersion = "cozy.cml.model-edit-production.v1"
   val candidateVersion = "cozy.cml.model-edit-candidate.v1"
+  val candidateV2Version = "cozy.cml.model-edit-candidate.v2"
 
   sealed abstract class ElementKind(val name: String)
   case object Actor extends ElementKind("actor")
@@ -78,6 +79,10 @@ object CmlModelEditModel {
   final case class Candidate(schemaVersion: String, source: Source,
     elements: Vector[ElementReplacement], relationships: Vector[RelationshipReplacement],
     removedRelationships: Vector[RecordRef])
+  final case class CandidateV2(schemaVersion: String, source: Source,
+    elements: Vector[ElementReplacement], relationships: Vector[RelationshipReplacement],
+    removedRelationships: Vector[RecordRef], addedElements: Vector[Element],
+    addedRelationships: Vector[Relationship], coverage: Vector[Coverage])
   final case class Rendering(schemaVersion: String, source: Source, producer: Producer,
     candidateSource: Source, text: String, limitations: Vector[Limitation])
 }

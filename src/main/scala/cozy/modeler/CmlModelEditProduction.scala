@@ -112,11 +112,37 @@ object CmlModelEditProduction {
       _ <- if (checked.source.owner == source.owner && checked.source.identity == source.identity && checked.source.revision != source.revision)
         Right(()) else Left(Vector(Diagnostic("source-mismatch", "candidate.source", "Declare a successor revision of the same owned source.")))
       _ <- if (basis.limitations.isEmpty) Right(()) else Left(Vector(Diagnostic("unsupported", "source", "Only an existing admitted MODEL-EDIT block can be edited.")))
-      result <- _edit(basis.document, source, checked)
+      result <- _edit(basis.document, source, checked, Vector.empty, Vector.empty)
       rendered <- _render(path, checked.source, result)
     } yield Rendering(candidateVersion, source, executingProducer, checked.source, rendered, Vector.empty)
 
-  private def _edit(document: Document, source: Source, candidate: Candidate): Either[Vector[Diagnostic], Document] = {
+  def readCandidateV2(value: JsValue): Either[Vector[Diagnostic], CandidateV2] =
+    _decode[CandidateV2](value, "candidate").flatMap { candidate =>
+      if (candidate.schemaVersion != candidateV2Version)
+        Left(Vector(Diagnostic("unsupported", "schemaVersion", "Unsupported model-edit candidate v2 version.")))
+      else {
+        val declared = candidate.coverage.map(_.family)
+        val coverageissues = if (declared.toSet == families.toSet && declared.distinct.size == declared.size)
+          Vector.empty else Vector(Diagnostic("invalid-edit", "candidate.coverage", "Declare every known coverage family exactly once."))
+        val issues = _source_issues(candidate.source, "candidate.source") ++ coverageissues
+        if (issues.nonEmpty) Left(issues) else Right(candidate)
+      }
+    }
+
+  def renderCandidateV2(path: Path, source: Source, candidate: CandidateV2): Either[Vector[Diagnostic], Rendering] =
+    for {
+      checked <- readCandidateV2(Json.toJson(candidate))
+      basis <- produce(path, source)
+      _ <- if (checked.source.owner == source.owner && checked.source.identity == source.identity && checked.source.revision != source.revision)
+        Right(()) else Left(Vector(Diagnostic("source-mismatch", "candidate.source", "Declare a successor revision of the same owned source.")))
+      _ <- if (basis.limitations.isEmpty) Right(()) else Left(Vector(Diagnostic("unsupported", "source", "Only an existing admitted MODEL-EDIT block can be edited.")))
+      edits = Candidate(candidateVersion, checked.source, checked.elements, checked.relationships, checked.removedRelationships)
+      result <- _edit(basis.document.copy(coverage = checked.coverage), source, edits, checked.addedElements, checked.addedRelationships)
+      rendered <- _render(path, checked.source, result)
+    } yield Rendering(candidateV2Version, source, executingProducer, checked.source, rendered, Vector.empty)
+
+  private def _edit(document: Document, source: Source, candidate: Candidate,
+    addedelements: Vector[Element], addedrelationships: Vector[Relationship]): Either[Vector[Diagnostic], Document] = {
     val issues = Vector.newBuilder[Diagnostic]
     def _issue_(path: String, detail: String): Unit = issues += Diagnostic("invalid-edit", path, detail)
     def _owned_(expected: RecordRef, replacement: RecordRef, attribution: Source, path: String): Unit = {
@@ -153,12 +179,20 @@ object CmlModelEditProduction {
         case _ => _issue_("removedRelationships", "Select an exact existing relationship owned by this source.")
       }
     }
+    def _addition_(ref: RecordRef, attribution: Source, existing: Vector[RecordRef], path: String): Unit = {
+      if (ref.owner != source.owner || attribution != candidate.source)
+        _issue_(path, "New records require the selected source owner and exact successor attribution.")
+      if (existing.exists(x => x.owner == ref.owner && x.identity == ref.identity))
+        _issue_(path, "A new record cannot occupy an existing stable identity, regardless of revision or removal.")
+    }
+    addedelements.foreach(x => _addition_(x.ref, x.source, document.elements.map(_.ref), "addedElements"))
+    addedrelationships.foreach(x => _addition_(x.ref, x.source, document.relationships.map(_.ref), "addedRelationships"))
     val errors = issues.result()
     if (errors.nonEmpty) Left(errors)
     else {
-      val elements = document.elements.map(x => candidate.elements.find(_.expected == x.ref).map(_.replacement).getOrElse(x))
+      val elements = document.elements.map(x => candidate.elements.find(_.expected == x.ref).map(_.replacement).getOrElse(x)) ++ addedelements
       val relationships = document.relationships.filterNot(x => candidate.removedRelationships.contains(x.ref)).
-        map(x => candidate.relationships.find(_.expected == x.ref).map(_.replacement).getOrElse(x))
+        map(x => candidate.relationships.find(_.expected == x.ref).map(_.replacement).getOrElse(x)) ++ addedrelationships
       _admit_document(document.copy(elements = elements, relationships = relationships), candidate.source)
     }
   }
