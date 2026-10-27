@@ -36,7 +36,7 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Oct. 26, 2026
+ * @version Oct. 27, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelServiceOperationProjector(
@@ -54,7 +54,9 @@ private[modeler] final class ModelServiceOperationProjector(
       p.copy(typeConstraints = p.typeConstraints ++ inherited.filterNot(x => existingkeys.contains(typeProjector.constraintKey(x))))
     }
     private[modeler] def normalizedServiceOperationDefinitions: Vector[OperationModel.NormalizedOperationDefinition] =
-      _normalized_service_operation_definitions
+      serviceOperationDefinitions.map(_._2)
+    def serviceOperationDefinitions: Vector[(String, OperationModel.NormalizedOperationDefinition)] =
+      _service_operation_definitions
     private[modeler] def valueInputFields(name: String): Option[Vector[OperationModel.FieldDefinition]] =
       _value_input_field_map.get(name)
     private[modeler] def definedServices(pkg: MPackage, entities: Vector[MEntity]): Vector[MService] =
@@ -216,7 +218,7 @@ private[modeler] final class ModelServiceOperationProjector(
       p: ServiceModel.ServiceClass.Operation
     ): MOperation = {
       val opname = p.name
-      val opdef = _normalized_service_operation(p).map(_merge_service_operation_metadata(_, serviceclass, p))
+      val opdef = _normalized_service_operation(servicename, p).map(_merge_service_operation_metadata(_, serviceclass, p))
       val desc = _description(
         opname,
         _operation_description(
@@ -307,9 +309,14 @@ private[modeler] final class ModelServiceOperationProjector(
       )
 
     private def _normalized_service_operation(
+      servicename: String,
       p: ServiceModel.ServiceClass.Operation
     ): Option[OperationModel.NormalizedOperationDefinition] = {
-      val leafcontract = serviceOperationLeafContracts.get(p.name)
+      val leafcontract =
+        if (serviceOperationLeafContractsByService.nonEmpty)
+          serviceOperationLeafContractsByService.get(servicename).flatMap(_.get(p.name))
+        else
+          serviceOperationLeafContracts.get(p.name)
       if (!_has_service_operation_contract(p, leafcontract)) {
         None
       } else {
@@ -816,12 +823,12 @@ private[modeler] final class ModelServiceOperationProjector(
         )
       }
     }
-    private def _normalized_service_operation_definitions: Vector[OperationModel.NormalizedOperationDefinition] =
+    private def _service_operation_definitions: Vector[(String, OperationModel.NormalizedOperationDefinition)] =
       service.classes.values.toVector.
         flatMap { svc =>
           svc.operations.operations.values.toVector.flatMap { p =>
-          _normalized_service_operation(p).
-            map(_merge_service_operation_metadata(_, svc, p))
+            _normalized_service_operation(svc.name, p).
+              map(x => svc.name -> _merge_service_operation_metadata(x, svc, p))
           }
         }
 

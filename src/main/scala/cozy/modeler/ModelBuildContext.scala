@@ -10,7 +10,7 @@ import org.goldenport.kaleidox.model.actor.ActorModel
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 21, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] trait ModelBuildContext {
@@ -31,4 +31,5 @@ private[modeler] trait ModelBuildContext {
   val relationships: Vector[org.simplemodeling.model.MComponent.RelationshipDefinition]
   val operationRelationshipBindings: Map[String, Modeler.OperationRelationshipBinding]
   val serviceOperationLeafContracts: Map[String, Modeler.ServiceOperationLeafContract]
+  val serviceOperationLeafContractsByService: Map[String, Map[String, Modeler.ServiceOperationLeafContract]]
 }

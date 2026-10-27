@@ -55,7 +55,7 @@ import scala.collection.mutable
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
  *  version Sep. 28, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 21, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -798,7 +798,8 @@ object Modeler {
     cmlDeclaredTypeNames: Set[String] = Set.empty,
     relationships: Vector[MComponent.RelationshipDefinition] = Vector.empty,
     operationRelationshipBindings: Map[String, OperationRelationshipBinding] = Map.empty,
-    serviceOperationLeafContracts: Map[String, ServiceOperationLeafContract] = Map.empty
+    serviceOperationLeafContracts: Map[String, ServiceOperationLeafContract] = Map.empty,
+    serviceOperationLeafContractsByService: Map[String, Map[String, ServiceOperationLeafContract]] = Map.empty
   ) extends ModelBuildContext {
     private lazy val _type_projector = new ModelTypeProjector(this)
     private lazy val _state_machine_projector = new ModelStateMachineProjector(this)
@@ -867,6 +868,12 @@ object Modeler {
       val relationships = ModelerRelationshipCml.relationshipDefinitions(p)
       val operationbindings = ModelerRelationshipCml.operationBindings(p, relationships)
       val leafcontracts = ModelerRelationshipCml.serviceOperationLeafContracts(p)
+      val servicemodel = p.getServiceModel.getOrElse(ServiceModel.empty)
+      val leafcontractsbyservice = servicemodel.classes.values.map { svc =>
+        svc.name -> ModelerRelationshipCml.serviceOperationLeafContractsForService(
+          p, svc.name, svc.operations.operations.keySet.toSet
+        )
+      }.toMap
       apply(
         p.takeSchemaModel,
         p.takeEntityModel,
@@ -876,7 +883,7 @@ object Modeler {
         p.takeStateMachineModel,
         p.takeActorModel,
         p.takeComponentSubsystemModel,
-        p.getServiceModel.getOrElse(ServiceModel.empty),
+        servicemodel,
         p.eventModel,
         p.takeOperationModel,
         predefinedResultCatalog,
@@ -884,7 +891,8 @@ object Modeler {
         ModelerRelationshipCml.cmlDeclaredTypeNames(p),
         relationships,
         operationbindings,
-        leafcontracts
+        leafcontracts,
+        leafcontractsbyservice
       )
     }
 
