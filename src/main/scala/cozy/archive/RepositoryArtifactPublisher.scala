@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
  *  version Aug. 28, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -61,7 +61,7 @@ private[cozy] object RepositoryArtifactPublisher {
         Some(
           LegacyComponentRepositoryMigration.migrateIfNeeded(warehouse, indexpath, generatedat).
             getOrElse(ComponentRepositoryIndex.load(indexpath))
-        ).map(ComponentRepositoryIndex.validateCatalogs(_, indexpath))
+        )
       else
         None
     _preflight_catalog(projectdir, name, policy)
@@ -121,7 +121,6 @@ private[cozy] object RepositoryArtifactPublisher {
           case None => Files.deleteIfExists(knowledgepath)
         }
       }
-      ComponentRepositoryIndex.validateCatalogs(updatedindex, indexpath)
       ComponentRepositoryIndex.write(indexpath, updatedindex)
     } catch {
       case error: Throwable =>

@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug.  7, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Focused CID-04C repository-coordinate publication contract. */
@@ -99,6 +99,37 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
         RepositoryArtifactCatalog.load(
           warehouse.resolve("repository/catalog").resolve(alpha.carCatalogRelativePath)
         ).versions.count(_.version == alpha.version) shouldBe 1
+      }
+    }
+  }
+
+  "Selected CAR publication" should {
+    "register its own release while leaving another component's retired catalog metadata alone" in {
+      _with_temp_dir { root =>
+        Given("an existing unrelated CAR whose warehouse catalog retains retired checksum fields")
+        val warehouse = root.resolve("warehouse")
+        val alpha = _coordinate("org.alpha.textus", "Shared")
+        val beta = _coordinate("org.beta.textus", "Shared")
+        val alphaproject = _project(root.resolve("alpha"), alpha.namespace, alpha.id, alpha.version)
+        val betaproject = _project(root.resolve("beta"), beta.namespace, beta.id, beta.version)
+        val alphaarchive = _canonical_archive(root.resolve("alpha.car"), alpha, "alpha")
+        val betaarchive = _canonical_archive(root.resolve("beta.car"), beta, "beta")
+        _publish_car(betaproject, warehouse, betaarchive, beta)
+        val betacatalog = warehouse.resolve("repository/catalog").resolve(beta.carCatalogRelativePath)
+        val legacy = Files.readString(betacatalog, StandardCharsets.UTF_8) +
+          "    checksum:\n      sha256: " + ("a" * 64) + "\n    integrityKey: retired-metadata\n"
+        Files.writeString(betacatalog, legacy, StandardCharsets.UTF_8)
+
+        When("the selected alpha CAR is published into that warehouse")
+        _publish_car(alphaproject, warehouse, alphaarchive, alpha)
+
+        Then("alpha is registered, both index entries remain and beta's catalog is untouched")
+        Files.isRegularFile(warehouse.resolve("repository/car").resolve(alpha.carRepositoryRelativePath)) shouldBe true
+        RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog").resolve(alpha.carCatalogRelativePath)).
+          versions.map(_.version) should contain(alpha.version)
+        ComponentRepositoryIndex.load(warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)).artifacts.map(_.identity) should contain allOf (
+          ("car", alpha.namespace, alpha.id), ("car", beta.namespace, beta.id))
+        Files.readString(betacatalog, StandardCharsets.UTF_8) shouldBe legacy
       }
     }
   }
