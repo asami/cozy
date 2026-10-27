@@ -36,7 +36,7 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 26, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelServiceOperationProjector(
@@ -247,7 +247,7 @@ private[modeler] final class ModelServiceOperationProjector(
           _defined_query_service_operation(opname, desc, implementation, entity, access)
         case _ =>
           val command = _defined_command_service_operation(opname, desc, implementation, entity, opdef.flatMap(_.execution), access)
-          if (implementation.contains("entity-create"))
+          if (implementation.contains("entity-create") || p.parameters.nonEmpty)
             command
           else
             _with_structured_command_input(command, p, opdef)

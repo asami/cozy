@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 23, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectContext {
@@ -128,8 +128,8 @@ private[cozy] object CozyProjectContext {
     }
     val layers = layerresults.map(_.layer)
     val config = layers.foldLeft(CozyProjectYamlConfig.Config.empty) { (z, x) => z.merge(x.config) }
-    val values = _selected_scalar_values(layerresults)
-    val lists = _selected_list_values(layerresults)
+    val values = _selected_scalar_values(layerresults).filter { case (key, _) => config.values.contains(key) }
+    val lists = _selected_list_values(layerresults).filter { case (key, _) => config.lists.contains(key) }
     val project = discovery.map { value =>
       Project(value.root, value.marker.evidence, _selected_exact(layerresults.filter(x => x.layer.name == "project-conf" || x.layer.name == "project-local"), "project.id"), _selected_exact(layerresults.filter(x => x.layer.name == "project-conf" || x.layer.name == "project-local"), "project.kind"))
     }
@@ -209,8 +209,8 @@ private[cozy] object CozyProjectContext {
         zz.updated(draft.id, draft)
       }
     }
-    val valuesources = _source_map(parsed, _.values.keySet)
-    val listsources = _source_map(parsed, _.lists.keySet)
+    val valuesources = _source_map(parsed, _.values.keySet).filter { case (key, _) => config.values.contains(key) }
+    val listsources = _source_map(parsed, _.lists.keySet).filter { case (key, _) => config.lists.contains(key) }
     LayerResult(Layer(name, root, base, files, config), profiles, valuesources, listsources)
   }
 

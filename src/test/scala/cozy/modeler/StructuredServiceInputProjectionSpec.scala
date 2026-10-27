@@ -10,7 +10,7 @@ import org.simplemodeling.model._
 
 /*
  * @since   Oct. 19, 2026
- * @version Oct. 19, 2026
+ * @version Oct. 26, 2026
  */
 final class StructuredServiceInputProjectionSpec
     extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -229,6 +229,43 @@ final class StructuredServiceInputProjectionSpec
       }
     }
 
+    "preserve explicitly authored command parameters" which {
+      Vector(("top-level-record", false, "record"), ("inline-record", true, "record"),
+        ("inline-json", true, "json")).foreach { case (name, inline, datatype) =>
+        s"retain optional request parameters and the opaque action envelope for $name input" in {
+          Given(s"a $name CommandAction Value containing target and optional input and inputResource parameters")
+          val source = _explicit_parameter_contract(inline, datatype)
+
+          When("Kaleidox parses the authored parameters and Cozy projects and generates the command")
+          val model = KaleidoxModel.parseWitoutLocation(KaleidoxConfig.default.withoutLocation, source)
+          val raw = model.getServiceModel.get.classes.values.head.operations.operations.values.head
+          val command = _operation(source)
+          val component = _generate(s"explicit-parameters-$name", source)
+
+          Then("the authored optional parameters remain the entire ordered request schema")
+          raw.parameters.map(field => (field.name, field.datatype, field.multiplicity)) shouldBe
+            Vector(("input", "BookMaterialInput", "?"), ("inputResource", "string", "?"))
+          command.parameters shouldBe List(MParameter.record)
+          _request_names(component) shouldBe Vector("input", "inputResource")
+          _request_field(component, "input") should include("datatype = org.goldenport.schema.DataType.Named(\"bookmaterialinput\"),")
+          _request_field(component, "inputResource") should include("datatype = org.goldenport.schema.XString,")
+          Vector("input", "inputResource").foreach { field =>
+            _request_field(component, field) should include("multiplicity = org.goldenport.schema.Multiplicity.ZeroOne)")
+          }
+
+          And("the action keeps its existing Record transport reader without a required nominal record or flattened target")
+          _action_fields(component, "BookMaterialInput") shouldBe
+            Vector("request" -> "Request", "record" -> "Record")
+          component should include("Consequence.success(request.toRecord).")
+          component should include("map(BookMaterialInput(request, _))")
+          component should not include "record: value.BookMaterialInput"
+          component should not include "BookMaterialInput.createC(request.toRecord)"
+          _request_names(component) should not contain "record"
+          _request_names(component) should not contain "target"
+        }
+      }
+    }
+
     "retain legacy and named datatype boundaries" which {
       "keep pure String command and HealthQuery Record constructors" in {
         Given("a pure String command and the legacy HealthQuery Value extending QueryAction")
@@ -342,6 +379,13 @@ final class StructuredServiceInputProjectionSpec
     val policy = if (access) "### ACCESS\n\n#### POLICY\nmanager_only\n\n" else ""
     s"# COMPONENT\n\n## Domain\n\n### PACKAGE\ndomain\n\n# SERVICE\n\n## BookMaterial\n\n${policy}### OPERATION\n\n#### saveMaterial\n\n##### TYPE\nCOMMAND\n\n${impl}##### INPUT\n\n$input\n##### OUTPUT\n\n###### TYPE\nOperationResult\n$top"
   }
+
+  private def _explicit_parameter_contract(inline: Boolean, datatype: String): String =
+    _contract(Vector(("target", datatype, "1")), inline = inline).replace(
+      "##### INPUT\n",
+      "##### PARAMETER\n\n| name | type | multiplicity |\n|------+------|--------------|\n" +
+        "| input | BookMaterialInput | ? |\n| inputResource | string | ? |\n\n##### INPUT\n"
+    )
 
   private val _book_fields = Vector(
     ("version", "int", "1"), ("requestId", "string", "1"),
