@@ -72,7 +72,8 @@ Test / parallelExecution := false
 // FULL retains basic integration routes; repeated generation and native media
 // toolchains are opt-in HEAVY, using the same ScalaTest tag as CNCF.
 Test / test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-l", "org.scalatest.tags.Slow")
-Test / testOnly / testOptions := Seq.empty
+// Native focused validation verifies the selected suite names in this report.
+Test / testOnly / testOptions := Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"))
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
 
 scalacOptions += "-deprecation"

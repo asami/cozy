@@ -55,7 +55,8 @@ import scala.collection.mutable
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
  *  version Sep. 28, 2026
- * @version Oct. 21, 2026
+ *  version Oct. 21, 2026
+ * @version Nov.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -447,6 +448,15 @@ class Modeler(
   }
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val findingdispositions = smodel.model match {
+      case source: KaleidoxModel => CmlFindingDispositionScalaGenerator.fromModel(source) match {
+        case Left(findings) => return SError(CmlFindingDispositionScalaGenerator.conclusion(findings))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && findingdispositions.nonEmpty)
+      return SError(CmlFindingDispositionScalaGenerator.libraryConclusion)
     val validationmetadata = smodel.model match {
       case source: KaleidoxModel => ValidationMetadataScalaGenerator.fromModel(source) match {
         case Left(diagnostic) => return SError(ValidationMetadataScalaGenerator.conclusion(diagnostic))
@@ -476,12 +486,23 @@ class Modeler(
       logicalUi = logicalui, validationMetadata = validationmetadata)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
-      case Some(s) => g.generate(s)
+      case Some(s) =>
+        val generated = g.generate(s)
+        STree(findingdispositions.fold(generated.tree)(generated.tree + _))
       case None => SError.notFound("Unkown package", targetpkg)
     }
   }
 
   private def _make_scala_value(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val findingdispositions = smodel.model match {
+      case source: KaleidoxModel => CmlFindingDispositionScalaGenerator.fromModel(source) match {
+        case Left(findings) => return SError(CmlFindingDispositionScalaGenerator.conclusion(findings))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && findingdispositions.nonEmpty)
+      return SError(CmlFindingDispositionScalaGenerator.libraryConclusion)
     val validationmetadata = smodel.model match {
       case source: KaleidoxModel => ValidationMetadataScalaGenerator.fromModel(source) match {
         case Left(diagnostic) => return SError(ValidationMetadataScalaGenerator.conclusion(diagnostic))
@@ -517,7 +538,9 @@ class Modeler(
       logicalUi = logicalui, validationMetadata = validationmetadata)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
-      case Some(s) => g.generate(s)
+      case Some(s) =>
+        val generated = g.generate(s)
+        STree(findingdispositions.fold(generated.tree)(generated.tree + _))
       case None => SError.notFound("Unkown package", targetpkg)
     }
   }

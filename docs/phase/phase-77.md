@@ -1,7 +1,8 @@
 # Phase 77: CML Finding Disposition Properties
 
-status=planned
+status=in-progress
 planned_at=2026-10-04
+started_at=2026-11-05
 depends_on=goldenport-cncf Phase 99
 consumer=CAR lint, textus-cbd-support
 
@@ -37,3 +38,37 @@ Support deterministic projection into the normalized CNCF contract and, where re
 4. At least Accept and Defer cases are covered by executable parser/model/code-generation fixtures.
 5. Invalid disposition values, missing required reasons and incompatible rule/target bindings produce explicit diagnostics.
 6. No automatic property insertion is performed merely to make CAR lint clean.
+
+## Execution and producer delivery
+
+The CBD Phase 13 dependency request
+`cbd-phase13-cozy-cml-disposition-delivery-20261031` initiated this producer work.
+On 2026-11-05 the user directed retirement of DelegateTask and continuation in
+this chat as GoalPhase. The original destination was force-closed with
+`normal_completion=false` and `NotAccepted`; its complete history, including
+four consumed repair batches and the last 22/24 focused result, remains retained.
+This is not a successful Task Return or CBD adoption.
+
+The current GoalPhase Session `cbaf31b621d3865b9b6a82045103501a` adopts the existing
+eight-file implementation from base `f04d90115190fbae54b331f0f46f2fb12cd80f6f`.
+S77.1 completes the same producer boundary, including the fixture's explicitly
+declared output Value. The runtime owns its current checks, repair accounting,
+independent Phase review and local closure. Existing Task counters have not been
+rewritten or imported as fabricated GoalPhase events.
+
+The frozen [source contract](../spec/finding-disposition.md) and
+[design](../design/finding-disposition.md) retain CNCF Phase 99 semantics.
+Selected validation is Compile, `CmlFindingDispositionSpec`, and generation
+regression suites `LibraryGenerationSpec` and `ModelerScalaGenerationSpec`.
+No generated consumer activation or actual CAR lint coverage is inferred from
+producer source-generation checks. CBD owns its integration and activation.
+
+Implementation, actual validation, independent review, local commit, local
+publication, requester adoption and GitHub synchronization remain distinct
+outcomes. Runtime completion evidence is appended only after its actual gates.
+
+The report-repair continuation retained the original SuiteMismatch receipt and
+reserved one native repair. Plan revision 2 adds only `build.sbt` to S77.1 so
+focused ScalaTest emits its standard console report, including suite names.
+The suite selection, assertions, original producer scope and prior history are
+unchanged; fresh native checks are required for the new candidate.
