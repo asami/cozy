@@ -1,19 +1,24 @@
 # Phase 77 Checklist: CML Finding Disposition Properties
 
-status=in-progress
+status=closed
 
-- [ ] P77-01: Freeze CML property vocabulary and grammar.
-- [ ] P77-02: Map properties to CNCF Phase 99 normalized semantics.
-- [ ] P77-03: Preserve CML as source of truth across regeneration.
-- [ ] P77-04: Add Accept fixture.
-- [ ] P77-05: Add Defer fixture.
-- [ ] P77-06: Add malformed/missing-reason diagnostics.
-- [ ] P77-07: Add exact target/rule binding tests.
-- [ ] P77-08: Add generated Scala annotation projection only where required.
-- [ ] P77-09: Verify no independent generated-code authority is introduced.
-- [ ] P77-10: Verify no implicit auto-suppression behavior exists.
+- [x] P77-01: Freeze CML property vocabulary and grammar.
+- [x] P77-02: Map properties to CNCF Phase 99 normalized semantics.
+- [x] P77-03: Preserve CML as source of truth across regeneration.
+- [x] P77-04: Add Accept fixture.
+- [x] P77-05: Add Defer fixture.
+- [x] P77-06: Add malformed/missing-reason diagnostics.
+- [x] P77-07: Add exact target/rule binding tests.
+- [x] P77-08: Add generated Scala annotation projection only where required.
+- [x] P77-09: Verify no independent generated-code authority is introduced.
+- [x] P77-10: Verify no implicit auto-suppression behavior exists.
 
-All items remain open until the selected native validation and independent review qualify the current candidate.
+All ten items are qualified by native Compile, CmlFindingDispositionSpec (24 tests),
+LibraryGenerationSpec / ModelerScalaGenerationSpec (34 tests), and the independent
+ReviewPhase accept. P77-08 is satisfied by the accepted normalized Properties /
+decodeC consumer boundary: no Scala annotation projection is required.
+
+The native GoalPhase returned Terminal / completed; closure commit `9d4c9c3ea1a96eb5d0cc3fe43023326d9a41b907`.
 
 <!-- sm-workflow completion cbaf31b621d3865b9b6a82045103501a phase 77 -->
 Accepted phase 77.

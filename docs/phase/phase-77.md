@@ -1,6 +1,7 @@
 # Phase 77: CML Finding Disposition Properties
 
-status=in-progress
+status=closed
+closed_at=2026-11-09
 planned_at=2026-10-04
 started_at=2026-11-05
 depends_on=goldenport-cncf Phase 99
@@ -85,3 +86,12 @@ Profile standard@1; mapping=cozy77-goalphase-profiles@1; logical dispatch=legacy
 No benchmark or model-causality claim. Missing original endpoints, usage, timestamps and launch observations remain unavailable.
 
 Local record/commit closure is runtime-owned; later publication, return and synchronization outcomes are recorded separately.
+
+## Verified local completion
+
+GoalPhase returned `Terminal / completed` after native Compile, 24 focused tests,
+34 generation regression tests and independent `ReviewPhase / accept`.
+The final native closure commit is `9d4c9c3ea1a96eb5d0cc3fe43023326d9a41b907`.
+The original Task NotAccepted and report-repair history remain retained.
+Local artifact publication, CBD integration/adoption and GitHub synchronization
+are separate outcomes; this completion record does not claim them.
