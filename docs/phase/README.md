@@ -1,5 +1,13 @@
 # docs/phase
 
+## Strict Scala 3 consumer delivery — planned — 2026-11-09
+
+[Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md) records
+COZY-01–COZY-05, all OPEN. Qualify existing SimpleModeler strictEquality output,
+Cozy-owned emitters and normal generated compilation; adopt accepted Core safe
+collection APIs afterward. This bounded plan changes no numbered Phase priority
+or existing acceptance and starts no implementation.
+
 ## Document body figures and tables — closed — 2026-10-25
 
 [Phase 87](phase-87.md) / [checklist](phase-87-checklist.md) is CLOSED under local release binding `cozy-p87-release-20261025@1`, effective
