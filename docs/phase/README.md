@@ -1,5 +1,9 @@
 # docs/phase
 
+## Internal document packages — planned — 2026-11-11
+
+[Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。全項目OPEN、未着手です。既存Phaseの優先順位は変更しません。
+
 ## Strict Scala 3 consumer delivery — planned — 2026-11-09
 
 [Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md) records

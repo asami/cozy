@@ -5,6 +5,10 @@ Updated: 2026-10-25 (Asia/Tokyo)
 
 Status: active
 
+## Internal document packages — planned — 2026-11-11
+
+[Phase 90](../phase/phase-90.md) adds editable internal-document packages with source/ and selected top-level deliverables. Native rendering uses an external workspace, with no transient files in the synchronized package tree. Existing publication export and Phase priorities remain unchanged. See the [proposal](../notes/document-project-private-package.md).
+
 ## Document explanation figures and tables — closed — 2026-10-25
 
 [Phase 87](../phase/phase-87.md) is CLOSED under local release binding
@@ -1784,6 +1788,7 @@ Origin:
 | DEV-036 | [2026-10-05 encoder selection request and placement decision](../journal/2026/10/2026-10-05-video-encoder-selection-and-benchmark-request.md); [main-route-first revision](../journal/2026/10/2026-10-08-phase-71-main-route-first.md) | Add explicit per-tool host/Docker configuration, local software/hardware encoder selection, Docker rendering with host encoding, and measured native/end-to-end comparison while preserving video semantics and the removal policy. | NEW_PHASE | [Phase 71.6](../phase/phase-71.6.md) CLOSED projection on 2026-10-11 under `P716-RELEASE-20261011@1`, effective only on parent verification of the distinct native release commit; all three Steps, actual representative mixed software/selected hardware execution and current hearing, 233 focused specifications in nine suites and sole full review PASS at ledger revision 8 accepted; three nonblocking maintenance Hygiene records retained; remaining combinations, benchmark and repository-full SBT deferred-not-run to [Phase 71.7](../phase/phase-71.7.md), PLANNED and unstarted | ADOPTED |
 | DEV-037 | [2026-10-11 joint video/audio quality-profile request and same-day ladder refinement](../journal/2026/10/2026-10-11-phase-71.8-video-quality-profile-plan.md) | Select picture/audio quality together with individual overrides across direct rendering and assembly. Rename current lightweight to new standard, shift existing upper settings upward and add a lower-quality faster practice profile. Preserve narration/end-card semantics; accept preset audio quality and practice speed through actual observations. | NEW_PHASE | [Phase 71.8](../phase/phase-71.8.md) CLOSED on 2026-10-13; release `bcd3ba2`; joint profiles, actual JA/EN listening and measured practice speed accepted; full Cozy suite and runtime classpath export passed | ADOPTED |
 | DEV-038 | User direction on 2026-10-25 to record claim-linked body figures/tables as specification and Phase planning | Add localized Figure/Table Document blocks grounded in Core claims, concise tree navigation, native HTML explanations and existing SmartDox article/PDF continuity, with actual paired JA/EN acceptance. | NEW_PHASE | [Phase 87](../phase/phase-87.md) / [checklist](../phase/phase-87-checklist.md), CLOSED under `cozy-p87-release-20261025@1` after native commit/receipt verification; all five Steps and 24 criteria accepted, actual paired PDFs inspected, sole Phase review PASS, final FULL 3,972 passed (23 existing cancellations), follow-ups retained | ADOPTED |
+| DEV-039 | [2026-11-11 internal package request](../journal/2026/11/2026-11-11-private-document-package-plan.md) | Package editable Document Projects and final products for internal case folders; render and preview outside the synchronized tree, then refresh selected deliverables. | NEW_PHASE | [Phase 90](../phase/phase-90.md), PLANNED, unstarted | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the

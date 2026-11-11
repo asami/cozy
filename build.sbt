@@ -50,7 +50,7 @@ version := "0.3.3-SNAPSHOT"
 // preparation has one authoritative inventory.
 lazy val scaffoldSbtVersion = "1.9.7"
 
-lazy val sbtCozyVersion = "0.1.16"
+lazy val sbtCozyVersion = "0.1.18-SNAPSHOT"
 
 lazy val scaffoldScalaVersion = "3.3.8"
 
