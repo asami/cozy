@@ -5,12 +5,15 @@ execution_started=false
 
 Purpose: Strict Scala 3 generation integration.
 Progress: [Phase 89 checklist](phase-89-checklist.md).
-This is the producer's own Phase; sm-workflow Phase 6.12 is its consumer.
+This is the producer's own Phase; sm-workflow Phase 8.1 is its consumer
+(renumbered from 6.12 on 2026-11-11).
 
 Planned: 2026-11-09
-Consumer: [sm-workflow 6.12-B/C](../../../sm-workflow/docs/phase/phase-6.12.md)
-Coordination: [delivery dependencies](../../../sm-workflow/docs/phase/phase-6.12-dependencies.md)
-Behavior: [strict Scala contract](../../../sm-workflow/docs/spec/scala-lint-profiles.md#three-stage-strict-scala-3-adoption)
+Development item: DEV-042 (Strategy registration 2026-11-16)
+Updated: 2026-11-16
+Consumer: [sm-workflow 8.1-B/C](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1.md)
+Coordination: [delivery dependencies](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md)
+Behavior: [strict Scala contract](https://github.com/asami/sm-workflow/blob/main/docs/spec/scala-lint-profiles.md#three-stage-strict-scala-3-adoption)
 
 ## Scope
 
@@ -33,17 +36,25 @@ ledger. Its existing delivery IDs and acceptance criteria are retained unchanged
 ## Dependencies and bounded completion
 
 The B route waits only for
-[SimpleModeler GEN-03](../../../simple-modeler/docs/phase/phase-1.md)
+[SimpleModeler SLP-GEN / GEN-03](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md#dependency-order-and-early-handoffs)
 and applicable
-[sbt-cozy build qualification](../../../sbt-cozy/docs/phase/phase-1.md).
+[sbt-cozy SLP-BUILD qualification](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md#dependency-order-and-early-handoffs).
 The C route additionally consumes
-[Core](../../../goldenport-core/docs/phase/phase-4.md)
+[Core SLP-CORE](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md#ownership-and-delivery-units)
 and generator C adoption. Model-owned incompatibilities go to
-[SimpleModeling Model](../../../simplemodeling-model/docs/phase/phase-1.md).
+[SimpleModeling Model SLP-MODEL](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md#ownership-and-delivery-units).
 Do not wait for any producer's whole Phase, sm-workflow completion or a new
 generator/consumer build cycle. Missing C delivery does not stop independent B
 qualification or unrelated Cozy work. Reuse existing accepted generator/build
 evidence when its revision, scope and conditions apply.
+
+The links above select the confirmed coordination contract and its delivery
+IDs. The producer-local Phase documents formerly linked here could not be
+located in the inspected checkouts on 2026-11-16; their location and accepted
+handoffs remain unconfirmed. Before COZY-02/04 consumption, record the actual
+producer-owned contract, selected revision and accepted subset. The coordination
+table and existing implementation alone are not producer acceptance. Do not
+guess replacement Phase numbers or unavailable APIs.
 
 This planned Phase changes no existing Phase priority or acceptance,
 including the existing staged Phase 77 work. Preserve all Goals, Sessions,

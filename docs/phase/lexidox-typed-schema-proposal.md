@@ -1,8 +1,9 @@
 # Phase Proposal: LexiDox Typed Sections and Knowledge Space Semantics
 
-Status: proposed / not scheduled
+Status: proposal / non-normative input to Phase 92
 Proposed: 2026-11-16
-Phase number: unassigned (avoid conflict with ongoing Cozy phases 90/91)
+Phase number: 92 (allocated 2026-11-16; implementation unstarted)
+Plan: [Phase 92](phase-92.md) / [checklist](phase-92-checklist.md)
 Primary planning repository: Cozy
 Implementation owner: verify SmartDox vs Cozy boundaries before implementation
 
@@ -17,12 +18,12 @@ Evolve LexiDox vocabulary definitions to support typed standard sections, unrest
 - Inspect current LexiDox parsing, schema validation, RDF/JSON-LD export, and BoK rendering code in SmartDox, Cozy and consumers.
 - Assign source parsing and semantic validation to the actual owning repository (likely SmartDox, subject to verification); Cozy should not create a competing parser.
 - Identify existing type metadata, section handling, term/concept IRI and glossary profiles; confirm backward-compatibility fixtures.
-- Allocate a numbered implementation phase only after dependency/ownership analysis and current roadmap reconciliation.
+- Phase 92 owns Cozy coordination and consumption. Confirm producer ownership and its implementation handoff before consumer implementation; any SmartDox producer Phase retains that repository's numbering and authority.
 
 ## Proposed work packages
 
 1. **Schema model** — type-specific standard sections, required/optional/cardinality, registered common sections, BoK-specific profiles; `SIMPLEMODELING` denotes development methodology connection.
-2. **Section recognition** — uppercase standard-section attempt with validation; mixed-case free sections retained without restrictions; clear unknown-uppercase diagnostics.
+2. **Section recognition** — uppercase standard-section attempt with validation; non-uppercase free sections, including lowercase, mixed-case and Japanese, retained without restrictions; clear unknown-uppercase diagnostics.
 3. **Knowledge semantics** — `space` identity and `CONTEXT` interpretation; preserve Term/Concept distinction, clarify cross-space concept identity and IRI mapping.
 4. **Pattern specialization** — `type=pattern`, required `DEFINITION/CONTEXT/PROBLEM/SOLUTION`, optional consequences and free narrative sections.
 5. **Legacy migration** — continue reading `# SimpleModeling`, normalize semantically to `SIMPLEMODELING` while retaining source/render fidelity; no mass rewrite before validation.
@@ -33,7 +34,7 @@ Evolve LexiDox vocabulary definitions to support typed standard sections, unrest
 
 - Existing glossary documents parse and render without loss or forced immediate migration.
 - Type-specific mandatory sections and unknown uppercase section diagnostics work as specified.
-- Arbitrary mixed-case sections survive parsing, rendering, and relevant exports.
+- Arbitrary non-uppercase sections, including lowercase, mixed-case and Japanese, survive parsing, rendering, and relevant exports.
 - `SIMPLEMODELING` and `CONTEXT` have distinct documented semantics; legacy spelling remains readable.
 - Stable Knowledge Space and Term/Concept identity mapping is specified and tested before RDF changes.
 - Pattern entries validate under the Pattern schema without requiring a separate document system.
@@ -57,4 +58,4 @@ Evolve LexiDox vocabulary definitions to support typed standard sections, unrest
 
 ## Handoff
 
-This file is a development **plan**, not an implementation claim. Once code ownership is confirmed, split implementation into the owning repository's phase convention and retain this proposal as the cross-project integration handoff.
+This file retains the original capability proposal as input to the numbered [Phase 92](phase-92.md). The Phase and its checklist own current scope and progress; this proposal makes no implementation claim. Confirm and assign producer implementation under its owning repository's convention without duplicating the canonical concept definitions here.

@@ -1,5 +1,9 @@
 # docs/phase
 
+## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
+
+[Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。全項目OPEN、実装未着手です。番号の割当は既存Phaseの優先順位を変更しません。
+
 ## Document and section structure patterns — planned — 2026-11-15
 
 [Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造2型と節構造8型をCoreの後継版へ結び付け、再帰的な構造検査、作成支援、標準ロジックツリーHTMLと本文への対応を追加する計画です。全項目OPEN、未着手で、既存Phaseの優先順位は変更しません。
@@ -12,11 +16,13 @@
 
 ## Strict Scala 3 consumer delivery — planned — 2026-11-09
 
-[Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md) records
+[Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md), DEV-042, records
 COZY-01–COZY-05, all OPEN. Qualify existing SimpleModeler strictEquality output,
 Cozy-owned emitters and normal generated compilation; adopt accepted Core safe
 collection APIs afterward. This bounded plan changes no numbered Phase priority
 or existing acceptance and starts no implementation.
+
+2026-11-16追記: consumerは旧6.12から移ったsm-workflow 8.1です。確認済みの受渡し表を参照し、未確認のproducer-local契約と受入改訂は消費前に特定します。
 
 ## Document body figures and tables — closed — 2026-10-25
 
@@ -39,7 +45,7 @@ asset-free v2 behavior and all other Phase priorities.
 
 ## Application Function generation — planned — 2026-10-25
 
-[Phase 88](phase-88.md) retains the incoming Application Function Subcomponent
+[Phase 88](phase-88.md) / [checklist](phase-88-checklist.md) retains the incoming Application Function Subcomponent
 Generation plan, including local/AWS/Google adapters and the AuthHandle-aware
 Function security boundary. It was renumbered from the incoming planned Phase
 87 to preserve the closed figure/table Phase 87. Scope and priorities are

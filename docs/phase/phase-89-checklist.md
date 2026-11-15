@@ -4,6 +4,7 @@ status=planned
 
 Plan: [Phase 89](phase-89.md).
 Owner: Cozy development.
+Consumer: sm-workflow Phase 8.1-B/C; [current dependencies](https://github.com/asami/sm-workflow/blob/main/docs/phase/phase-8.1-dependencies.md).
 The original delivery IDs and criteria are preserved. All items remain OPEN.
 
 ## Stage: Producer delivery
@@ -25,6 +26,8 @@ Stage Status:
       SLP-BUILD compiler settings. Generate and compile tiny representative
       library/CNCF output for applicable paths, with correct same-type compares
       and negative incompatible ID/value cases; retain actual selected versions.
+      Resolve the currently unconfirmed producer-local contract locations and
+      accepted handoff references before consumption; coordination is not acceptance.
 - [ ] COZY-03: Qualify explicit-null/initialization/warning settings applicable
       to generated output; fix the owning generator/adapter only for demonstrated
       output gaps. No broad .nn/unsafeNulls/CanEqual/Wconf suppression fallback.

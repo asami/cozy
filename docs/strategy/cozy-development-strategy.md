@@ -1,9 +1,17 @@
 # Cozy Development Strategy
 
 Date: 2026-07-28
-Updated: 2026-10-25 (Asia/Tokyo)
+Updated: 2026-11-16 (Asia/Tokyo)
 
 Status: active
+
+## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
+
+[Phase 92](../phase/phase-92.md) / [checklist](../phase/phase-92-checklist.md), DEV-041, adopts the [original proposal](../phase/lexidox-typed-schema-proposal.md) as planning input. It owns Cozy's consumption and BoK integration of typed sections, free sections, Knowledge Space/Context and Term/Concept identities. SmartDox retains source parsing and initial metadata/RDF production; confirm its new producer contract and accepted delivery before consumption. Resolve the concept proposal's identity questions before changing RDF. All items are OPEN and execution is unstarted; allocation changes no existing Phase priority.
+
+## Strict Scala 3 generation integration — planned — 2026-11-16 registration
+
+[Phase 89](../phase/phase-89.md) / [checklist](../phase/phase-89-checklist.md), DEV-042, retains the 2026-11-09 SLP-COZY plan and COZY-01–COZY-05. Its consumer is sm-workflow Phase 8.1, formerly 6.12. Qualify the normal generator and Cozy-owned emitters for B independently of Core-dependent C adoption. Use the confirmed coordination contract; producer-local contract locations and accepted handoffs remain unconfirmed until recorded for consumption. No implementation or acceptance is claimed.
 
 ## Internal document packages — planned — 2026-11-11
 
@@ -44,6 +52,8 @@ provider-neutral CML, complete Container realization, common TypeScript logic,
 local/AWS/Google adapters and AuthHandle-aware security generation. The incoming
 planned Phase 87 was renumbered to preserve the closed figure/table Phase 87;
 no implementation, acceptance or priority change is introduced by this sync.
+
+The [Phase 88 checklist](../phase/phase-88-checklist.md), registered on 2026-11-16, covers P88-01–P88-06 and explicitly retains AuthHandle negative paths, multi-Domain orchestration, Domain-side authorization and supported downstream limits in closure. All items remain OPEN. Local integration does not establish separately scoped live cloud acceptance.
 
 ## DataStore producer status — 2026-10-18
 
@@ -1732,6 +1742,8 @@ The initial scope is two document patterns (background-first and definition-firs
 
 [Phase 91](../phase/phase-91.md) and its [checklist](../phase/phase-91-checklist.md) own P91-01–P91-06. The [proposal](../notes/document-and-section-structure-patterns.md) supplies planned capability details; design/spec promotion is P91-01 work. Use an observed-model-derived Cozy-local fixture for acceptance. Existing Phase priority and current implementation work remain unchanged. No implementation, publication, deployment, directive distribution or bulk manuscript migration starts with this registration.
 
+As of 2026-11-16, the three shared writing documents are present in Cozy's pinned ai-directive revision 606cb56. P91-01 confirms that candidate revision and its catalog correspondence; rule distribution is not a new entry prerequisite and does not establish implementation acceptance. The earlier journal retains the historical undistributed state.
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.
@@ -1802,6 +1814,8 @@ Origin:
 | DEV-038 | User direction on 2026-10-25 to record claim-linked body figures/tables as specification and Phase planning | Add localized Figure/Table Document blocks grounded in Core claims, concise tree navigation, native HTML explanations and existing SmartDox article/PDF continuity, with actual paired JA/EN acceptance. | NEW_PHASE | [Phase 87](../phase/phase-87.md) / [checklist](../phase/phase-87-checklist.md), CLOSED under `cozy-p87-release-20261025@1` after native commit/receipt verification; all five Steps and 24 criteria accepted, actual paired PDFs inspected, sole Phase review PASS, final FULL 3,972 passed (23 existing cancellations), follow-ups retained | ADOPTED |
 | DEV-039 | [2026-11-11 internal package request](../journal/2026/11/2026-11-11-private-document-package-plan.md); [2026-11-15 Git policy refinement](../journal/2026/11/2026-11-15-document-project-workroot-git-policy.md) | Package editable Document Projects and final products for internal case folders; render and preview outside the synchronized tree, then refresh selected deliverables. Keep intermediate outputs, logs and caches out of Git while preserving trackable sources and selected deliverable policy. | NEW_PHASE | [Phase 90](../phase/phase-90.md), PLANNED, unstarted | ADOPTED |
 | DEV-040 | [2026-11-15 document/section pattern request](../journal/2026/11/2026-11-15-document-and-section-structure-patterns-plan.md) | Make two document structure patterns and eight recursive section explanation patterns first-class Core authoring inputs, with catalog/version selection, typed role references, structural validation, skeleton support, native HTML and Document/prose correspondence. | NEW_PHASE | [Phase 91](../phase/phase-91.md) / [checklist](../phase/phase-91-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-041 | [LexiDox proposal](../phase/lexidox-typed-schema-proposal.md); [2026-11-16 allocation and reconciliation](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Consume SmartDox-owned typed sections, free sections and agreed Knowledge Space/Term/Concept metadata through existing Cozy BoK integration; confirm producer ownership and identity semantics before implementation. | NEW_PHASE | [Phase 92](../phase/phase-92.md) / [checklist](../phase/phase-92-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-042 | [2026-11-09 strict generation plan](../phase/phase-89.md); [2026-11-16 Strategy registration](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Deliver SLP-COZY normal generation and direct-emitter qualification to sm-workflow 8.1-B/C, preserving the existing COZY-01–COZY-05 scope and the independent B/C dependency boundaries. | MERGED_EXISTING_PHASE | [Phase 89](../phase/phase-89.md) / [checklist](../phase/phase-89-checklist.md), PLANNED, unstarted | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the
