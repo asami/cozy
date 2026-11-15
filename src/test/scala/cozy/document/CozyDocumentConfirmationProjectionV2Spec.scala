@@ -12,11 +12,39 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct. 26, 2026
+ *  version Oct. 26, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Confirmation Projection v2" should {
+    "display authored explanatory roles consistently and reject incomplete role coverage" in {
+      _with_temp_dir("cozy-explanatory-role-badges") { root =>
+        Given("an admitted Core with explicit semantic roles and localized role wording")
+        val fixture = _fixture(root)
+        val roles = fixture.validated.core.depthFirstSteps.map(_.semanticRole).distinct
+        val vocabulary = _vocabulary(fixture.validated.core).copy(semanticRoles = roles.map(role => role -> s"Role <$role> & explanation").toMap)
+
+        When("the Document projection uses explanatory roles for primary Step badges")
+        val html = CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary).html
+
+        Then("every authored role is exposed and escaped while structural semantics remain inspectable")
+        roles.foreach { role =>
+          html should include(s"""data-semantic-role="$role">Role &lt;$role&gt; &amp; explanation</span>""")
+        }
+        html should include(s"""data-logical-pattern="${fixture.root.structure.pattern}"""" )
+        html should not include "Role <"
+
+        When("a configured role map omits the roles used by the Core")
+        val fault = intercept[CozyDocumentConfirmationProjectionV2.ProjectionFault] {
+          CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary.copy(semanticRoles = Map("unused-role" -> "Other")))
+        }
+
+        Then("missing role wording is rejected without a per-Step fallback")
+        fault.reason should include("semantic role")
+      }
+    }
+
     "render deterministic digest-free output while escaping admitted text and attributes" in {
       _with_temp_dir("cozy-document-confirmation-v2-determinism") { root =>
         Given("one strictly loaded v2 Document with text that needs HTML escaping and test-only generic vocabulary")

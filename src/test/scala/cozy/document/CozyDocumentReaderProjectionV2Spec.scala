@@ -12,11 +12,39 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 14, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Reader Projection v2" should {
+    "display authored explanatory roles consistently and reject incomplete role coverage" in {
+      _with_temp_dir("cozy-explanatory-role-badges") { root =>
+        Given("an admitted Core with explicit semantic roles and localized role wording")
+        val fixture = _fixture(root)
+        val roles = fixture.validated.core.depthFirstSteps.map(_.semanticRole).distinct
+        val vocabulary = _vocabulary(fixture.validated.core).copy(semanticRoles = roles.map(role => role -> s"Role <$role> & explanation").toMap)
+
+        When("the Document projection uses explanatory roles for primary Step badges")
+        val html = CozyDocumentReaderProjectionV2.render(fixture.validated, vocabulary).html
+
+        Then("every authored role is exposed and escaped while structural semantics remain inspectable")
+        roles.foreach { role =>
+          html should include(s"""data-semantic-role="$role">Role &lt;$role&gt; &amp; explanation</span>""")
+        }
+        html should include(s"""data-logical-pattern="${fixture.root.structure.pattern}"""" )
+        html should not include "Role <"
+
+        When("a configured role map omits the roles used by the Core")
+        val fault = intercept[CozyDocumentReaderProjectionV2.ProjectionFault] {
+          CozyDocumentReaderProjectionV2.render(fixture.validated, vocabulary.copy(semanticRoles = Map("unused-role" -> "Other")))
+        }
+
+        Then("missing role wording is rejected without a per-Step fallback")
+        fault.reason should include("semantic role")
+      }
+    }
+
     "render deterministic escaped output without digest traceability" in {
       _with_temp_dir("cozy-document-reader-v2-determinism") { root =>
         Given("an admitted v2 Document with escaped title, headings, prose, labels, and a complete test vocabulary")

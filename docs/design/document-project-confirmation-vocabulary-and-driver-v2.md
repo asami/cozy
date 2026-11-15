@@ -82,3 +82,14 @@ Phase 71.1 / P710-03-DM-08 changes only the source-binding interpretation used
 before this driver renders: valid current V2 bytes bind by exact logical IDs,
 not rebounded hashes. The command and both renderers retain their existing
 output and generic-vocabulary responsibilities.
+
+## Explanatory-role presentation seam (2026-11-14)
+
+The optional Document `semanticRoles` map is resource-owned localized wording for
+existing Core role IDs. The loader rejects empty maps, invalid IDs and blank
+wording. Both Document projections require complete used-role coverage and select
+the role badge consistently for navigation, structure headings and logical
+references. Existing typed callers default to an absent map and retain pattern
+badges. Patterns and edges retain their meanings and inspection attributes.
+This bounded extension supplies role presentation without changing the Core
+catalog or adding prose, layout, per-Step labels or article-specific code.

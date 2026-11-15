@@ -8,7 +8,8 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 26, 2026
  *  version Aug. 30, 2026
- * @version Sep. 27, 2026
+ *  version Sep. 27, 2026
+ * @version Nov. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffoldComponentTemplates {
@@ -150,6 +151,7 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |      - ${_yaml_string(s"org.goldenport::goldenport-cncf:${versions.cncfVersion}")}
       |    test:
       |      - "org.scalatest::scalatest:3.2.19"
+      |      - "org.scalatestplus::scalacheck-1-18:3.2.19.0"
       |
       |publication:
       |  source_manifest:

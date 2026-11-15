@@ -13,7 +13,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationVocabulary {
@@ -27,6 +28,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
     noderoles: Map[String, String],
     documentrelationtypes: Map[String, String],
     documentflowtypes: Map[String, String],
+    documentsemanticroles: Map[String, String],
     summarychrome: Map[String, String],
     sourcecategories: Map[String, String],
     diagramitemkinds: Map[String, String],
@@ -78,7 +80,8 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       resource.logicalpatterns,
       resource.noderoles,
       resource.documentrelationtypes,
-      resource.documentflowtypes
+      resource.documentflowtypes,
+      resource.documentsemanticroles
     )
   }
 
@@ -141,7 +144,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       _fail("CONFIRMATION_VOCABULARY_SCHEMA", "$.schema", s"must be exactly ${_schema}")
     val locale = _locale(_string(fields, "locale", "$"), "$.locale")
     val document = _object(_field(fields, "document", "$"), "$.document")
-    _exact_fields(document, Set("chrome", "logicalPatterns", "nodeRoles", "relationTypes", "flowTypes"), "$.document")
+    _exact_fields(document, Set("chrome", "logicalPatterns", "nodeRoles", "relationTypes", "flowTypes") ++ (if (document.contains("semanticRoles")) Set("semanticRoles") else Set.empty[String]), "$.document")
     val summary = _object(_field(fields, "summary", "$"), "$.summary")
     _exact_fields(summary, Set("chrome", "sourceCategories", "diagramItemKinds", "relationTypes", "flowTypes", "inverseRelationTypes", "inverseFlowTypes", "documentTargetKinds", "omissionDispositions", "directions"), "$.summary")
     Resource(
@@ -151,6 +154,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       _wording_map(_field(document, "nodeRoles", "$.document"), "$.document.nodeRoles", _node_role_keys),
       _wording_map(_field(document, "relationTypes", "$.document"), "$.document.relationTypes", _relation_type_keys),
       _wording_map(_field(document, "flowTypes", "$.document"), "$.document.flowTypes", _relation_type_keys),
+      document("semanticRoles").map(value => _semantic_role_map(value, "$.document.semanticRoles")).getOrElse(Map.empty[String, String]),
       _wording_map(_field(summary, "chrome", "$.summary"), "$.summary.chrome", _summary_chrome_keys),
       _wording_map(_field(summary, "sourceCategories", "$.summary"), "$.summary.sourceCategories", _source_category_keys),
       _wording_map(_field(summary, "diagramItemKinds", "$.summary"), "$.summary.diagramItemKinds", _diagram_item_kind_keys),
@@ -162,6 +166,17 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       _wording_map(_field(summary, "omissionDispositions", "$.summary"), "$.summary.omissionDispositions", _omission_disposition_keys),
       _wording_map(_field(summary, "directions", "$.summary"), "$.summary.directions", _direction_keys)
     )
+  }
+
+  private def _semantic_role_map(value: Json, path: String): Map[String, String] = {
+    val fields = _object(value, path)
+    if (fields.isEmpty)
+      _fail("CONFIRMATION_VOCABULARY_FIELDS", path, "must contain at least one authored semantic role")
+    fields.toMap.map { case (key, wording) =>
+      if (!key.matches("[A-Za-z0-9][A-Za-z0-9._-]*"))
+        _fail("CONFIRMATION_VOCABULARY_FIELDS", path, "semantic role keys must be stable Core identifiers")
+      key -> _wording(_string_value(wording, s"$path.$key"), s"$path.$key")
+    }
   }
 
   private def _wording_map(value: Json, path: String, expected: Set[String]): Map[String, String] = {

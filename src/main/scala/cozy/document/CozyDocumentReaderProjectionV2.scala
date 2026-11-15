@@ -3,7 +3,8 @@ package cozy.document
 /*
  * @since   Sep. 14, 2026
  *  version Sep. 30, 2026
- * @version Oct. 25, 2026
+ *  version Oct. 25, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentReaderProjectionV2 {
@@ -93,7 +94,7 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
       val refs = CozyDocumentDescriptionV2.References(Vector(value.stepRef), Vector.empty, Vector.empty, Vector.empty, Vector.empty)
       val attributes = _reference_attributes(refs) + s""" data-document-kind="block" data-document-id="${_html(value.id)}" data-step-ref="${_html(value.stepRef)}""""
       val step = core.stepsById(value.stepRef)
-      s"""<details id="document-block-${_html(value.id)}" class="document-block logical-structure" data-reference-target="true"$attributes><summary>${_html(vocabulary.chrome.logicalStructureReference)}: ${_html(labels(value.stepRef))} ${_pattern_tag(step.structure.pattern, vocabulary)}</summary>${_reference_links(refs, labels, nodelabels, core, vocabulary)}</details>"""
+      s"""<details id="document-block-${_html(value.id)}" class="document-block logical-structure" data-reference-target="true"$attributes><summary>${_html(vocabulary.chrome.logicalStructureReference)}: ${_html(labels(value.stepRef))} ${_step_tag(step, vocabulary)}</summary>${_reference_links(refs, labels, nodelabels, core, vocabulary)}</details>"""
   }
 
   private def _list_item(
@@ -132,7 +133,7 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
     }.mkString
     val claims = step.claims.map(claim => s"""<li id="core-claim-${_html(claim.id)}" data-core-claim-id="${_html(claim.id)}"><span class="reference-kind">claim</span> <span class="identity">${_html(claim.id)}</span></li>""").mkString
     val chrome = vocabulary.chrome
-    s"""<article id="core-step-${_html(step.id)}" class="core-step" data-core-step-id="${_html(step.id)}"><h3><a href="#core-step-${_html(step.id)}">${_html(labels(step.id))}</a> ${_pattern_tag(step.structure.pattern, vocabulary)}</h3><details class="step-prose-targets"><summary>${_html(chrome.proseHeading)}</summary><ul class="prose-targets">$targetlinks</ul></details><details class="audit"><summary>${_html(chrome.identitiesHeading)}</summary><ul class="claim-list">$claims</ul></details></article>"""
+    s"""<article id="core-step-${_html(step.id)}" class="core-step" data-core-step-id="${_html(step.id)}"><h3><a href="#core-step-${_html(step.id)}">${_html(labels(step.id))}</a> ${_step_tag(step, vocabulary)}</h3><details class="step-prose-targets"><summary>${_html(chrome.proseHeading)}</summary><ul class="prose-targets">$targetlinks</ul></details><details class="audit"><summary>${_html(chrome.identitiesHeading)}</summary><ul class="claim-list">$claims</ul></details></article>"""
   }
 
   private def _flow_step(
@@ -167,8 +168,12 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
       s"""<li><a href="#core-node-${_html(node.id)}">${_html(nodelabels(node.id))}</a> <span class="identity">${_html(node.id)}</span></li>"""
     }.mkString
     val unconnectedcontent = if (unconnected.isEmpty) "" else s"""<ul class="structure-list structure-unconnected">$unconnected</ul>"""
-    s"""<article class="structure-step" data-core-step-ref="${_html(step.id)}" data-core-step-id="${_html(step.id)}" data-logical-pattern="${_html(structure.pattern)}"><h3><a href="#core-step-${_html(step.id)}">${_html(labels(step.id))}</a> ${_pattern_tag(structure.pattern, vocabulary)}</h3><h4>${_html(vocabulary.chrome.relationsHeading)}</h4><div class="structure-relations">$relations</div><h4>${_html(vocabulary.chrome.nodesHeading)}</h4>$unconnectedcontent$nodes</article>"""
+    s"""<article class="structure-step" data-core-step-ref="${_html(step.id)}" data-core-step-id="${_html(step.id)}" data-logical-pattern="${_html(structure.pattern)}"><h3><a href="#core-step-${_html(step.id)}">${_html(labels(step.id))}</a> ${_step_tag(step, vocabulary)}</h3><h4>${_html(vocabulary.chrome.relationsHeading)}</h4><div class="structure-relations">$relations</div><h4>${_html(vocabulary.chrome.nodesHeading)}</h4>$unconnectedcontent$nodes</article>"""
   }
+
+  private def _step_tag(step: CozyDocumentLogicTree.Step, vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary): String =
+    if (vocabulary.semanticRoles.isEmpty) _pattern_tag(step.structure.pattern, vocabulary)
+    else s"""<span class="step-pattern" data-semantic-role="${_html(step.semanticRole)}">${_html(vocabulary.semanticRoles(step.semanticRole))}</span>"""
 
   private def _pattern_tag(pattern: String, vocabulary: CozyDocumentConfirmationProjectionV2.Vocabulary): String =
     s"""<span class="step-pattern" data-logical-pattern="${_html(pattern)}" title="${_html(vocabulary.chrome.logicalPatternHeading)}">${_html(vocabulary.logicalPatterns(pattern))}</span>"""
@@ -245,6 +250,8 @@ private[cozy] object CozyDocumentReaderProjectionV2 {
       chrome.relationsHeading, chrome.noDirectChildFlowTransitions, chrome.logicalStructureReference,
       chrome.identitiesHeading
     ), "chrome")
+    if (vocabulary.semanticRoles.nonEmpty)
+      _required_map(vocabulary.semanticRoles, validated.core.depthFirstSteps.map(_.semanticRole).toSet, "semantic role")
     _required_map(vocabulary.logicalPatterns, validated.core.depthFirstSteps.map(_.structure.pattern).toSet, "logical pattern")
     _required_map(vocabulary.nodeRoles, validated.core.depthFirstSteps.flatMap(_.structure.nodes.map(_.role)).toSet, "node role")
     _required_map(vocabulary.relationTypes, validated.core.depthFirstSteps.flatMap(_.structure.relations.map(_.relationType)).toSet, "Relation type")

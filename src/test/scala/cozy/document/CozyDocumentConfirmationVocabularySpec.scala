@@ -11,11 +11,40 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationVocabularySpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Confirmation Vocabulary" should {
+    "admit optional authored role wording and reject unusable role maps" in {
+      _with_temp_dir("cozy-confirmation-semantic-role-vocabulary") { root =>
+        Given("a generic resource extended with explanatory role wording")
+        val source = Files.readString(_copy_vocabulary(root.resolve("ja")), StandardCharsets.UTF_8)
+        val resource = source.replace("document:\n", "document:\n  semanticRoles:\n    introduction: 導入\n    brief-definition: 簡単な定義\n")
+        val path = _write(root.resolve("roles/ja/confirmation-vocabulary.yaml"), resource)
+
+        When("Document and Summary adapters load the same extended resource")
+        val document = CozyDocumentConfirmationVocabulary.loadDocument(path, "ja")
+        val summary = CozyDocumentConfirmationVocabulary.loadSummary(path, "ja")
+
+        Then("explicit role wording reaches Document while Summary retains the existing catalog")
+        document.semanticRoles shouldBe Map("introduction" -> "導入", "brief-definition" -> "簡単な定義")
+        summary.logicalPatterns shouldBe document.logicalPatterns
+        CozyDocumentConfirmationVocabulary.loadDocument(_copy_vocabulary(root.resolve("legacy/ja")), "ja").semanticRoles shouldBe Map.empty
+
+        Given("empty, invalid-ID and blank-wording semantic role maps")
+        val variants = Vector("  semanticRoles: {}\n", "  semanticRoles:\n    'bad role': 導入\n", "  semanticRoles:\n    introduction: ' '\n")
+        When("the extended resource loader admits each variant")
+        val faults = variants.zipWithIndex.map { case (value, index) =>
+          val invalid = _write(root.resolve(s"invalid-$index/ja/confirmation-vocabulary.yaml"), source.replace("document:\n", "document:\n" + value))
+          _failure(CozyDocumentConfirmationVocabulary.loadDocument(invalid, "ja"))
+        }
+        Then("each unusable role map rejects before rendering")
+        faults.map(_.code) shouldBe Vector("CONFIRMATION_VOCABULARY_FIELDS", "CONFIRMATION_VOCABULARY_FIELDS", "CONFIRMATION_VOCABULARY_WORDING")
+      }
+    }
+
     "adapt one strict generic Japanese resource to both accepted v2 renderer vocabulary types" in {
       _with_temp_dir("cozy-document-confirmation-vocabulary-admission") { root =>
         Given("a direct generic Japanese confirmation vocabulary resource")

@@ -98,3 +98,22 @@ semantic logical-ID bindings, not raw-byte identities. The driver reads current
 valid V2 Core/Document/Summary bytes without rebinding hashes and still rejects
 real schema, ID, reference, locale, path, vocabulary, and command-form faults.
 Neither renderer output nor the generic vocabulary contract changes.
+
+## Authored explanatory-role badges (2026-11-14)
+
+The Document vocabulary additionally admits optional `semanticRoles`, a nonempty
+map from stable Core `Step.semanticRole` identifiers to nonempty trimmed localized
+role wording. Keys use the same identifier grammar as Core. These are explanatory
+categories, not per-Step titles or prose. Unknown Document fields still reject;
+the fixed pattern, node-role, Relation and Flow catalogs remain closed.
+
+When supplied, every role used by the admitted Core must have wording. Missing
+wording rejects before rendering, rather than falling back for individual Steps.
+The primary Step badges in confirmation and reader HTML use the explicitly
+authored role and `data-semantic-role`; no role is inferred from a title, pattern,
+tree position or reading order. Localized Step titles remain Document-owned.
+The actual Logical Pattern and all Relation/Flow semantics remain available in
+the existing structural inspection surfaces. If the optional map is absent,
+the existing Logical Pattern badge presentation is retained. Summary projection
+and Core/Document schemas are unchanged. This supersedes only earlier generic-only
+resource and primary pattern-badge requirements at this presentation seam.

@@ -1,8 +1,14 @@
 # docs/phase
 
+## Document and section structure patterns — planned — 2026-11-15
+
+[Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造2型と節構造8型をCoreの後継版へ結び付け、再帰的な構造検査、作成支援、標準ロジックツリーHTMLと本文への対応を追加する計画です。全項目OPEN、未着手で、既存Phaseの優先順位は変更しません。
+
 ## Internal document packages — planned — 2026-11-11
 
 [Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。全項目OPEN、未着手です。既存Phaseの優先順位は変更しません。
+
+2026-11-15追記: Git管理でも中間物・ログ・キャッシュを対象外とし、原稿・設定・必要な画像の追跡と完成物の管理方針を保持する要件を追加しました。
 
 ## Strict Scala 3 consumer delivery — planned — 2026-11-09
 

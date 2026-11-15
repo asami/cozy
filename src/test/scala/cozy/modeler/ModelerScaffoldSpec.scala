@@ -15,10 +15,22 @@ import org.scalatest.wordspec.AnyWordSpec
  *  version Jun. 27, 2026
  *  version Jul. 31, 2026
  *  version Aug. 30, 2026
- * @version Sep. 27, 2026
+ *  version Sep. 27, 2026
+ * @version Nov. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
+  private def _check_test_dependencies(projectyaml: java.nio.file.Path): Unit = {
+    val metadata = cozy.config.CozyProjectYamlConfig.load(projectyaml)
+    metadata.list("build.dependencies.test") shouldBe Vector(
+      "org.scalatest::scalatest:3.2.19",
+      "org.scalatestplus::scalacheck-1-18:3.2.19.0"
+    )
+    metadata.list("build.dependencies.compile") should not contain (
+      "org.scalatestplus::scalacheck-1-18:3.2.19.0"
+    )
+  }
+
   "CML modeler scaffold generation" should {
     "generate CAR project scaffolds" which {
       "car-sbt-project generates sbt project scaffold" in {
@@ -154,7 +166,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
         projectyamlcontent should not include ("cozyVersion:")
-        projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
+        _check_test_dependencies(projectyaml)
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("abi:")
         projectyamlcontent should include ("dependencies: []")
@@ -311,6 +323,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
 
         val rootbuildcontent = Files.readString(rootbuild)
         val subsystemdescriptorcontent = Files.readString(subsystemdescriptor)
+        _check_test_dependencies(out.resolve("component/project.yaml"))
         rootbuildcontent should include ("lazy val component = project")
         rootbuildcontent should include ("lazy val subsystem = project")
         rootbuildcontent should not include ("lazy val cozyBundleFactoryClassName = settingKey[Option[String]]")
@@ -597,7 +610,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
         projectyamlcontent should not include ("cozyVersion:")
-        projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
+        _check_test_dependencies(projectyaml)
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("""minimum: """)
         projectyamlcontent should include ("""modules:""")
@@ -809,6 +822,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
         Files.exists(out.resolve("project/ProjectYamlBuild.scala")) shouldBe true
         Files.exists(out.resolve("subsystem/subsystem-descriptor.yaml")) shouldBe true
         val projectyamlcontent = Files.readString(out.resolve("component/project.yaml"))
+        _check_test_dependencies(out.resolve("component/project.yaml"))
         projectyamlcontent should include ("""name: "textus-knowledge-editor"""")
         projectyamlcontent should include (
           s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""

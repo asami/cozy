@@ -27,7 +27,8 @@ build:
     compile:
       - "org.goldenport::goldenport-cncf:<development-version>"
     test:
-      - "org.scalatest::scalatest:3.2.10"
+      - "org.scalatest::scalatest:3.2.19"
+      - "org.scalatestplus::scalacheck-1-18:3.2.19.0"
 
 packaging:
   kind: car
@@ -44,6 +45,14 @@ packaging:
         tested:
           - "<tested-version>"
 ```
+
+Both CAR layouts must include ScalaTest and the matching ScalaTestPlus
+ScalaCheck integration in `build.dependencies.test`. The integration supplies
+ScalaCheck transitively and enables property specifications in a fresh project.
+Neither dependency belongs in `build.dependencies.compile` or the CAR ABI
+dependency list. These test dependencies are part of the standard project
+metadata even without `--tests`; that option controls starter specification
+source generation only. Both initialization commands follow the same contract.
 
 `build.cozyVersion` may be added as an exact Cozy generator override; the
 generated build does not write it by default. The CNCF build dependency selects

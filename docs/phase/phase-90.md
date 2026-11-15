@@ -4,14 +4,17 @@ status=planned
 execution_started=false
 
 Planned: 2026-11-11
-Purpose: 内部資料の案件フォルダに編集可能なDocument Projectと完成物を配置し、同期対象外の作業領域で継続生成できるようにします。
+Purpose: 内部資料の案件フォルダに編集可能なDocument Projectと完成物を配置し、Dropbox同期とGit管理に中間物を混入させず、外部作業領域で継続生成できるようにします。
 Progress: [Phase 90 checklist](phase-90-checklist.md)
 Proposal: [機能・境界案](../notes/document-project-private-package.md)
 Origin: [利用者要求](../journal/2026/11/2026-11-11-private-document-package-plan.md)
+Refinement: [Git管理対象の明確化](../journal/2026/11/2026-11-15-document-project-workroot-git-policy.md)
 
 ## Scope
 
 初回配置、配置後の原稿編集、資源参照の移設、外部WorkRoot、日本語PDFと確認HTMLの生成、選択した完成物の更新を対象とします。Dropboxの同期領域では一時ファイルを生成中も作りません。既存のnative Cozy/SmartDox生成経路を使用します。
+
+Git管理するDocument Projectでも同じ外部WorkRootを使用し、原稿・永続設定・必要な画像は管理対象に保ちます。中間生成物・ログ・キャッシュ・一時的な実行状態はGit対象外とします。WorkRootがより大きなGit作業ツリーに含まれる場合の限定したignore設定と、完成物を管理するかの選択をP90-01で定義します。既存の追跡済みファイルを自動で削除・追跡解除しません。`.gitignore`による除外はDropbox同期の回避にはならず、同期領域への書き込み自体を外へ出します。
 
 ## Planned Steps
 

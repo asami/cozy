@@ -3,7 +3,8 @@ package cozy.document
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct. 26, 2026
+ *  version Oct. 26, 2026
+ * @version Nov. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationProjectionV2 {
@@ -31,7 +32,8 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
     logicalPatterns: Map[String, String],
     nodeRoles: Map[String, String],
     relationTypes: Map[String, String],
-    flowTypes: Map[String, String]
+    flowTypes: Map[String, String],
+    semanticRoles: Map[String, String] = Map.empty
   )
   final case class Rendered(html: String)
   final case class ProjectionFault(code: String, reason: String)
@@ -70,7 +72,7 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
     val pressed = step.id == selectedid
     val claims = _claim_controls(step, selectedid, claimtexts)
     val children = if (step.steps.isEmpty) "" else step.steps.map(child => _containment(child, selectedid, labels, vocabulary, claimtexts)).mkString("<ul class=\"containment-list\">", "", "</ul>")
-    s"""<li><button type="button" class="step-control" title="${_html(step.id)}" data-step-control="true" data-step-id="${_html(step.id)}" data-step-claims="${_html(step.claims.map(_.id).mkString(" "))}" data-step-nodes="${_html(step.structure.nodes.map(_.id).mkString(" "))}" data-step-relations="${_html(step.structure.relations.map(_.id).mkString(" "))}" data-step-flows="${_html(step.flow.id)}" aria-pressed="$pressed" aria-controls="flow-${_html(step.id)} structure-${_html(step.id)} prose-region">${_pattern_tag(step.structure.pattern, vocabulary)}<b>${_html(labels(step.id))}</b></button>$claims$children</li>"""
+    s"""<li><button type="button" class="step-control" title="${_html(step.id)}" data-step-control="true" data-step-id="${_html(step.id)}" data-step-claims="${_html(step.claims.map(_.id).mkString(" "))}" data-step-nodes="${_html(step.structure.nodes.map(_.id).mkString(" "))}" data-step-relations="${_html(step.structure.relations.map(_.id).mkString(" "))}" data-step-flows="${_html(step.flow.id)}" aria-pressed="$pressed" aria-controls="flow-${_html(step.id)} structure-${_html(step.id)} prose-region">${_step_tag(step, vocabulary)}<b>${_html(labels(step.id))}</b></button>$claims$children</li>"""
   }
 
   private def _claim_texts(sections: Vector[CozyDocumentDescriptionV2.Section]): Map[String, Vector[String]] = {
@@ -122,7 +124,7 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
     val nodes = structure.nodes.map(node => s"""<li data-node-id="${_html(node.id)}" data-node-role="${_html(node.role)}">${_html(nodelabels(node.id))} <span class="identity">${_html(node.id)}</span> · ${_html(vocabulary.chrome.nodeRoleHeading)}: <span class="type-wording">${_html(vocabulary.nodeRoles(node.role))}</span></li>""").mkString("<ul class=\"structure-list\">", "", "</ul>")
     val relationaudit = structure.relations.map(relation => s"""<li data-relation-id="${_html(relation.id)}" data-relation-type="${_html(relation.relationType)}"><span class="identity">${_html(relation.id)}</span> · ${_html(nodelabels(relation.from))} <span class="identity">${_html(relation.from)}</span> <span class="type-wording">${_html(vocabulary.relationTypes(relation.relationType))}</span> ${_html(nodelabels(relation.to))} <span class="identity">${_html(relation.to)}</span></li>""").mkString("<ul class=\"structure-list\">", "", "</ul>")
     val inventory = s"""<div class="identity" data-core-steps="${_html(step.id)}" data-core-claims="${_html(step.claims.map(_.id).mkString(" "))}" data-core-nodes="${_html(structure.nodes.map(_.id).mkString(" "))}" data-core-relations="${_html(structure.relations.map(_.id).mkString(" "))}" data-core-flows="${_html(step.flow.id)}">${_html(step.id)} · ${_html(structure.pattern)} · ${_html(step.claims.map(_.id).mkString(" "))} · ${_html(structure.nodes.map(_.id).mkString(" "))} · ${_html(structure.relations.map(_.id).mkString(" "))} · ${_html(step.flow.id)}</div>"""
-    s"""<article id="structure-${_html(step.id)}" class="detail-panel" data-step-panel="${_html(step.id)}"$hidden><div class="structure-tags">${_pattern_tag(structure.pattern, vocabulary)}</div>${relations}${if (relationnodes.size == structure.nodes.size) "" else unconnected}<details class="structure-audit"><summary>${_html(vocabulary.chrome.logicalPatternHeading)}</summary><p data-logical-pattern="${_html(structure.pattern)}">${_html(vocabulary.chrome.logicalPatternHeading)}: <span class="type-wording">${_html(vocabulary.logicalPatterns(structure.pattern))}</span> <span class="identity">${_html(structure.pattern)}</span></p><h4>${_html(vocabulary.chrome.nodesHeading)}</h4>$nodes<h4>${_html(vocabulary.chrome.relationsHeading)}</h4>$relationaudit$inventory</details></article>"""
+    s"""<article id="structure-${_html(step.id)}" class="detail-panel" data-step-panel="${_html(step.id)}"$hidden><div class="structure-tags">${_step_tag(step, vocabulary)}</div>${relations}${if (relationnodes.size == structure.nodes.size) "" else unconnected}<details class="structure-audit"><summary>${_html(vocabulary.chrome.logicalPatternHeading)}</summary><p data-logical-pattern="${_html(structure.pattern)}">${_html(vocabulary.chrome.logicalPatternHeading)}: <span class="type-wording">${_html(vocabulary.logicalPatterns(structure.pattern))}</span> <span class="identity">${_html(structure.pattern)}</span></p><h4>${_html(vocabulary.chrome.nodesHeading)}</h4>$nodes<h4>${_html(vocabulary.chrome.relationsHeading)}</h4>$relationaudit$inventory</details></article>"""
   }
 
   private def _structure_relation(relation: CozyDocumentLogicTree.Relation, structure: CozyDocumentLogicTree.Structure, nodelabels: Map[String, String], vocabulary: Vocabulary): String = {
@@ -166,7 +168,7 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
       val refs = CozyDocumentDescriptionV2.References(Vector(value.stepRef), Vector.empty, Vector.empty, Vector.empty, Vector.empty)
       val target = _target_attributes(refs, selected, s"""data-block-id="${_html(value.id)}"""")
       val label = labels.getOrElse(value.stepRef, _fail("CONFIRMATION_V2_DOCUMENT_LABEL", s"missing Document Step label: ${value.stepRef}"))
-      s"""<details class="document-block logical-structure-reference${_highlight_class(refs, selected)}" $target data-step-ref="${_html(value.stepRef)}"><summary>${_structure_mark("structure")} ${_html(vocabulary.chrome.logicalStructureReference)}: ${_html(label)} ${_pattern_tag(core.stepsById(value.stepRef).structure.pattern, vocabulary)}</summary><p class="identity" data-step-ref="${_html(value.stepRef)}">${_html(value.stepRef)}</p></details>"""
+      s"""<details class="document-block logical-structure-reference${_highlight_class(refs, selected)}" $target data-step-ref="${_html(value.stepRef)}"><summary>${_structure_mark("structure")} ${_html(vocabulary.chrome.logicalStructureReference)}: ${_html(label)} ${_step_tag(core.stepsById(value.stepRef), vocabulary)}</summary><p class="identity" data-step-ref="${_html(value.stepRef)}">${_html(value.stepRef)}</p></details>"""
   }
 
   private def _list_item(item: CozyDocumentDescriptionV2.ListItem, selected: Selection): String = {
@@ -178,6 +180,10 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
     val values = refs.steps.map(id => s"""<code>step/${_html(id)}</code>""") ++ refs.relations.map(id => s"""<code>${_structure_mark("structure")} ${_type_tag("structure", core.relationsById(id).relationType, vocabulary.relationTypes)} relation/${_html(id)}</code>""")
     if (values.isEmpty) "" else values.mkString("<div class=\"refs\">", "", "</div>")
   }
+
+  private def _step_tag(step: CozyDocumentLogicTree.Step, vocabulary: Vocabulary): String =
+    if (vocabulary.semanticRoles.isEmpty) _pattern_tag(step.structure.pattern, vocabulary)
+    else s"""<span class="structure-tag" data-semantic-role="${_html(step.semanticRole)}">${_html(vocabulary.semanticRoles(step.semanticRole))}</span>"""
 
   private def _pattern_tag(pattern: String, vocabulary: Vocabulary): String =
     s"""<span class="structure-tag" data-logical-pattern="${_html(pattern)}">${_html(vocabulary.logicalPatterns(pattern))}</span>"""
@@ -210,6 +216,8 @@ private[cozy] object CozyDocumentConfirmationProjectionV2 {
       chrome.nodesHeading, chrome.nodeRoleHeading, chrome.relationsHeading, chrome.noDirectChildFlowTransitions,
       chrome.logicalStructureReference, chrome.identitiesHeading
     ), "chrome")
+    if (vocabulary.semanticRoles.nonEmpty)
+      _required_map(vocabulary.semanticRoles, validated.core.depthFirstSteps.map(_.semanticRole).toSet, "semantic role")
     _required_map(vocabulary.logicalPatterns, validated.core.depthFirstSteps.map(_.structure.pattern).toSet, "logical pattern")
     _required_map(vocabulary.nodeRoles, validated.core.depthFirstSteps.flatMap(_.structure.nodes.map(_.role)).toSet, "node role")
     _required_map(vocabulary.relationTypes, validated.core.depthFirstSteps.flatMap(_.structure.relations.map(_.relationType)).toSet, "Relation type")
