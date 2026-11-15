@@ -30,9 +30,15 @@ Concept authority: [SimpleModelingのスキーマ提案](https://github.com/asam
 
 ## Acceptance boundaries
 
-大文字の標準節は型別スキーマへ照合し、未知の大文字節を診断します。大文字の標準節に該当しない補足節は、小文字・mixed-case・日本語を含め、内容・順序・リンク・ロケールを保持します。標準節であることと必須であることを区別します。PatternのDEFINITION/CONTEXT/PROBLEM/SOLUTION、CONSEQUENCESの推奨扱い、BoK固有profileの境界はproducer仕様で明示します。
+大文字の標準節は記述形式（knowledge_form）に対応するスキーマへ照合し、未知の大文字節を診断します。大文字の標準節に該当しない補足節は、小文字・mixed-case・日本語を含め、内容・順序・リンク・ロケールを保持します。標準節であることと必須であることを区別します。PatternのDEFINITION/CONTEXT/PROBLEM/SOLUTION、CONSEQUENCESの推奨扱い、BoK固有profileの境界はproducer仕様で明示します。
 
-既存のSimpleModeling表記、DEFINITION/RELATIONS、aliases、公開metadata、HTMLとRDFの互換性を検証します。節見出しの空行など既存SmartDox構文を維持し、不正な例を受理するための別パーサーは作りません。`type`・`space`の正規構文、版選択と診断はP92-01で確定します。
+既存のSimpleModeling表記、DEFINITION/RELATIONS、aliases、公開metadata、HTMLとRDFの互換性を検証します。節見出しの空行など既存SmartDox構文を維持し、不正な例を受理するための別パーサーは作りません。P92-01でSpaceを明示する参照構文、受渡し形式、版選択と診断を確定します。
+
+用語ページはSpaceごとに設け、横断検索では各ページにSpace名を表示します。本文中の用語参照は、参照に明示されたSpace、文書に宣言されたSpace、用語集全体の順で、最初に適用できる範囲を一つ選びます。その範囲で候補が一件ならリンクし、複数なら曖昧エラー、ゼロなら未定義エラーとします。他の範囲へ再検索しません。曖昧エラーには原稿位置・用語・候補ページとSpaceを表示します。横断検索で複数件を表示することは正常です。
+
+`concept_type` は概念の分類でBoK索引に使い、`knowledge_form` は知識の記述形式で標準節の検証に使います。たとえば `concept_type=process` と `knowledge_form=pattern` を独立に指定できます。旧 `term_type` は `concept_type` の入力として読み、記述形式を省略した原稿には従来の節規則を適用します。両項目は相互に推定しません。
+
+Space別ページにはそのSpaceでの定義・用例・関連知識を掲載します。同じ語の異なる意味には別のConcept IRIを対応させ、複数Spaceで同じ意味を明示的に共有する場合は同じConcept IRIを参照できます。ページの分割だけでConcept IRIを新設しません。
 
 Knowledge Spaceをpath/categoryへ暗黙対応させず、Term IRIとConcept IRIを同一視しません。複数Spaceと概念識別の未決事項を解決し、採用する対応を仕様化・検証してからRDF連携を変更します。未受領のproducer契約や改訂は未受領として残し、推測して実装しません。
 

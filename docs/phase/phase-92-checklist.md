@@ -18,13 +18,13 @@ Owner: Cozy development; SmartDox owns its producer delivery
 - [ ] 現行SmartDoxの解析・検証・serialization・metadata/RDF経路と、Cozy/SIEの消費境界を確認する。
 - [ ] 概念提案の採用改訂、SmartDoxのproducer担当・実装計画・受渡し形式・版と互換性を明示する。
 - [ ] 型別の標準節、必須性・cardinality、自由節、未知の大文字節の診断、BoK固有profileをdesign/specへ具体化する。
-- [ ] `type`・`space`の構文、SimpleModeling旧表記の認識、既存SmartDox構文と自由節の保持を定義する。
+- [ ] `concept_type`・`knowledge_form`・`space`の構文、SimpleModeling旧表記の認識、既存SmartDox構文と自由節の保持を定義する。
 - [ ] Spaceの識別、単一／複数Spaceと概念の対応、Term/Concept IRI、provenance・extensions・constraintsのRDF対応を決定し、未決事項を残したまま出力仕様を変更しない。
 
 ## P92-02: Typed section handoff
 
 - [ ] 受入済みSmartDox出力の実際の改訂・形式を用い、Cozyの既存受入経路へ接続する。
-- [ ] 型ごとの必須節と未知の大文字節に対するproducer診断を確認する。
+- [ ] 記述形式ごとの必須節と未知の大文字節に対するproducer診断を確認する。
 - [ ] 小文字・mixed-case・日本語の自由節の内容・順序・リンク・ロケールを保持し、不要な順序制約を加えない。
 - [ ] 既存DEFINITION/RELATIONS、aliases、公開metadataとSimpleModeling表記を維持する。
 - [ ] Cozyに二重パーサーや欠落metadata/RDFの再構築を追加しない。
@@ -40,6 +40,9 @@ Owner: Cozy development; SmartDox owns its producer delivery
 
 - [ ] 既存形式と型付き形式、日英、Patternと他の採用型、自由節を持つfixtureを正規のSmartDox→Cozy→BoK経路で検証する。
 - [ ] 必須節欠落、未知の大文字節、旧表記、リンク、自由節のround-trip、型別profileとIRIの正常・拒否ケースを検証する。
+- [ ] 販売・文学史に「作品」の別ページを生成し、横断検索にSpace名付きで両方を表示する。別概念と明示的な同一概念共有の各fixtureでページ・Concept IRIの対応を確認する。
+- [ ] 文書Space内の一意参照、参照側のSpace指定による上書き、Space指定なしの全体一意参照を検証する。複数候補では原稿位置・語・候補ページ・Spaceを含む曖昧エラー、ゼロ件では未定義エラーとし、別Spaceへの誤リンクがないことを確認する。
+- [ ] `concept_type=process` と `knowledge_form=pattern` の原稿がProcess索引に載り、SOLUTION欠落ではPatternの検証が失敗する。旧 `term_type=process` だけの原稿は従来の分類・節規則で扱う。
 - [ ] 例の節見出し後に空行を保ち、既存語彙の一括書換えなしに利用できることを確認する。
 - [ ] producer側の検証・受渡しとCozyのfocused/integration検証、独立レビュー、最終Cozy通常検証を実際の結果で確認する。
 - [ ] スキーマ内容やExecutable Knowledgeへ新しい実行権限を与えていない。
