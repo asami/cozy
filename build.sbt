@@ -123,7 +123,7 @@ libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.19-SNAPSHOT"
 libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.20-SNAPSHOT"
 
 val simplemodelerVersion =
-  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
+  sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.28-SNAPSHOT"))
 
 libraryDependencies ++= {
   validateCozySimpleModelerDevelopment.value
@@ -508,3 +508,40 @@ lazy val root = (project in file(".")).
     }.value
   ).
   settings(simpleModelerSourceSettings)
+
+// Compile and exercise Scala 3 output from the same CML route used by consumers.
+lazy val nestedValueCodecFixture = (project in file("src/test/fixtures/nested-value-codecs"))
+  .settings(
+    scalaVersion := scaffoldScalaVersion,
+    publish / skip := true,
+    // Fixture results remain in its JUnit report; the root focused check owns the console summary.
+    Test / logLevel := Level.Warn,
+    resolvers := (root / resolvers).value,
+    libraryDependencies ++= Seq(
+      "org.goldenport" %% "goldenport-cncf" % cncfVersion,
+      "io.circe" %% "circe-generic" % "0.14.3",
+      "io.circe" %% "circe-parser" % "0.14.3",
+      "org.scalatest" %% "scalatest" % "3.2.19" % Test,
+      "org.scalacheck" %% "scalacheck" % "1.19.0" % Test
+    ),
+    Compile / sourceGenerators += Def.task {
+      val output = (Compile / sourceManaged).value / "nested-value-codecs"
+      val input = baseDirectory.value / "model.cml"
+      IO.delete(output)
+      IO.createDirectory(output)
+      val classpath = (root / Compile / fullClasspath).value.files
+      val log = streams.value.log
+      (root / Compile / runner).value.run(
+        "cozy.Cozy", classpath,
+        Seq("modeler-scala", input.getAbsolutePath, "--save", output.getAbsolutePath), log
+      ).get
+      (output ** "*.scala").get
+    }.taskValue
+  )
+
+root / Test / testOnly := (root / Test / testOnly)
+  .dependsOn(nestedValueCodecFixture / Test / test).evaluated
+
+Compile / scalafix / unmanagedSources := (Compile / unmanagedSources).value
+Compile / scalafix / managedSources := Nil
+addCommandAlias("fixCheck", "Compile / scalafix --check")

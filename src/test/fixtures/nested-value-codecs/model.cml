@@ -1,0 +1,45 @@
+# COMPONENT
+
+## NestedCodec
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## Leaf
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| text | string | 1 |
+
+## Branch
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| leaf | Leaf | 1 |
+
+## Envelope
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| optional | Branch | ? |
+| ordered | Branch | * |
+
+# ENTITY
+
+## Document
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| id | entityid | 1 |
+| target | Envelope | 1 |

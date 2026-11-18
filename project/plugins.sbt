@@ -15,3 +15,5 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 libraryDependencies += "org.scala-sbt" %% "scripted-plugin" % "1.9.7"
 
 addSbtPlugin("org.goldenport" % "sbt-cozy" % "0.1.16")
+
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.12.1")
