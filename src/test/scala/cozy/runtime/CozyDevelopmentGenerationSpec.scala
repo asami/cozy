@@ -66,6 +66,19 @@ final class CozyDevelopmentGenerationSpec extends AnyWordSpec with Matchers with
       foreign.getMessage should include("Ivy publication coordinates")
     }
 
+    "exclude scala-tool Ivy dependencies from the runtime graph" in {
+      Given("a selected backend whose Ivy descriptor declares non-runtime Scala tools")
+      val request = _request()
+      val descriptor = Paths.get(request.modules(1).artifact).getParent.getParent.resolve("ivys/ivy.xml")
+      val xml = new String(Files.readAllBytes(descriptor), StandardCharsets.UTF_8)
+      val tools = """<dependency org="org.scala-lang" name="scala-compiler" rev="2.12.18" conf="scala-tool->default"/><dependency org="org.scala-lang" name="scala-library" rev="2.12.18" conf="scala-tool->optional(default)"/>"""
+      Files.write(descriptor, xml.replace("</dependencies>", tools + "</dependencies>").getBytes(StandardCharsets.UTF_8))
+      When("the selected graph is validated without adding the compiler tool")
+      val result = validate(request)
+      Then("both tool declarations are excluded from the runtime graph")
+      result shouldBe (())
+    }
+
     "reject undeclared graph edges and compound Ivy mappings" in {
       val request = _request()
       val path = Paths.get(request.selection.publicationRoot, "fixture", "extra", "1", "jars", "extra.jar")
@@ -81,7 +94,7 @@ final class CozyDevelopmentGenerationSpec extends AnyWordSpec with Matchers with
       Files.write(Paths.get(request.resolution), Json.stringify(Json.toJson(Resolution(request.modules, request.edges))).getBytes(StandardCharsets.UTF_8))
       val descriptor = Paths.get(request.modules(1).artifact).getParent.getParent.resolve("ivys/ivy.xml")
       val xml = new String(Files.readAllBytes(descriptor), StandardCharsets.UTF_8)
-      Files.write(descriptor, xml.replace("compile->default(compile)", "provided->default;compile->default(compile)").getBytes(StandardCharsets.UTF_8))
+      Files.write(descriptor, xml.replace("compile->default(compile)", "scala-tool->default;compile->default(compile)").getBytes(StandardCharsets.UTF_8))
       intercept[Exception](validate(request)).getMessage should include("compound Ivy")
     }
 

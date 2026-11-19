@@ -263,7 +263,7 @@ private[cozy] object CozyDevelopmentGeneration {
             val conf = _attr_(dependency, "conf")
             if (!conf.matches("[A-Za-z][A-Za-z0-9_-]*->[^;,\\s]+"))
               _invalid("unsupported compound Ivy dependency configuration")
-            val source = conf.takeWhile(_ != '-')
+            val source = conf.substring(0, conf.indexOf("->"))
             if (!Set("compile", "runtime", "provided", "test", "scala-tool", "optional").contains(source))
               _invalid("unsupported Ivy dependency configuration")
             if (source == "compile" || source == "runtime") {
