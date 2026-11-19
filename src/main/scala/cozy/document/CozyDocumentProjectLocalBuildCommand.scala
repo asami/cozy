@@ -49,7 +49,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         CozyDocumentProject._failure("DP-CLI-001", value.getMessage)
     }
     val configuration = _load_configuration(project)
-    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project))
+    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project), articleLocale)
     val plans = closure.map(value => value.contract.id -> value).toMap
     val outcomes = mutable.Map.empty[String, String]
 
@@ -58,18 +58,28 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         val prerequisiteplan = plans.getOrElse(prerequisite, _failure("missing generated prerequisite producer", prerequisite))
         _project_relative(project, prerequisiteplan.output) -> prerequisiteplan.output
       }
+      val marker = plan.output.resolveSibling(".article-locale")
+      val isarticle = plan.contract.id == "smartdox-article-html"
+      if (isarticle && Files.exists(marker, LinkOption.NOFOLLOW_LINKS) && (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)))
+        _failure("article locale marker must be a direct regular file or absent", marker.toString)
       val observation = CozyDocumentProjectLocalBuild.FreshnessObservation(
         (plan.inputs ++ generated).map { case (relative, path) =>
           CozyDocumentProjectLocalBuild.InputObservation(relative, Some(_modified_time(path)))
         },
         CozyDocumentProjectLocalBuild.OutputObservation(_output_time(plan.output)),
-        force
+        force || (isarticle && (articleLocale.isDefined || Files.exists(marker, LinkOption.NOFOLLOW_LINKS)))
       )
       CozyDocumentProjectLocalBuild.evaluate(observation) match {
         case CozyDocumentProjectLocalBuild.FreshnessDecision.ReuseCurrentOutput =>
           outcomes += plan.contract.id -> "reused"
         case _ =>
-          _install(plan, _render(plan, articleLocale))
+          val html = _render(plan, articleLocale)
+          if (isarticle && articleLocale.isDefined) {
+            _ensure_output_directory(plan.outputroot, plan.output.getParent)
+            Files.writeString(marker, articleLocale.get, StandardCharsets.UTF_8)
+          }
+          _install(plan, html)
+          if (isarticle && articleLocale.isEmpty) Files.deleteIfExists(marker)
           outcomes += plan.contract.id -> "built"
       }
     }
@@ -143,7 +153,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     TargetDefinition(inputs, prerequisites)
   }
 
-  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path): Vector[Plan] = {
+  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path, articlelocale: Option[String] = None): Vector[Plan] = {
     val contracts = CozyDocumentProjectLocalBuild.targetContracts.map(value => value.id -> value).toMap
     val plans = mutable.Map.empty[String, Plan]
     val complete = mutable.Set.empty[String]
@@ -161,7 +171,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
       }
       val assets = document.map(CozyDocumentFigureAssets.materialize(project, _)).getOrElse(CozyDocumentFigureAssets.empty)
-      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project)) else None
+      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project, articlelocale)) else None
       val usedassets = article.map(_.assets).getOrElse(assets)
       val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
       val output = _output(outputroot, contract)

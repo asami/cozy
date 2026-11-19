@@ -1,6 +1,6 @@
 # Phase 90 checklist — Internal Document Packages and External Build Workspaces
 
-status=planned
+status=in_progress
 Updated: 2026-11-16
 Plan: [Phase 90](phase-90.md)
 Owner: Cozy development
@@ -27,6 +27,8 @@ Completed in commit `c48ad34b` after compile and independent review.
 
 ## P90-02: External rendering workspace
 
+Native Step completed in local commit `658ae925`. The item-level ledger remains available for Phase review.
+
 - [ ] native PDFのja/en両経路と本文HTML・Core確認HTMLを外部WorkRootへ接続し、既存の図表・採番・ロケール選択を維持する。
 - [ ] infographicの画像変換とスライドのレンダリング・組立て・確認画像を外部WorkRootへ接続する。
 - [ ] ja/enの音声合成・発音用中間データ・対話レンダリング・部分動画・最終結合・動画確認の作業領域を外部WorkRootへ接続する。
@@ -38,6 +40,8 @@ Completed in commit `c48ad34b` after compile and independent review.
 
 ## P90-03: Package placement and refresh
 
+Native Step completed in local commit `c031dc96`. The item-level ledger remains available for Phase review.
+
 - [ ] Core・各言語Document・index.dox・原図・IR・台本・永続設定・必要素材をsource/へ、選択完成物だけを所定位置へ配置し、作業用コピー・ログ・target・キャッシュを除外する。
 - [ ] 配置先source/を正本として編集・日英再生成でき、元のプロジェクトやホスト固有の絶対パスを必要としない。共有設定の同梱・外部依存の扱いを明示する。
 - [ ] PDF・infographic・スライド・音声・動画ごとに成功した選択完成物のみを反映し、生成失敗では既存完成物を保持する。
@@ -47,6 +51,8 @@ Completed in commit `c48ad34b` after compile and independent review.
 - [ ] 承認ハッシュゲート、クラウドやYouTubeへの自動公開、元原稿の自動削除を導入しない。
 
 ## P90-04: Integrated acceptance and closure
+
+Implementation candidate and actual evidence are recorded in the [acceptance journal](../journal/2026/11/2026-11-19-phase90-native-acceptance.md). Both relocated cases produced 13 selected outputs. Observed Core required an isolated compatibility copy and the renderer used a separately installed host tool. Audio audition, independent reviews, final normal tests and closure remain open.
 
 - [ ] 匿名化した同等fixtureで配置→編集→外部生成→完成物更新→別パスへの再配置を、正常・失敗・中断経路で自動検証する。
 - [ ] 観測モデルを隔離したローカル作業コピーで受入し、ja/enそれぞれの記事PDF・infographic・まとめスライド・音声・動画を既存native経路で生成・確認する。

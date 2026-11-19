@@ -101,7 +101,7 @@ private[cozy] object CozyDocumentProjectPackage {
           CozyDocumentProjectVideoWorkspace.buildCandidate(stagedproject, workspace, product.product, product.locale, validateOnly = true)
         case "article-review" =>
           CozyDocumentProjectLocalBuildCommand.validateTargetConfiguration(stagedproject, "smartdox-article-html")
-          val references = CozyDocumentProjectSmartDoxArticleHtml.articleImageReferences(stagedproject)
+          val references = CozyDocumentProjectSmartDoxArticleHtml.articleImageReferences(stagedproject, Some(product.locale))
           val media = stagedproject.resolve("media.yaml")
           val resources = if (Files.isRegularFile(media, LinkOption.NOFOLLOW_LINKS))
             CozyDocumentProject._load_json(media, "media descriptor").hcursor.downField("resources").focus.flatMap(_.asArray).getOrElse(Vector.empty)
@@ -313,7 +313,7 @@ private[cozy] object CozyDocumentProjectPackage {
     val resources = if (Files.isRegularFile(media, LinkOption.NOFOLLOW_LINKS))
       CozyDocumentProject._load_json(media, "media descriptor").hcursor.downField("resources").focus.flatMap(_.asArray).getOrElse(Vector.empty)
     else Vector.empty
-    CozyDocumentProjectSmartDoxArticleHtml.articleImageReferences(project).zipWithIndex.foreach { case (reference, index) =>
+    CozyDocumentProjectSmartDoxArticleHtml.articleImageReferences(project, Some(locale)).zipWithIndex.foreach { case (reference, index) =>
       val destination = project.resolve(_relative(reference, "article image"))
       if (!Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
         val matches = resources.filter(_.hcursor.get[String]("output").toOption.contains(reference))
