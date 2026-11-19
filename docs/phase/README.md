@@ -1,5 +1,9 @@
 # docs/phase
 
+## Shared bibliography and PDF references — planned — 2026-11-20
+
+[Phase 94](phase-94.md) / [checklist](phase-94-checklist.md) plans shared bibliography definitions across Document Projects and numbered, document-local references in Japanese and English article PDFs. It retains SmartDox's existing `bib:[key]` syntax. Implementation is unstarted and all checklist items are OPEN.
+
 ## LexiDox Phase 92/93 alignment — planned — 2026-11-18
 
 The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both Phase checklists to canonical LX-J01–LX-J08: one producer grammar/metadata lineage, identity resolution before display selection, independent concept/knowledge-form/display roles and shared source fixtures. Phase 92 supplies the semantic baseline; Phase 93 adds a compatible presentation extension. Both remain unstarted and existing priorities are unchanged.

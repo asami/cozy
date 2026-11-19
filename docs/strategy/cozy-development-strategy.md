@@ -1,9 +1,13 @@
 # Cozy Development Strategy
 
 Date: 2026-07-28
-Updated: 2026-11-18 (Asia/Tokyo)
+Updated: 2026-11-20 (Asia/Tokyo)
 
 Status: active
+
+## Shared bibliography and PDF references — planned — 2026-11-20
+
+[Phase 94](../phase/phase-94.md) / [checklist](../phase/phase-94-checklist.md) plans a shared bibliography catalog for Document Projects. Authors use SmartDox's existing `bib:[key]` syntax. Article PDFs number citations in first-use order and display only cited entries in the final References section. The initial acceptance covers Japanese and English PDFs and reproducible offline builds. The plan is unstarted and all checklist items are OPEN.
 
 ## LexiDox knowledge/presentation alignment — planned — 2026-11-18
 
