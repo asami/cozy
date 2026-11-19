@@ -73,6 +73,73 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
       fault.code shouldBe "LOGIC_TREE_FORMAT_COVERAGE"
       fault.path shouldBe "$.stepBindings"
     }
+    "render the typed hierarchy and references through the normal command in both locales" in {
+      Given("a recursive v2 Core with different parent and child patterns")
+      val directory = java.nio.file.Files.createTempDirectory("pattern-overview")
+      val core = directory.resolve("core.yaml")
+      val format = directory.resolve("format.yaml")
+      val output = directory.resolve("overview.html")
+      val source = _source.replace("\"step\":\"root\",\"pattern\":\"definition\"", "\"step\":\"root\",\"pattern\":\"decomposition\"")
+        .replace("\"id\":\"ra\",\"role\":\"definition\"", "\"id\":\"rp\",\"role\":\"purpose\",\"target\":{\"kind\":\"claim\",\"id\":\"root-claim\"}},{\"id\":\"ra\",\"role\":\"overview\"")
+        .replace("\"id\":\"rr\",\"role\":\"properties\"", "\"id\":\"rr\",\"role\":\"components\"")
+        .replace("\"id\":\"ce\",\"role\":\"result-condition\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[]", "\"id\":\"ce\",\"role\":\"result-condition\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[{\"ancestor\":\"root\",\"role\":\"purpose\",\"target\":\"root-claim\"}]")
+      java.nio.file.Files.writeString(core, source)
+      try {
+        for (locale <- Vector("ja", "en")) {
+          val wording = if (locale == "ja") "親の問い？" else "Parent question?"
+          val formatjson = s"""{
+            "schema":"cozy.content-core.logic-tree-format.v2","coreId":"sample","locale":"$locale",
+            "base":{"schema":"cozy.content-core.logic-tree-format.v1","id":"format","coreId":"sample","locale":"$locale",
+              "stepBindings":[{"id":"root","title":"Root"},{"id":"child","title":"Child"}],
+              "claimBindings":[{"id":"root-claim","text":"Root claim"},{"id":"child-claim","text":"Child claim"}],
+              "nodeBindings":[{"id":"rs","label":"RS"},{"id":"rt","label":"RT"},{"id":"cs","label":"CS"},{"id":"ct","label":"CT"}],
+              "chrome":{"overviewLabel":"Overview","overviewDocumentTitle":"Overview","slidesDocumentTitle":"Slides","pageCountLabel":"Pages",
+                "claimsHeading":"Claims","localStructureHeading":"Structure","directChildrenHeading":"Children","directChildFlowHeading":"Flow",
+                "noDirectChildren":"None","noDirectChildFlowTransitions":"None","previous":"Previous","next":"Next","deck":"Deck","navigationAriaLabel":"Navigation"}},
+            "questionBindings":[{"id":"qr","text":"$wording"},{"id":"qc","text":"Child?"}] }"""
+          java.nio.file.Files.writeString(format, formatjson)
+          When("overview is rendered by the command")
+          val rendered = CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "render", "--core", core.toString, "--format", format.toString, "--kind", "overview", "--save", output.toString))
+          val html = java.nio.file.Files.readString(output)
+          Then("localized choices, authored questions and explicit child-to-claim references remain navigable")
+          rendered shouldBe true
+          html should include (wording)
+          html should include (if (locale == "ja") "構成分解型" else "Decomposition")
+          html should include (if (locale == "ja") "仕組み型" else "Mechanism")
+          html should include ("href=\"#claim-root-claim\"")
+          html should include ("id=\"claim-root-claim\"")
+          html should include ("id=\"step-child\"")
+          html should include (":target{")
+          html should include (":focus-visible{")
+          html should include ("class=\"local-structure\"")
+          html should include ("class=\"direct-child-flow\"")
+          html should include ("class=\"containment\"")
+          html should not include ("<script src=")
+          html should not include ("<link rel=\"stylesheet\"")
+          val ids = """ id="([^"]+)"""".r.findAllMatchIn(html).map(_.group(1)).toVector
+          ids.distinct shouldBe ids
+          html should include (s"""<html lang="$locale">""")
+          html should include ("id=\"step-child\" tabindex=\"-1\"")
+          html should include (if (locale == "ja") "継承元" else "Inherited from")
+          val child = html.substring(html.indexOf("id=\"step-child\""))
+          child should include ("href=\"#step-root\"")
+          child should include ("href=\"#claim-root-claim\"")
+          val targets = """ href="#([^"#]+)"""".r.findAllMatchIn(html).map(_.group(1)).toVector
+          targets should not be empty
+          targets.forall(ids.contains) shouldBe true
+          val slides = intercept[CozyDocumentLogicTree.LogicTreeFault] {
+            CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "render", "--core", core.toString, "--format", format.toString, "--kind", "slides", "--save", output.toString))
+          }
+          slides.code shouldBe "LOGIC_TREE_CLI"
+          java.nio.file.Files.readString(output) shouldBe html
+        }
+      } finally {
+        java.nio.file.Files.deleteIfExists(output)
+        java.nio.file.Files.deleteIfExists(format)
+        java.nio.file.Files.deleteIfExists(core)
+        java.nio.file.Files.deleteIfExists(directory)
+      }
+    }
     "enforce role cardinality, order, answer references and explicit inherited context" in {
       Given("a completed recursive envelope")
       val missing = _source.replace("{\"id\":\"di\",\"role\":\"introduction\",\"step\":\"child\"},", "")

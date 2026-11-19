@@ -22,15 +22,24 @@ private[cozy] object CozyDocumentLogicTreeCommand {
         case _: CozyDocumentLogicTree.LogicTreeFault => None
       }
       source.filter(CozyDocumentPatternDraft.isDraft).foreach(CozyDocumentPatternDraft.rejectIncomplete)
-      val validated = CozyDocumentLogicTree.load(_input_path(request.core, "core"), _input_path(request.format, "format"))
-      val rendered = request.kind match {
-        case "overview" => CozyDocumentLogicTreeProjection.overview(validated)
-        case "slides" => CozyDocumentLogicTreeProjection.slides(validated)
-        case _ => _fail("LOGIC_TREE_CLI", "$.kind", "--kind must be overview or slides")
+      val isv2 = source.exists(_.hcursor.get[String]("schema").toOption.contains("cozy.content-core.logic-tree.v2"))
+      val (rendered, coreid, locale) = if (isv2) {
+        if (request.kind != "overview") _fail("LOGIC_TREE_CLI", "$.kind", "v2 supports overview only")
+        val envelope = CozyDocumentPatternCodec.decode(source.get)
+        val format = CozyDocumentPatternCodec.decodeFormat(CozyDocumentLogicTree.loadPatternFormat(_input_path(request.format, "format")), envelope)
+        (CozyDocumentLogicTreeProjection.patternOverview(envelope, format), envelope.core.id, format.locale)
+      } else {
+        val validated = CozyDocumentLogicTree.load(_input_path(request.core, "core"), _input_path(request.format, "format"))
+        val result = request.kind match {
+          case "overview" => CozyDocumentLogicTreeProjection.overview(validated)
+          case "slides" => CozyDocumentLogicTreeProjection.slides(validated)
+          case _ => _fail("LOGIC_TREE_CLI", "$.kind", "--kind must be overview or slides")
+        }
+        (result, validated.core.id, validated.format.locale)
       }
       val destination = _destination(request.save)
       _publish(destination, rendered.html)
-      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\noutput: $destination")
+      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: $coreid\nlocale: $locale\noutput: $destination")
       true
     case "document-project" :: "logic-tree" :: "validate" :: rest =>
       val values = _parse_options(rest, Set("core", "format"))
