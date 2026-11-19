@@ -237,4 +237,138 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
       second.code shouldBe "PATTERN_IDENTITY"
     }
   }
+  "Explicit Document correspondence" should {
+    "require complete direct typed references for both role kinds" in {
+      Given("an admitted recursive envelope and Document targets with direct references")
+      val envelope = CozyDocumentPatternCodec.decode(parse(_source).toOption.get)
+      val empty = CozyDocumentDescriptionV2.References(Vector.empty, Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+      val steprefs = empty.copy(steps = Vector("child"))
+      val claimrefs = empty.copy(claims = Vector("root-claim", "child-claim"))
+      val section = CozyDocumentDescriptionV2.Section("chapter", "Chapter", steprefs,
+        Vector(CozyDocumentDescriptionV2.Paragraph("paragraph", "Text", claimrefs),
+          CozyDocumentDescriptionV2.ListBlock("list", Vector(CozyDocumentDescriptionV2.ListItem("item", "Item", claimrefs)), empty),
+          CozyDocumentDescriptionV2.Figure("figure", "asset", "Caption", "Alt", steprefs),
+          CozyDocumentDescriptionV2.Table("table", "Caption", Vector.empty, Vector.empty, steprefs),
+          CozyDocumentDescriptionV2.LogicalStructure("logical", "child")), Vector.empty)
+      val description = CozyDocumentDescriptionV2.DocumentDescription("cozy.document-description.v2", "doc", CozyDocumentDescriptionV2.CoreBinding("sample"), "en", CozyDocumentDescriptionV2.Document("Title", Vector(section)), CozyDocumentDescriptionV2.Labels(Vector.empty, Vector.empty))
+      val document = CozyDocumentDescriptionV2.ValidatedDocument(envelope.source, description, CozyDocumentDescriptionV2.DocumentTargets(Set("chapter"), Set("paragraph", "list", "figure", "table", "logical"), Set("item")))
+      val chrome = CozyDocumentLogicTree.Chrome("Overview", "Overview", "Slides", "Pages", "Claims", "Structure", "Children", "Flow", "None", "None", "Previous", "Next", "Deck", "Navigation")
+      val base = CozyDocumentLogicTree.Format("format", "sample", "en", Vector.empty, Vector.empty, Vector.empty, chrome)
+      val format = CozyDocumentPatternCodec.LocalizedFormat("sample", "en", base, Vector.empty)
+      val roleids = envelope.documentRoles.map(_.id) ++ envelope.sections.flatMap(_.roles.map(_.id))
+      val stepids = envelope.documentRoles.map(_.id) :+ "rr"
+      val assignments = roleids.map { id =>
+        if (stepids.contains(id)) s"""{"roleAssignment":"$id","targetKind":"section","targetId":"chapter"}"""
+        else s"""{"roleAssignment":"$id","targetKind":"block","targetId":"paragraph"}"""
+      }
+      def _mapping_(items: Vector[String]): io.circe.Json = parse(s"""{"schema":"cozy.document-pattern-correspondence.v1","coreId":"sample","documentId":"doc","locale":"en","assignments":[${items.mkString(",")}]}""").toOption.get
+      When("complete mappings and altered mappings are checked")
+      CozyDocumentPatternCorrespondence.validate(_mapping_(assignments), envelope, format, document)
+      val duplicate = assignments :+ assignments.head
+      val stale = assignments.updated(0, assignments.head.replace("dr", "stale"))
+      val wrong = assignments.updated(0, assignments.head.replace("section", "block"))
+      val indirect = assignments.updated(0, assignments.head.replace("chapter", "list").replace("section", "block"))
+      val missing = assignments.tail
+      val faults = Vector(duplicate, stale, wrong, indirect, missing).map(items => intercept[CozyDocumentLogicTree.LogicTreeFault] {
+        CozyDocumentPatternCorrespondence.validate(_mapping_(items), envelope, format, document)
+      })
+      Then("duplicates, stale or wrong targets, indirect references and missing roles are rejected")
+      faults.map(_.code) shouldBe Vector.fill(5)("PATTERN_CORRESPONDENCE")
+      val alternatives = Vector("figure", "table", "logical")
+      alternatives.foreach { target =>
+        val changed = assignments.updated(0, assignments.head.replace("section", "block").replace("chapter", target))
+        CozyDocumentPatternCorrespondence.validate(_mapping_(changed), envelope, format, document)
+      }
+      val listitem = assignments.updated(assignments.indexWhere(_.contains("\"ra\"")), assignments.find(_.contains("\"ra\"")).get.replace("block", "list-item").replace("paragraph", "item"))
+      CozyDocumentPatternCorrespondence.validate(_mapping_(listitem), envelope, format, document)
+      val changed = CozyDocumentPatternCodec.decode(parse(_source.replace("root-claim", "new-claim")).toOption.get)
+      val changedsection = section.copy(coreRefs = steprefs.copy(claims = Vector("new-claim")), blocks = Vector(CozyDocumentDescriptionV2.Paragraph("paragraph", "Text", claimrefs.copy(claims = Vector("child-claim")))))
+      val changeddescription = description.copy(document = description.document.copy(sections = Vector(changedsection)))
+      val changeddocument = document.copy(core = changed.source, description = changeddescription)
+      val changedfault = intercept[CozyDocumentLogicTree.LogicTreeFault] {
+        CozyDocumentPatternCorrespondence.validate(_mapping_(assignments), changed, format, changeddocument)
+      }
+      changedfault.code shouldBe "PATTERN_CORRESPONDENCE"
+      changedfault.reason should include ("new-claim")
+    }
+    "reject either half of the optional command pair before loading inputs" in {
+      Given("a validate command with only one correspondence option")
+      When("either half is supplied")
+      val faults = Vector("document", "correspondence").map { option =>
+        intercept[CozyDocumentLogicTree.LogicTreeFault] {
+          CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "validate", "--core", "core.yaml", "--format", "format.yaml", s"--$option", "missing.yaml"))
+        }
+      }
+      Then("both fail at the CLI boundary")
+      faults.map(_.code) shouldBe Vector("LOGIC_TREE_CLI", "LOGIC_TREE_CLI")
+    }
+  }
+
+  "The v2 authoring to reader handoff" should {
+    "admit the same embedded Core in both Document paths and keep authoring labels out of SmartDox" in {
+      Given("a complete v2 envelope, explicitly authored Document and separate SmartDox article")
+      val root = java.nio.file.Files.createTempDirectory("pattern-document-handoff")
+      val project = java.nio.file.Files.createDirectory(root.resolve("article.dox"))
+      val content = java.nio.file.Files.createDirectory(project.resolve("content"))
+      val locale = java.nio.file.Files.createDirectory(content.resolve("en"))
+      val core = content.resolve("core.yaml")
+      val document = locale.resolve("document.yaml")
+      val article = project.resolve("index.dox")
+      val prose = "Reader-authored explanatory prose."
+      val documentjson = s"""{
+        "schema":"cozy.document-description.v2","id":"doc","core":{"id":"sample"},"locale":"en",
+        "document":{"title":"Reader title","sections":[{"id":"chapter","heading":"Reader heading",
+          "coreRefs":{"steps":["root","child"],"claims":["root-claim","child-claim"],"nodes":["rs","rt","cs","ct"],"relations":["rm","cm"],"flows":["rf","cf"]},
+          "blocks":[{"id":"paragraph","kind":"paragraph","text":"$prose","coreRefs":{"steps":["child"],"claims":["root-claim","child-claim"],"nodes":[],"relations":[],"flows":[]}}],"sections":[]}]},
+        "labels":{"steps":[{"stepRef":"root","text":"Root"},{"stepRef":"child","text":"Child"}],
+          "nodes":[{"nodeRef":"rs","text":"RS"},{"nodeRef":"rt","text":"RT"},{"nodeRef":"cs","text":"CS"},{"nodeRef":"ct","text":"CT"}]}}"""
+      java.nio.file.Files.writeString(core, _source)
+      java.nio.file.Files.writeString(document, documentjson)
+      java.nio.file.Files.writeString(article, s"# Reader heading\n\n$prose\n")
+      try {
+        When("both normal loaders and the native article renderer consume their sources")
+        val envelope = CozyDocumentPatternCodec.decode(parse(_source).toOption.get)
+        val strict = CozyDocumentDescriptionV2.loadDocument(core, document)
+        val source = CozyDocumentDescriptionV2.loadSourceDocument(core, document)
+        val html = CozyDocumentProjectSmartDoxArticleHtml.render(project).html
+        Then("both loaders use that validated embedded Core and retain only authored prose")
+        strict.core shouldBe envelope.source
+        source.core.core shouldBe envelope.core
+        source.core.depthFirstSteps shouldBe envelope.source.depthFirstSteps
+        strict.description.document.sections.head.blocks.head shouldBe CozyDocumentDescriptionV2.Paragraph("paragraph", prose, CozyDocumentDescriptionV2.References(Vector("child"), Vector("root-claim", "child-claim"), Vector.empty, Vector.empty, Vector.empty))
+        html should include (prose)
+        Vector("Background First", "Worked Example", "Roles and reading order", "root-claim", "background-first").foreach { label => html should not include (label) }
+        java.nio.file.Files.readString(article) shouldBe s"# Reader heading\n\n$prose\n"
+        java.nio.file.Files.readString(document) shouldBe documentjson
+      } finally {
+        java.nio.file.Files.deleteIfExists(article)
+        java.nio.file.Files.deleteIfExists(document)
+        java.nio.file.Files.deleteIfExists(core)
+        java.nio.file.Files.deleteIfExists(locale)
+        java.nio.file.Files.deleteIfExists(content)
+        java.nio.file.Files.deleteIfExists(project)
+        java.nio.file.Files.deleteIfExists(root)
+      }
+    }
+    "reject stale role correspondence after a compatible authoring change" in {
+      Given("an envelope whose valid role assignment was renamed without changing its meaning")
+      val original = CozyDocumentPatternCodec.decode(parse(_source).toOption.get)
+      val changed = CozyDocumentPatternCodec.decode(parse(_source.replace("\"id\":\"rr\"", "\"id\":\"rr-new\"")).toOption.get)
+      val refs = CozyDocumentDescriptionV2.References(Vector("root", "child"), Vector("root-claim", "child-claim"), Vector.empty, Vector.empty, Vector.empty)
+      val section = CozyDocumentDescriptionV2.Section("chapter", "Heading", refs, Vector.empty, Vector.empty)
+      val description = CozyDocumentDescriptionV2.DocumentDescription("cozy.document-description.v2", "doc", CozyDocumentDescriptionV2.CoreBinding("sample"), "en", CozyDocumentDescriptionV2.Document("Title", Vector(section)), CozyDocumentDescriptionV2.Labels(Vector.empty, Vector.empty))
+      val document = CozyDocumentDescriptionV2.ValidatedDocument(changed.source, description, CozyDocumentDescriptionV2.DocumentTargets(Set("chapter"), Set.empty, Set.empty))
+      val chrome = CozyDocumentLogicTree.Chrome("Overview", "Overview", "Slides", "Pages", "Claims", "Structure", "Children", "Flow", "None", "None", "Previous", "Next", "Deck", "Navigation")
+      val format = CozyDocumentPatternCodec.LocalizedFormat("sample", "en", CozyDocumentLogicTree.Format("format", "sample", "en", Vector.empty, Vector.empty, Vector.empty, chrome), Vector.empty)
+      val roles = original.documentRoles.map(_.id) ++ original.sections.flatMap(_.roles.map(_.id))
+      val entries = roles.map(id => s"""{"roleAssignment":"$id","targetKind":"section","targetId":"chapter"}""").mkString(",")
+      val mapping = parse(s"""{"schema":"cozy.document-pattern-correspondence.v1","coreId":"sample","documentId":"doc","locale":"en","assignments":[$entries]}""").toOption.get
+      When("the old mapping is checked against the changed envelope")
+      val fault = intercept[CozyDocumentLogicTree.LogicTreeFault] { CozyDocumentPatternCorrespondence.validate(mapping, changed, format, document) }
+      Then("the stale assignment is rejected without implicit conversion")
+      fault.code shouldBe "PATTERN_CORRESPONDENCE"
+      fault.reason should include ("rr")
+    }
+  }
+
 }

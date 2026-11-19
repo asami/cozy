@@ -42,12 +42,19 @@ private[cozy] object CozyDocumentLogicTreeCommand {
       println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: $coreid\nlocale: $locale\noutput: $destination")
       true
     case "document-project" :: "logic-tree" :: "validate" :: rest =>
-      val values = _parse_options(rest, Set("core", "format"))
-      if (values.keySet != Set("core", "format")) _fail("LOGIC_TREE_CLI", "$.command", "requires --core and --format")
+      val values = _parse_options(rest, Set("core", "format", "document", "correspondence"))
+      if (!Set("core", "format").subsetOf(values.keySet) || values.contains("document") != values.contains("correspondence"))
+        _fail("LOGIC_TREE_CLI", "$.command", "requires --core and --format; --document and --correspondence occur together")
       val source = CozyDocumentLogicTree.loadPatternCore(_input_path(values("core"), "core"))
       if (CozyDocumentPatternDraft.isDraft(source)) CozyDocumentPatternDraft.rejectIncomplete(source)
       val envelope = CozyDocumentPatternCodec.decode(source)
       val format = CozyDocumentPatternCodec.decodeFormat(CozyDocumentLogicTree.loadPatternFormat(_input_path(values("format"), "format")), envelope)
+      values.get("document").foreach { path =>
+        val document = CozyDocumentDescriptionV2.loadDocumentWithCore(envelope.source, _input_path(path, "document"))
+        val input = CozyDocumentLogicTree._admit_file(_input_path(values("correspondence"), "correspondence"), "correspondence")
+        val correspondence = CozyDocumentLogicTree._load_document(input, CozyDocumentLogicTree._read_bytes(input, "correspondence"), "correspondence")
+        CozyDocumentPatternCorrespondence.validate(correspondence, envelope, format, document)
+      }
       println(s"Cozy Content Core Logic Tree Validate\ncore: ${envelope.core.id}\nlocale: ${format.locale}")
       true
     case "document-project" :: "logic-tree" :: "scaffold" :: rest =>

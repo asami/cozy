@@ -122,6 +122,15 @@ private[cozy] object CozyDocumentLogicTree {
     _validate_core(corebytes, _load_document(corepath, corebytes, "core"))
   }
 
+  private[document] def loadDocumentCore(corePath: Path): ValidatedCore = {
+    val corepath = _admit_core(corePath)
+    val bytes = _read_bytes(corepath, "core")
+    val value = _load_document(corepath, bytes, "core")
+    if (value.hcursor.get[String]("schema").toOption.contains("cozy.content-core.logic-tree.v2"))
+      CozyDocumentPatternCodec.decode(value).source
+    else _validate_core(bytes, value)
+  }
+
   private[cozy] def loadSourceCore(corePath: Path): SourceCore = {
     val corepath = _admit_core(corePath)
     val corebytes = _read_bytes(corepath, "core")
@@ -465,7 +474,7 @@ private[cozy] object CozyDocumentLogicTree {
     path
   }
 
-  private def _admit_file(value: Path, label: String): Path = {
+  private[document] def _admit_file(value: Path, label: String): Path = {
     val path = try value.toAbsolutePath.normalize() catch {
       case NonFatal(_) => _fail("LOGIC_TREE_PATH", s"$$.$label", "path is invalid")
     }
@@ -477,7 +486,7 @@ private[cozy] object CozyDocumentLogicTree {
     path
   }
 
-  private def _read_bytes(path: Path, label: String): Array[Byte] =
+  private[document] def _read_bytes(path: Path, label: String): Array[Byte] =
     try Files.readAllBytes(path) catch {
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "cannot be read")
     }
