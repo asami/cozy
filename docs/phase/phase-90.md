@@ -4,7 +4,7 @@ status=in_progress
 execution_started=true
 
 Planned: 2026-11-11
-Updated: 2026-11-16
+Updated: 2026-11-19
 Purpose: 編集可能なDocument Projectと選択した完成物を保持し、日英の全媒体を外部作業領域で生成して、同期領域とGit管理に中間物を混入させないようにします。
 Progress: [Phase 90 checklist](phase-90-checklist.md)
 Proposal: [機能・境界案](../notes/document-project-private-package.md)
@@ -28,7 +28,7 @@ Git管理するDocument Projectでも同じ外部WorkRootを使用します。�
 3. P90-03: 編集可能な案件パッケージ配置、配置先からの継続生成、選択完成物の更新と復旧。
 4. P90-04: 観測モデル・知識ハーネスの日英全媒体、移設と失敗経路を含む統合受入、利用手順、最終検証。
 
-P90-01、P90-02、P90-03はそれぞれローカルコミット `c48ad34b`、`658ae925`、`c031dc96` に記録されました。P90-04は実行中です。両記事の隔離パッケージで移設後の13選択を再生成しました。観測モデルにはCore互換コピーを使用し、両例のPDFには独立したホストDoxを選択したテスト設定を使用しました。人による音声確認、最終通常テスト、独立レビューとPhase終了は未完了です。詳細は[受入記録](../journal/2026/11/2026-11-19-phase90-native-acceptance.md)を参照してください。
+P90-01〜P90-04はそれぞれローカルコミット `c48ad34b`、`658ae925`、`c031dc96`、`202cf86b` に記録されました。両記事の隔離パッケージは移設後に13選択を再生成しました。利用者は隔離したrole修正済み観測モデルCoreと独立したホストDoxを選ぶprofileによる検証方法を採用し、日英各2件、計4音声の35秒地点から約20秒を試聴しました。元Coreの検証失敗と元サイトcallbackのcheckout依存は残ります。P90-04独立再レビューはissue-11〜14を受入れ、従来の14 issueはすべて解決と判定されました。Phase compile/testは修復前候補で成功しました。今回の記録修復後の再レビューとnative最終閉鎖は未了です。詳細と証拠は[受入記録](../journal/2026/11/2026-11-19-phase90-native-acceptance.md)を参照してください。
 
 ## Dependencies and completion
 
@@ -43,3 +43,18 @@ Document Project/local-build、SmartDox/LaTeXと既存の各媒体producerを再
 ### P90-03 implementation candidate
 
 The editable-package candidate adds explicit source and bundled-toolchain placement, ordered selected-product refresh, and external refresh receipts with conservative restoration. Command grammar and current restrictions are recorded in the [external WorkRoot specification](../spec/document-project-external-workroot.md#phase-90-implementation-candidate). P90-03 was committed after its native validation and review. Subsequent P90-04 evidence and its remaining limitations are recorded in the acceptance journal. Phase 90 remains in progress.
+
+最終ローカル完了の判定は、この文書末尾に追記されるnative受付記録とnative Terminalを参照します。上記は記録修復時点の状態です。
+
+<!-- sm-workflow completion 3d791a3eaf0b2e47f2c6b94b5c21a55c phase phase-90 -->
+Accepted phase phase-90.
+Evidence: 3d791a3eaf0b2e47f2c6b94b5c21a55c:ordered-validation:307:validation
+Evidence: file:///Users/asami/src/dev2025/cozy-phase90/target/sm-workflow/tasks/cozy-phase90-20261119/p90-phase-release-rereview-intake/p90-phase-release-rereview-result.json
+Phase source accepted; normal local record/commit closure follows. No later synchronization outcome is inferred.
+Source revision: 202cf86bbdb23c9ff508e6abbf7a62441dc6f982/bbdaa345823314c44d799e011238bd3b927a37b1. Source physical lines: start=87955; end=90080; net=2125. Cohort cozy-phase90-20261119:unclassified (Step, class=unclassified, source=bbdaa345823314c44d799e011238bd3b927a37b1, window=2026-11-19T05:26:31.698130Z..2026-11-19T15:05:37.618982Z): eventual=4/4 (1); first-pass=0/4 (0); unknown first-pass=0; pending=0; outcomes=(accepted,4); profiles=standard@1/standard-2026-11-01; mixed=. P90-01 completion-ms=unavailable elapsed-ms=unavailable; P90-02 completion-ms=unavailable elapsed-ms=unavailable; P90-03 completion-ms=unavailable elapsed-ms=unavailable; P90-04 completion-ms=unavailable elapsed-ms=unavailable. codex tokens=unavailable unavailable; local tokens=unavailable unavailable. Ordinary-work observations do not establish model causality; missing resources are unavailable Issued profiles=standard@1. codex tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable. local tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,ordinary,Vector(ordinary, difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,difficult,Vector(difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+
+No benchmark or model-causality claim. Missing original endpoints, usage, timestamps and launch observations remain unavailable.
+
+Local record/commit closure is runtime-owned; later publication, return and synchronization outcomes are recorded separately.

@@ -8,9 +8,9 @@
 
 [Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造2型と節構造8型をCoreの後継版へ結び付け、再帰的な構造検査、作成支援、標準ロジックツリーHTMLと本文への対応を追加する計画です。全項目OPEN、未着手で、既存Phaseの優先順位は変更しません。
 
-## Internal document packages — planned — 2026-11-11
+## Internal document packages — in progress — 2026-11-19
 
-[Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。全項目OPEN、未着手です。既存Phaseの優先順位は変更しません。
+[Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。4 Stepはローカルコミット済みで、受入実績は[記録](../journal/2026/11/2026-11-19-phase90-native-acceptance.md)を参照してください。記録修復後の再レビューとnative最終閉鎖は未了です。既存Phaseの優先順位は変更しません。
 
 2026-11-15追記: Git管理でも中間物・ログ・キャッシュを対象外とし、原稿・設定・必要な画像の追跡と完成物の管理方針を保持する要件を追加しました。
 
@@ -711,3 +711,5 @@ Phase 47.2.2 closes the Cozy producer boundary only; CNCF Phase 64.2
 retains consumer execution acceptance. Its non-normative planning inputs are
 `docs/notes/cml-composite-statemachine-workflow-proposal.md` and
 `docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.
+
+Phase 90の最終ローカル完了は[Phase文書](phase-90.md)末尾のnative受付記録とnative Terminalを参照します。上記は記録修復時点の状態です。
