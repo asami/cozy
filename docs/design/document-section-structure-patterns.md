@@ -1,0 +1,21 @@
+# Document and Section Structure Patterns — Design
+
+Status: P91-01 design; implementation and acceptance remain future work.
+
+## Responsibility and authority
+
+The fixed source for this catalog is ai-directive revision `606cb56`: `core/technical-writing.md`, `core/technical-writing-templates.md`, and `core/technical-writing-patterns.md`. That revision contains the three documents; placement is not implementation or acceptance. This Phase deliberately selects the two document templates and eight section patterns specified there, even if later shared revisions add patterns. The catalog and its version are Cozy-owned executable representations of that fixed selection, not a replacement for the shared writing rules. A change to the source or an existing pattern's meaning requires a new catalog version, explicit migration and regression evidence; an existing version is immutable.
+
+Document structure assigns ordered roles to chapters; a section pattern organizes one Step's answer; `semanticRole` identifies an author's semantic category; the existing Structure and Flow encode local logical relations and transitions. None is inferred from another, from a heading, or from Note. Core owns stable identities and relationships. Format owns localized question and existing Step/claim/node wording. Document owns localized headings and prose. A separate explicit correspondence binds pattern roles to Document objects; it does not make a second prose or logic authority. Confirmation HTML is a derived, self-contained view.
+
+The recursive v1 Core remains unchanged. A v2 envelope contains the unchanged v1 payload and explicit catalog and pattern assignments. One admission path validates the envelope then projects its Core through the existing v1 validator; consumers must use that admitted projection rather than parse the embedded payload independently. V1 input and all existing v1 routes remain accepted without conversion or extra fields. A v2 input is never silently downgraded to v1. Format and correspondence have their own versioned shapes and explicit Core binding. Document remains unchanged; document and section role assignments have stable IDs, and explicit mappings use stable Document IDs checked against direct typed Core references. Existing Document v2 Figure and Table blocks participate as blocks; logical-structure uses its direct Step reference. The specification defines exact contracts and failure behavior.
+
+Phase 37's subject/explanation catalog, composition and flat plan remain independently versioned. Its `problem-solution` is not this section pattern merely because the names match. Neither catalog, existing inputs nor meanings are modified or automatically migrated.
+
+## Operations and display
+
+The existing `document-project logic-tree` command family gains explicit v2 validate, scaffold and render routes. A scaffold produces a separately versioned, reloadable draft with ordered unwritten role slots, never invented claims or evidence; strict validation and rendering identify it as incomplete. Only same-role, explicitly assigned optional context on a strict ancestor can be reused, without a local assignment or duplicate inheritance for that role. The native HTML shows the explicit document selection, ordered assignments, recursive headings and section selections, question, context, answer and details. It identifies child-to-parent claim correspondence separately from containment, local Relations and Flow. Catalog-owned Japanese and English labels and author-owned localized wording are distinct; no fallback or inference fills missing wording. Keyboard navigation, escaping and self-contained output preserve the existing surface.
+
+Deterministic checks establish shape, selected roles, cardinality, ordering, scope, typed references and mapping consistency. They do not decide whether evidence supports a claim, prose is accurate, or an argument is persuasive. Human or AI authors remain responsible for those semantic judgments. Presentation labels and authoring metadata are never copied automatically into prose or SmartDox.
+
+P91-02 through P91-06 implement and verify these contracts. Executable specifications belong under `src/test/scala/cozy/document` and portable fixtures under `src/test/resources/phase91`. This document does not claim their completion.

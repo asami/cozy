@@ -1,17 +1,19 @@
 # Phase 91 checklist — Document and Section Structure Patterns
 
-status=planned
+status=in-progress
 Plan: [Phase 91](phase-91.md)
 Owner: Cozy development
 
 ## Stage Status
 
-- Current status: OPEN
+- Current status: IN PROGRESS
 - Owner: Cozy development
 - Update rule: 実装・検証結果に対応する項目だけ更新します。
 - Closure basis: P91-01–P91-06の全受入項目。計画追加は実装完了ではありません。
 
 ## P91-01: Contracts and source ownership
+
+設計・仕様を起草済み。検証と受入前のため項目は未完了のままです。
 
 - [ ] 文書構造、節構造、節の意味上の役割、論理構造の責任と参照元がdesign/specに定義されている。
 - [ ] 共有執筆ルールの採用版と機械可読カタログの対応、カタログの識別・版・選択・更新方法が確定している。
