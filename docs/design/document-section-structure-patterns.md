@@ -1,6 +1,6 @@
 # Document and Section Structure Patterns — Design
 
-Status: P91-01 design; implementation and acceptance remain future work.
+Status: P91-01–05 locally accepted; P91-06 integration and Phase closure remain pending.
 
 ## Responsibility and authority
 

@@ -1,6 +1,6 @@
 # Document and Section Structure Patterns — Specification
 
-Status: P91-01 specified, not implemented or accepted. Paired design: [responsibilities](../design/document-section-structure-patterns.md). Existing [recursive Core v1](document-project-recursive-content-core.md) and [Document Description](document-project-document-and-summary-description-dsl.md) contracts remain authoritative for their own inputs.
+Status: P91-01–05 locally accepted; P91-06 integration and Phase closure remain pending. Paired design: [responsibilities](../design/document-section-structure-patterns.md). Existing [recursive Core v1](document-project-recursive-content-core.md) and [Document Description](document-project-document-and-summary-description-dsl.md) contracts remain authoritative for their own inputs.
 
 ## Catalog and selection
 

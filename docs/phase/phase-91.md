@@ -25,7 +25,7 @@ Strategy: [DEV-040](../strategy/cozy-development-strategy.md#9-development-item-
 5. P91-05: Documentとの役割対応と、本文・SmartDoxへ執筆用情報を混入させない受渡しを実装する。
 6. P91-06: 観測モデルを基にしたCozy内fixtureで統合受入し、既存版の回帰確認と最終検証を行う。
 
-各Stepの進捗はchecklistで管理します。P91-01の設計・仕様を起草しました。P91-02は作業中であり、検証、独立レビューおよび受入は未完了です。
+各Stepの進捗はchecklistで管理します。P91-01〜05はローカルで受入・コミット済みです。2026-11-20時点のP91-06選択検証はcompile/test成功を記録しました。独立したPhase全体レビュー、Phase最終検証およびローカル閉鎖は未完了です。詳細は[受入記録](../journal/2026/11/2026-11-20-phase91-acceptance.md)を参照してください。
 
 ## Dependencies and completion
 
@@ -35,6 +35,6 @@ Phase 37の説明カタログ・役割・明示選択の設計、既存の再帰
 
 観測モデルに現在ある別資料とNoteによる表示を、型付きの入力・検査・標準表示へ置き換えられることを受入対象とします。参照・役割・順序等の決定的な検査はCozy、主張や根拠の意味的な妥当性と文章の執筆は人間・AIが担当します。
 
-本Phaseは計画追加のみです。既存Phaseの優先順位・状態・Goalは変更しません。スライド・動画への新規展開、文章の自動評価・自動生成、公開・配備・共有ルールの配布、実原稿への一括移行は対象外です。
+本Phaseは実行中です。既存Phaseの優先順位・状態・Goalは変更しません。スライド・動画への新規展開、文章の自動評価・自動生成、公開・配備・共有ルールの配布、実原稿への一括移行は対象外です。
 
 P91-01の成果物: [design](../design/document-section-structure-patterns.md)、[spec](../spec/document-section-structure-patterns.md)。これらは後続実装の契約であり、機能の実装やPhaseの受入を示しません。

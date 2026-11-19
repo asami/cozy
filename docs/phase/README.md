@@ -4,9 +4,9 @@
 
 [Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。全項目OPEN、実装未着手です。番号の割当は既存Phaseの優先順位を変更しません。
 
-## Document and section structure patterns — planned — 2026-11-15
+## Document and section structure patterns — in progress — 2026-11-15
 
-[Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造2型と節構造8型をCoreの後継版へ結び付け、再帰的な構造検査、作成支援、標準ロジックツリーHTMLと本文への対応を追加する計画です。全項目OPEN、未着手で、既存Phaseの優先順位は変更しません。
+[Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造5型と節構造9型をCoreの後継版へ結び付けます。P91-01〜05は受入・コミット済みです。2026-11-20時点でP91-06の選択compile/testは成功し、独立Phaseレビュー、Phase最終検証と閉鎖は未完了です。詳細は[Phase記録](phase-91.md)を参照してください。
 
 ## Internal document packages — in progress — 2026-11-19
 
