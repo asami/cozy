@@ -71,7 +71,7 @@ P91-01はローカルで受入・コミット済みです。
 - [x] パターン切替、必須部分の欠落、上位文脈の再利用、参照変更、日本語・英語と失敗時の診断を検証する。
 - [x] 手作業の表示用Noteや装飾見出しへの依存なしに、必要な構造を標準HTMLで確認できる。
 - [x] 既存の再帰Core・Document、Phase 37のcatalog/composition/planとnative article経路の回帰を確認する。
-- [ ] 対応するfocused/integration検証、独立レビュー、最終Cozy通常検証と所定の完了手順を実施する。
-- [ ] 仕様・利用手順・Phase/checklist/Strategyを実際の結果へ更新し、残課題を分離する。
+- [ ] 対応するfocused/integration検証、独立レビュー、最終Cozy通常検証と所定の完了手順を実施する。後続の完了はPhaseのnative記録への追記とTerminalを参照する。
+- [x] 仕様・利用手順・Phase/checklist/Strategyを実際の結果へ更新し、残課題を分離する。
 
-2026-11-20時点のP91-06選択compile/testは成功しました。文書5型と節9型の45組を日英で通し、独立に執筆したSmartDox本文も日英で別経路から検査しました。実行結果と制約は[受入記録](../journal/2026/11/2026-11-20-phase91-acceptance.md)を参照してください。独立Phase全体レビュー、Phase最終検証とローカル閉鎖は未完了です。ライブブラウザでの確認は行っていません。
+P91-06は `18f14fcec67164c707e85d7f6514aff714ce4eae` で受入済みです。Phase validation 289はcompile/test成功（4,082成功、0失敗、23 canceled、277 suites完了）を報告しました。独立Phase全体レビューは実施され、2026-11-20時点で1件の修復と対象の再レビュー、ローカルnative Terminalが残りました。文書5型と節9型の45組を日英で通し、独立に執筆したSmartDox本文も日英で別経路から検査しました。ライブブラウザでの確認は行っていません。実行結果と制約は[受入記録](../journal/2026/11/2026-11-20-phase91-acceptance.md)、後続の完了状態はPhaseのnative記録を参照してください。

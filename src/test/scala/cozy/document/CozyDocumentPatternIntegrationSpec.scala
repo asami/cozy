@@ -60,7 +60,7 @@ final class CozyDocumentPatternIntegrationSpec extends AnyWordSpec with Matchers
   "The observation model integration" should {
     "take every catalog selection from scaffold through localized validation and overview" in {
       Given("a portable synthetic observation Core and its independently authored Document")
-      val root = Files.createTempDirectory("p91-integration")
+      val root = Files.createTempDirectory(Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternIntegrationSpec", "work")), "p91-integration")
       val core = root.resolve("core.yaml")
       val format = root.resolve("format.yaml")
       val ja = Files.createDirectory(root.resolve("ja"))
@@ -105,7 +105,7 @@ final class CozyDocumentPatternIntegrationSpec extends AnyWordSpec with Matchers
     }
     "keep authoring vocabulary out of the bilingual native article" in {
       Given("the observation fixture and separately authored Japanese and English articles")
-      val root = Files.createTempDirectory("p91-article")
+      val root = Files.createTempDirectory(Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternIntegrationSpec", "work")), "p91-article")
       val project = Files.createDirectory(root.resolve("article.dox"))
       val content = Files.createDirectory(project.resolve("content"))
       val ja = Files.createDirectory(content.resolve("ja"))
@@ -141,7 +141,7 @@ final class CozyDocumentPatternIntegrationSpec extends AnyWordSpec with Matchers
       val faults = Vector(missing, nonlocal).map(value => intercept[CozyDocumentLogicTree.LogicTreeFault] { CozyDocumentPatternCodec.decode(io.circe.parser.parse(value).toOption.get) })
       Then("they identify missing structure and nonlocal references")
       faults.map(_.code) shouldBe Vector("PATTERN_ROLE_CARDINALITY", "PATTERN_REFERENCE")
-      val root = Files.createTempDirectory("p91-switch")
+      val root = Files.createTempDirectory(Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternIntegrationSpec", "work")), "p91-switch")
       val core = root.resolve("core.yaml")
       val format = root.resolve("format.yaml")
       val en = Files.createDirectory(root.resolve("en"))

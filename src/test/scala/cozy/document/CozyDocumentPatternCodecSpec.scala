@@ -75,7 +75,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
     }
     "render the typed hierarchy and references through the normal command in both locales" in {
       Given("a recursive v2 Core with different parent and child patterns")
-      val directory = java.nio.file.Files.createTempDirectory("pattern-overview")
+      val directory = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-overview")
       val core = directory.resolve("core.yaml")
       val format = directory.resolve("format.yaml")
       val output = directory.resolve("overview.html")
@@ -179,7 +179,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
     }
     "dispatch scaffold and reject its draft before reading Format" in {
       Given("direct output and nonexistent Format paths")
-      val directory = java.nio.file.Files.createTempDirectory("pattern-draft")
+      val directory = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-draft")
       val core = directory.resolve("core.yaml")
       val format = directory.resolve("missing.yaml")
       try {
@@ -196,7 +196,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
     }
     "refuse to overwrite an authored Core when scaffolding" in {
       Given("an existing core.yaml containing authored content")
-      val directory = java.nio.file.Files.createTempDirectory("pattern-authored")
+      val directory = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-authored")
       val core = directory.resolve("core.yaml")
       val authored = "schema: cozy.content-core.logic-tree.v1\nid: authored\nroot:\n  claims: [authored-claim]\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)
       java.nio.file.Files.write(core, authored)
@@ -307,7 +307,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
   "The v2 authoring to reader handoff" should {
     "admit the same embedded Core in both Document paths and keep authoring labels out of SmartDox" in {
       Given("a complete v2 envelope, explicitly authored Document and separate SmartDox article")
-      val root = java.nio.file.Files.createTempDirectory("pattern-document-handoff")
+      val root = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-document-handoff")
       val project = java.nio.file.Files.createDirectory(root.resolve("article.dox"))
       val content = java.nio.file.Files.createDirectory(project.resolve("content"))
       val locale = java.nio.file.Files.createDirectory(content.resolve("en"))
