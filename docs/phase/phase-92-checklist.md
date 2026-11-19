@@ -21,6 +21,9 @@ Owner: Cozy development; SmartDox owns its producer delivery
 - [ ] `concept_type`・`knowledge_form`・`space`の構文、SimpleModeling旧表記の認識、既存SmartDox構文と自由節の保持を定義する。
 - [ ] Spaceの識別、単一／複数Spaceと概念の対応、Term/Concept IRI、provenance・extensions・constraintsのRDF対応を決定し、未決事項を残したまま出力仕様を変更しない。
 
+- [ ] [共通計画](../notes/lexidox-phase92-93-integration.md)と正本LX-J01–LX-J08をP93-01と照合し、同じproducer文法・schema・metadata契約の基線／互換拡張、採用改訂と所有者を一つのdesign/spec決定記録へ結び付ける。
+- [ ] Space／Term／Conceptの解決と表示名の選択順序、概念分類・知識記述形式・表示役割の独立性を両Phaseで一致させる。
+
 ## P92-02: Typed section handoff
 
 - [ ] 受入済みSmartDox出力の実際の改訂・形式を用い、Cozyの既存受入経路へ接続する。
@@ -36,6 +39,8 @@ Owner: Cozy development; SmartDox owns its producer delivery
 - [ ] SOURCEとREFERENCES、CONTEXTとSIMPLEMODELINGの意味を保持し、汎用parserに特定BoKの意味を固定しない。
 - [ ] RDF/JSON-LD/SKOSの変更が採用済み対応と一致し、既存生成境界・出力配置・SIE受渡しを保持する。
 
+- [ ] 表示側へ渡すTerm／Concept／Space・ページ／参照先、正規ラベル・定義・関係・出典を同じproducer契約から取り出せることを確認し、表示profileを知識分類やIRIへ転用しない。
+
 ## P92-04: Integrated acceptance and closure
 
 - [ ] 既存形式と型付き形式、日英、Patternと他の採用型、自由節を持つfixtureを正規のSmartDox→Cozy→BoK経路で検証する。
@@ -46,4 +51,5 @@ Owner: Cozy development; SmartDox owns its producer delivery
 - [ ] 例の節見出し後に空行を保ち、既存語彙の一括書換えなしに利用できることを確認する。
 - [ ] producer側の検証・受渡しとCozyのfocused/integration検証、独立レビュー、最終Cozy通常検証を実際の結果で確認する。
 - [ ] スキーマ内容やExecutable Knowledgeへ新しい実行権限を与えていない。
+- [ ] Phase 93へ引き渡す共通の実LexiDox fixture群と、採用済みの文法／metadata基線・互換拡張境界を特定し、基線の知識受入と将来の表示受入を区別する。
 - [ ] 仕様・移行手順・Phase/checklist/Strategyを更新し、所定の完了手順と残課題の分離を行う。

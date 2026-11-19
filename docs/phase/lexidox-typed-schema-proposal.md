@@ -56,6 +56,10 @@ Evolve LexiDox vocabulary definitions to support typed standard sections, unrest
 - Existing SmartDox/LexiDox parser and Cozy BoK publishing pipeline.
 - Existing Cozy Phase 90/91 plans must be reconciled before numbering or scheduling.
 
+## Phase 92/93 alignment — 2026-11-18
+
+The canonical proposal now includes combined LX-J01–LX-J08 knowledge-processing/presentation requirements. Follow the [joint delivery plan](../notes/lexidox-phase92-93-integration.md) and both current Phase checklists for their allocation. Phase 93 is a compatible extension of the same grammar/metadata lineage, not an independent dialect. This original proposal remains historical planning input.
+
 ## Handoff
 
 This file retains the original capability proposal as input to the numbered [Phase 92](phase-92.md). The Phase and its checklist own current scope and progress; this proposal makes no implementation claim. Confirm and assign producer implementation under its owning repository's convention without duplicating the canonical concept definitions here.

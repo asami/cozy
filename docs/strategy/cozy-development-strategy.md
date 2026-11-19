@@ -1,9 +1,17 @@
 # Cozy Development Strategy
 
 Date: 2026-07-28
-Updated: 2026-11-16 (Asia/Tokyo)
+Updated: 2026-11-18 (Asia/Tokyo)
 
 Status: active
+
+## LexiDox knowledge/presentation alignment — planned — 2026-11-18
+
+[Phases 92 and 93 share one delivery plan](../notes/lexidox-phase92-93-integration.md) under canonical LX-J01–LX-J08. One SmartDox grammar/parser/schema/metadata lineage serves the semantic baseline and compatible presentation extension. Resolve semantic identities/Space before selecting labels, keep classification/knowledge forms/display roles distinct and reuse source fixtures to preserve canonical knowledge across profiles. Both Phase contracts/checklists bind to one coordinated producer decision record; no implementation or priority change starts here.
+
+## Glossary labels and term/pattern presentation — planned — 2026-11-17
+
+[Phase 93](../phase/phase-93.md) / [checklist](../phase/phase-93-checklist.md), DEV-043, adds glossary-owned labels, original-language pattern defaults and shared semantic styling for HTML and LaTeX/PDF. Three presentation profiles prefer original-language names, established Japanese translations, or Japanese names. PDF selection occurs at generation time; HTML has a generated default and a reader switch. Include supported versioned Core-side term identity, label/presentation intent and propagation through localized Documents into renderer output, with English pattern names, bold emphasis and optional configured color. Explicitly include LexiDox source grammar/schema, examples, parser/validation and serialization/metadata delivery, reusing relevant Phase 92 contracts. Preserve existing Core/LexiDox compatibility and confirm canonical glossary/writing-policy and SmartDox producer contracts before integration. Named design patterns remain distinct from Phase 91 explanation patterns and Phase 92 knowledge-form metadata. Actual output acceptance and usable delivery precede live DDD document adoption. All criteria are OPEN; registration starts no implementation and changes no existing priority.
 
 ## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
 
@@ -1818,6 +1826,7 @@ Origin:
 | DEV-040 | [2026-11-15 document/section pattern request](../journal/2026/11/2026-11-15-document-and-section-structure-patterns-plan.md) | Make two document structure patterns and eight recursive section explanation patterns first-class Core authoring inputs, with catalog/version selection, typed role references, structural validation, skeleton support, native HTML and Document/prose correspondence. | NEW_PHASE | [Phase 91](../phase/phase-91.md) / [checklist](../phase/phase-91-checklist.md), PLANNED, unstarted | ADOPTED |
 | DEV-041 | [LexiDox proposal](../phase/lexidox-typed-schema-proposal.md); [2026-11-16 allocation and reconciliation](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Consume SmartDox-owned typed sections, free sections and agreed Knowledge Space/Term/Concept metadata through existing Cozy BoK integration; confirm producer ownership and identity semantics before implementation. | NEW_PHASE | [Phase 92](../phase/phase-92.md) / [checklist](../phase/phase-92-checklist.md), PLANNED, unstarted | ADOPTED |
 | DEV-042 | [2026-11-09 strict generation plan](../phase/phase-89.md); [2026-11-16 Strategy registration](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Deliver SLP-COZY normal generation and direct-emitter qualification to sm-workflow 8.1-B/C, preserving the existing COZY-01–COZY-05 scope and the independent B/C dependency boundaries. | MERGED_EXISTING_PHASE | [Phase 89](../phase/phase-89.md) / [checklist](../phase/phase-89-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-043 | [2026-11-17 DDD review request](../journal/2026/11/2026-11-17-term-pattern-presentation-plan.md) | Carry glossary-owned labels and original-language pattern names through accepted producer metadata into HTML and LaTeX/PDF color and typography. Supply LexiDox grammar/parser/validation/serialization delivery, versioned Core-side term identity/presentation intent and Document/renderer propagation, original-language/established-Japanese-translation/Japanese profiles, PDF selection and HTML reader switching, including bold/color pattern styles; deliver usable versions/configuration before downstream DDD adoption. | NEW_PHASE | [Phase 93](../phase/phase-93.md) / [checklist](../phase/phase-93-checklist.md), PLANNED, unstarted | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the

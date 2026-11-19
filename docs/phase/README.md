@@ -1,5 +1,13 @@
 # docs/phase
 
+## LexiDox Phase 92/93 alignment — planned — 2026-11-18
+
+The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both Phase checklists to canonical LX-J01–LX-J08: one producer grammar/metadata lineage, identity resolution before display selection, independent concept/knowledge-form/display roles and shared source fixtures. Phase 92 supplies the semantic baseline; Phase 93 adds a compatible presentation extension. Both remain unstarted and existing priorities are unchanged.
+
+## Glossary labels and term/pattern presentation — planned — 2026-11-17
+
+[Phase 93](phase-93.md) / [checklist](phase-93-checklist.md), DEV-043: glossary-owned labels and original-language pattern names flow into HTML and LaTeX/PDF color and typography. Three profiles select original-language, established-Japanese-translation or Japanese preference. PDF selects at generation time; HTML selects its initial default at generation time and allows reader switching. Include supported versioned Core-side term identity/presentation intent and its Document/renderer handoff, including bold/color pattern styling; retain current Core compatibility. Explicitly include required LexiDox grammar/schema, parser/validation, examples and serialization/metadata delivery, with compatibility and source-to-output acceptance. Confirm glossary/SmartDox ownership and accepted producer delivery before integration. All items are OPEN; implementation is unstarted. The DDD guide adopts the feature after Phase completion and usable delivery. Existing Phase priorities remain unchanged.
+
 ## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
 
 [Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。全項目OPEN、実装未着手です。番号の割当は既存Phaseの優先順位を変更しません。

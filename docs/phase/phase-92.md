@@ -19,6 +19,14 @@ Concept authority: [SimpleModelingのスキーマ提案](https://github.com/asam
 
 この番号はCozyの計画・連携担当を識別します。SmartDox側の実装はその所有者の計画・受渡しで扱い、本計画の登録だけで他リポジトリの実装・公開を開始しません。
 
+## Shared LexiDox grammar alignment — 2026-11-18
+
+Follow the [joint Phase 92/93 delivery plan](../notes/lexidox-phase92-93-integration.md) and canonical LX-J01–LX-J08 requirements. P92-01 and P93-01 coordinate one SmartDox producer grammar/schema and metadata decision record with a named baseline and compatible extension. Do not define Phase-local dialects or reparse sources in Cozy.
+
+Resolve Space and Term/Concept identity before display-label selection. Knowledge classification, knowledge form and display role remain distinct; profile switching preserves page/link targets, canonical definitions, provenance, relations and RDF knowledge. Shared source fixtures verify these invariants across both delivery routes.
+
+Joint contract alignment precedes shared-boundary implementation. Phase 92 accepts the semantic baseline without waiting for all Phase 93 rendering; Phase 93 consumes the accepted required subset and verifies cumulative compatibility. Existing priorities and unrelated work are unchanged.
+
 ## Planned Steps
 
 1. P92-01: 現行の解析・metadata/RDF経路と所有者を確認し、型別スキーマ、節認識、互換性、Space/IRIとproducer受渡しのdesign/specを定める。
