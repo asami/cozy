@@ -106,10 +106,29 @@ private[cozy] object CozyDocumentLogicTree {
     _validate(corebytes, _load_document(corepath, corebytes, "core"), _load_document(formatpath, formatbytes, "format"))
   }
 
+  private[cozy] def loadPatternCore(coreValue: Path): Json = {
+    val path = _admit_core(coreValue)
+    _load_document(path, _read_bytes(path, "core"), "core")
+  }
+
+  private[cozy] def loadPatternFormat(formatValue: Path): Json = {
+    val path = _admit_format(formatValue)
+    _load_document(path, _read_bytes(path, "format"), "format")
+  }
+
   private[cozy] def loadCore(coreValue: Path): ValidatedCore = {
     val corepath = _admit_core(coreValue)
     val corebytes = _read_bytes(corepath, "core")
     _validate_core(corebytes, _load_document(corepath, corebytes, "core"))
+  }
+
+  private[document] def loadDocumentCore(corePath: Path): ValidatedCore = {
+    val corepath = _admit_core(corePath)
+    val bytes = _read_bytes(corepath, "core")
+    val value = _load_document(corepath, bytes, "core")
+    if (value.hcursor.get[String]("schema").toOption.contains("cozy.content-core.logic-tree.v2"))
+      CozyDocumentPatternCodec.decode(value).source
+    else _validate_core(bytes, value)
   }
 
   private[cozy] def loadSourceCore(corePath: Path): SourceCore = {
@@ -127,12 +146,20 @@ private[cozy] object CozyDocumentLogicTree {
     _decode_utf8(corebytes, "$.core")
     val core = _core(corevalue)
     _validate_tree(core.root)
-    val format = _format(formatvalue)
+    val format = validateFormat(core, formatvalue)
+    Validated(core, format, _depth_first(core.root))
+  }
+
+  private[document] def validateFormat(core: Core, value: Json): Format = {
+    val format = _format(value)
     if (format.coreId != core.id)
       _fail("LOGIC_TREE_FORMAT_CORE", "$.coreId", "must exactly equal the direct Core id")
     _validate_wording(core, format)
-    Validated(core, format, _depth_first(core.root))
+    format
   }
+
+  private[cozy] def validateCore(coreBytes: Array[Byte], coreValue: Json): ValidatedCore =
+    _validate_core(coreBytes, coreValue)
 
   private def _validate_core(corebytes: Array[Byte], corevalue: Json): ValidatedCore = {
     val source = _source_core(corebytes, corevalue)
@@ -447,7 +474,7 @@ private[cozy] object CozyDocumentLogicTree {
     path
   }
 
-  private def _admit_file(value: Path, label: String): Path = {
+  private[document] def _admit_file(value: Path, label: String): Path = {
     val path = try value.toAbsolutePath.normalize() catch {
       case NonFatal(_) => _fail("LOGIC_TREE_PATH", s"$$.$label", "path is invalid")
     }
@@ -459,7 +486,7 @@ private[cozy] object CozyDocumentLogicTree {
     path
   }
 
-  private def _read_bytes(path: Path, label: String): Array[Byte] =
+  private[document] def _read_bytes(path: Path, label: String): Array[Byte] =
     try Files.readAllBytes(path) catch {
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "cannot be read")
     }

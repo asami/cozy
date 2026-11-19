@@ -153,17 +153,17 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
   private val _reference_fields = Set("steps", "claims", "nodes", "relations", "flows")
 
-  def loadDocument(corePath: Path, documentPath: Path): ValidatedDocument = {
-    val core = CozyDocumentLogicTree.loadCore(corePath)
+  private[document] def loadDocumentWithCore(core: CozyDocumentLogicTree.ValidatedCore, documentPath: Path): ValidatedDocument = {
     val documentpath = _admit_localized(documentPath, "document", "document.yaml")
-    val documentbytes = _read_bytes(documentpath, "document")
-    val parsed = _document_description(_load_document(documentpath, documentbytes, "document"), core)
-    val description = parsed.description
-    if (description.core.id != core.core.id)
+    val parsed = _document_description(_load_document(documentpath, _read_bytes(documentpath, "document"), "document"), core)
+    if (parsed.description.core.id != core.core.id)
       _fail("DESCRIPTION_V2_DOCUMENT_CORE", "$.core.id", "must exactly equal the directly admitted Core id")
-    _validate_locale(documentpath, description.locale, "$.locale")
-    ValidatedDocument(core, description, parsed.targets)
+    _validate_locale(documentpath, parsed.description.locale, "$.locale")
+    ValidatedDocument(core, parsed.description, parsed.targets)
   }
+
+  def loadDocument(corePath: Path, documentPath: Path): ValidatedDocument =
+    loadDocumentWithCore(CozyDocumentLogicTree.loadDocumentCore(corePath), documentPath)
 
   def loadSummary(corePath: Path, documentPath: Path, summaryPath: Path): ValidatedSummary = {
     val document = loadDocument(corePath, documentPath)
@@ -180,7 +180,8 @@ private[cozy] object CozyDocumentDescriptionV2 {
 
   def loadSourceDocument(corePath: Path, documentPath: Path): SourceDocument = {
     val corepath = _admit_core_path(corePath)
-    val core = CozyDocumentLogicTree.loadSourceCore(corepath)
+    val admitted = CozyDocumentLogicTree.loadDocumentCore(corepath)
+    val core = CozyDocumentLogicTree.SourceCore(admitted.core, admitted.depthFirstSteps)
     val documentpath = _admit_localized(documentPath, "document", "document.yaml")
     _validate_source_document_path(corepath, documentpath)
     val content = _document_content(_load_document(documentpath, _read_bytes(documentpath, "document"), "document"), core, _binding_id)

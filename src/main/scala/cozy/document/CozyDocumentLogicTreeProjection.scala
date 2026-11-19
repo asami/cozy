@@ -18,6 +18,59 @@ private[cozy] object CozyDocumentLogicTreeProjection {
   def slides(validated: CozyDocumentLogicTree.Validated): Rendered =
     _render(_slides_kind, _slides_html(validated))
 
+  def patternOverview(envelope: CozyDocumentPatternCodec.Envelope, format: CozyDocumentPatternCodec.LocalizedFormat): Rendered = {
+    val validated = CozyDocumentLogicTree.Validated(envelope.core, format.base, envelope.source.depthFirstSteps)
+    val japanese = format.locale == "ja"
+    def _label_(value: CozyDocumentPatternCatalog.Localized): String = if (japanese) value.ja else value.en
+    def _word_(ja: String, en: String): String = if (japanese) ja else en
+    def _link_(prefix: String, id: String, value: String): String =
+      s"""<a href="#${_html(prefix)}${_html(id)}">${_html(value)}</a>"""
+    val sections = envelope.sections.map(value => value.step -> value).toMap
+    val questions = format.questionBindings.map(value => value.id -> value.text).toMap
+    val document = CozyDocumentPatternCatalog.documents.find(_.id == envelope.documentPattern).get
+    val docroles = envelope.documentRoles.map { role =>
+      val label = document.roles.find(_.id == role.role).get.label
+      s"<li>${_html(_label_(label))}: ${_link_("step-", role.step, validated.titlesById(role.step))}</li>"
+    }.mkString
+    def _tree_(step: CozyDocumentLogicTree.Step): String = {
+      val section = sections(step.id)
+      val definition = CozyDocumentPatternCatalog.sections.find(_.id == section.pattern).get
+      val children = if (step.steps.isEmpty) "" else s"<ol>${step.steps.map(_tree_).mkString}</ol>"
+      s"<li>${_link_("step-", step.id, validated.titlesById(step.id))} — ${_html(_label_(definition.label))}$children</li>"
+    }
+    def _step_(step: CozyDocumentLogicTree.Step): String = {
+      val section = sections(step.id)
+      val definition = CozyDocumentPatternCatalog.sections.find(_.id == section.pattern).get
+      val roles = section.roles.map { role =>
+        val label = _label_(definition.roles.find(_.id == role.role).get.label)
+        val target = role.target match {
+          case CozyDocumentPatternCodec.ClaimTarget(id) => _link_("claim-", id, validated.claimsById(id))
+          case CozyDocumentPatternCodec.ChildTarget(id, claim) =>
+            s"${_link_("step-", id, validated.titlesById(id))} — ${_html(_word_("説明する親の主張", "Explains parent claim"))}: ${_link_("claim-", claim, validated.claimsById(claim))}"
+        }
+        s"<li><strong>${_html(label)}</strong>: $target</li>"
+      }.mkString
+      val claims = step.claims.map(claim => s"""<li id="claim-${_html(claim.id)}">${_html(validated.claimsById(claim.id))}</li>""").mkString
+      val inherited = section.inheritedContext.map { context =>
+        val label = _label_(definition.roles.find(_.id == context.role).get.label)
+        s"<li>${_html(label)} — ${_html(_word_("継承元", "Inherited from"))} ${_link_("step-", context.ancestor, validated.titlesById(context.ancestor))}: ${_link_("claim-", context.target, validated.claimsById(context.target))}</li>"
+      }.mkString
+      val children = if (step.steps.isEmpty) "" else s"""<section class="containment"><h3>${_html(_word_("包含する節", "Contained sections"))}</h3><div class="nested-steps">${step.steps.map(_step_).mkString}</div></section>"""
+      s"""<article class="logic-tree-step-card" id="step-${_html(step.id)}" tabindex="-1"><h2>${_html(validated.titlesById(step.id))}</h2>
+         |<p>${_html(_label_(definition.label))}</p><p><strong>${_html(_word_("問い", "Question"))}:</strong> ${_html(questions(section.question))}</p>
+         |<h3>${_html(_word_("主張", "Claims"))}</h3><ul>$claims</ul>
+         |<h3>${_html(_word_("役割と展開順", "Roles and reading order"))}</h3><ol>$roles</ol>
+         |<h3>${_html(_word_("継承した文脈", "Inherited context"))}</h3><ul>$inherited</ul>
+         |${_structure(validated, step)}${_flow(validated, step, "step-")}$children</article>""".stripMargin
+    }
+    val content = s"""<main id="logic-tree-overview"><header class="document-heading"><h1>${_html(validated.titlesById(envelope.core.root.id))}</h1>
+      |<p>${_html(_word_("文書構造", "Document structure"))}: ${_html(_label_(document.label))}</p></header>
+      |<nav aria-label="${_html(_word_("文書の役割", "Document roles"))}"><h2>${_html(_word_("文書の役割", "Document roles"))}</h2><ol>$docroles</ol></nav>
+      |<nav aria-label="${_html(_word_("節の一覧", "Section hierarchy"))}"><h2>${_html(_word_("節の一覧", "Section hierarchy"))}</h2><ol>${_tree_(envelope.core.root)}</ol></nav>
+      |${_step_(envelope.core.root)}</main>""".stripMargin
+    _render(_overview_kind, _page(s"${format.base.chrome.overviewDocumentTitle} — ${validated.titlesById(envelope.core.root.id)}", format.locale, "logic-tree-overview-page", content, true))
+  }
+
   private def _render(kind: String, html: String): Rendered =
     Rendered(kind, html)
 
@@ -134,10 +187,10 @@ private[cozy] object CozyDocumentLogicTreeProjection {
   private def _path_title(validated: CozyDocumentLogicTree.Validated, steps: Vector[CozyDocumentLogicTree.Step]): String =
     steps.map(step => validated.titlesById(step.id)).mkString(" › ")
 
-  private def _page(title: String, locale: String, pageclass: String, content: String): String =
+  private def _page(title: String, locale: String, pageclass: String, content: String, highlight: Boolean = false): String =
     s"""<!doctype html>
        |<html lang="${_html(locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(title)}</title><style>
-       |:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.45;background:#f5f7fb;color:#172033}body{margin:0;padding:2rem}.document-heading,.slide-deck-heading{max-width:72rem;margin:0 auto 1rem}.logic-tree-step-card{background:#fff;border:1px solid #c8d1e0;border-radius:.75rem;margin:1rem auto;padding:1rem;max-width:72rem;box-shadow:0 .1rem .4rem #17203318}.nested-steps{border-left:.35rem solid #5477aa;margin:1rem 0 0 1rem;padding-left:1rem}.logic-tree-step-card h2,.slide-page h2{margin:.1rem 0}.step-path,.ancestor-context,.semantic-role,.slide-counter{color:#4e5f7c;font-size:.9rem}.local-structure,.direct-child-flow,.direct-children,.step-claims{margin-top:.8rem}.logic-nodes,.typed-relations,.direct-child-flow ol{display:flex;flex-wrap:wrap;gap:.5rem;padding:0;list-style:none}.logic-node,.typed-relation,.flow-edge{border:1px solid #b9c8dc;border-radius:.35rem;padding:.35rem .55rem;background:#f9fbff}.typed-relation code,.flow-edge code,.logic-node code{margin:0 .45rem;color:#875a00}.slide-page{box-sizing:border-box;width:min(100%,96rem);aspect-ratio:16/9;min-height:32rem;margin:1rem auto;padding:2rem;background:#fff;border:1px solid #c8d1e0;border-radius:.5rem;display:flex;flex-direction:column}.slide-content{display:grid;grid-template-columns:1fr 1fr;gap:0 2rem;overflow:auto}.slide-navigation{margin-top:auto;display:flex;justify-content:space-between;gap:1rem}.navigation-disabled{color:#71809a}@media (max-width:50rem){body{padding:.5rem}.slide-page{aspect-ratio:auto;min-height:0}.slide-content{grid-template-columns:1fr}}@media print{body{padding:0;background:#fff}.slide-deck-heading,.slide-navigation{display:none}.slide-page{width:100%;height:100vh;min-height:0;margin:0;border:0;border-radius:0;break-after:page;page-break-after:always}.slide-page:last-child{break-after:auto;page-break-after:auto}}</style></head><body class="$pageclass">$content</body></html>""".stripMargin
+       |${if (highlight) ":target{outline:3px solid #b45b00;outline-offset:3px}a:focus-visible{outline:3px solid #b45b00;outline-offset:3px}" else ""}:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.45;background:#f5f7fb;color:#172033}body{margin:0;padding:2rem}.document-heading,.slide-deck-heading{max-width:72rem;margin:0 auto 1rem}.logic-tree-step-card{background:#fff;border:1px solid #c8d1e0;border-radius:.75rem;margin:1rem auto;padding:1rem;max-width:72rem;box-shadow:0 .1rem .4rem #17203318}.nested-steps{border-left:.35rem solid #5477aa;margin:1rem 0 0 1rem;padding-left:1rem}.logic-tree-step-card h2,.slide-page h2{margin:.1rem 0}.step-path,.ancestor-context,.semantic-role,.slide-counter{color:#4e5f7c;font-size:.9rem}.local-structure,.direct-child-flow,.direct-children,.step-claims{margin-top:.8rem}.logic-nodes,.typed-relations,.direct-child-flow ol{display:flex;flex-wrap:wrap;gap:.5rem;padding:0;list-style:none}.logic-node,.typed-relation,.flow-edge{border:1px solid #b9c8dc;border-radius:.35rem;padding:.35rem .55rem;background:#f9fbff}.typed-relation code,.flow-edge code,.logic-node code{margin:0 .45rem;color:#875a00}.slide-page{box-sizing:border-box;width:min(100%,96rem);aspect-ratio:16/9;min-height:32rem;margin:1rem auto;padding:2rem;background:#fff;border:1px solid #c8d1e0;border-radius:.5rem;display:flex;flex-direction:column}.slide-content{display:grid;grid-template-columns:1fr 1fr;gap:0 2rem;overflow:auto}.slide-navigation{margin-top:auto;display:flex;justify-content:space-between;gap:1rem}.navigation-disabled{color:#71809a}@media (max-width:50rem){body{padding:.5rem}.slide-page{aspect-ratio:auto;min-height:0}.slide-content{grid-template-columns:1fr}}@media print{body{padding:0;background:#fff}.slide-deck-heading,.slide-navigation{display:none}.slide-page{width:100%;height:100vh;min-height:0;margin:0;border:0;border-radius:0;break-after:page;page-break-after:always}.slide-page:last-child{break-after:auto;page-break-after:auto}}</style></head><body class="$pageclass">$content</body></html>""".stripMargin
 
   private def _html(value: String): String = {
     val builder = new StringBuilder

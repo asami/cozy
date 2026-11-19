@@ -16,7 +16,8 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct. 15, 2026
+ *  version Oct. 15, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -154,32 +155,32 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       }
 
       "admit an explicit direct external rootEnv location and reject its symlink evidence" in {
-        Given("a configured SmartDox site whose descriptor explicitly chooses the canonical HOME root")
-        val homeroot = Path.of(sys.env("HOME")).toRealPath()
-        val externalroot = homeroot.resolve("src/dev2025/cozy/target/cozy-media-site-binding-root-env")
+        Given("a configured SmartDox site and an external publication root supplied by the fixture")
+        val workroot = Files.createDirectories(Path.of("target", "cozy-media-site-binding", "work"))
+        val externalroot = Files.createTempDirectory(workroot, "root-env-").toRealPath()
+        val envname = "COZY_TEST_SITE_MEDIA_ROOT"
+        val environment = Map(envname -> externalroot.toString)
 
         try {
-          When("the opted-in infographic is resolved through the external root")
           _with_part5_fixture("root-env", _part5_yaml().
-            replace("root: publication", "root-env: HOME").
-            replace("site: images/summary-ja.png", "site: src/dev2025/cozy/target/cozy-media-site-binding-root-env/summary-ja.png")) { fixture =>
-            _write(externalroot.resolve("summary-ja.png"), "external Part 5 summary")
-            val admitted = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-              fixture.descriptor,
-              target = Some("part-5-summary-ja")
-            ))
+            replace("root: publication", s"root-env: $envname")) { fixture =>
+            val destination = externalroot.resolve("images/summary-ja.png")
+            _write(destination, "external Part 5 summary")
+            val config = CozyArticleMediaSiteBinding.Config(fixture.descriptor, target = Some("part-5-summary-ja"))
             val outside = fixture.root.resolve("outside-summary-ja.png")
             _write(outside, "outside")
-            Files.delete(externalroot.resolve("summary-ja.png"))
-            Files.createSymbolicLink(externalroot.resolve("summary-ja.png"), outside)
-            val rejected = _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-              fixture.descriptor,
-              target = Some("part-5-summary-ja")
-            )))
 
-            Then("only the explicit direct external root is admitted and no link is followed")
-            admitted.profileRoot shouldBe homeroot
+            When("the planner resolves the declared environment key and then encounters a symlink at the destination")
+            val admitted = CozyArticleMediaSiteBinding.plan(config, environment.get)
+            val missing = _failure(CozyArticleMediaSiteBinding.plan(config, _ => None))
+            Files.delete(destination)
+            Files.createSymbolicLink(destination, outside)
+            val rejected = _failure(CozyArticleMediaSiteBinding.plan(config, environment.get))
+
+            Then("the explicit external root is required and the destination must be a direct regular file")
+            admitted.profileRoot shouldBe externalroot
             admitted.candidates.map(_.resourceId) shouldBe Vector("part-5-summary-ja")
+            missing.getMessage should include(envname)
             rejected.getMessage should include("direct regular")
           }
         } finally {

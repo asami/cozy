@@ -18,7 +18,8 @@ import scala.util.control.NonFatal
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
  *  version Sep. 14, 2026
- * @version Oct. 12, 2026
+ *  version Oct. 12, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -170,11 +171,13 @@ private[cozy] object CozyMedia {
     resolvedroot: Option[Path],
     externalRoot: Boolean
   ) {
-    def resolvedRoot: Path = resolvedroot.getOrElse {
+    def resolvedRoot: Path = resolveRoot(sys.env.get)
+
+    private[media] def resolveRoot(rootEnvironment: String => Option[String]): Path = resolvedroot.getOrElse {
       descriptor.flatMap(_.rootEnv).map { name =>
         if (name.isEmpty || name != name.trim)
           RAISE.invalidArgumentFault(s"Media profile $id rootEnv must be a non-empty exact value")
-        val value = sys.env.get(name).filter(x => x.nonEmpty && x == x.trim).getOrElse(
+        val value = rootEnvironment(name).filter(x => x.nonEmpty && x == x.trim).getOrElse(
           RAISE.invalidArgumentFault(s"Media profile $id requires environment variable: $name")
         )
         try Path.of(value).toAbsolutePath.normalize() catch {
@@ -217,6 +220,42 @@ private[cozy] object CozyMedia {
     def run(command: Vector[String], workingDirectory: Path): Int
   }
   object ProcessRunner {
+    private[cozy] def external(workspace: cozy.document.CozyDocumentProjectWorkRoot.Run, sourceRoot: Path): ProcessRunner =
+      new ProcessRunner {
+        def run(command: Vector[String], workingDirectory: Path): Int = {
+          val directory = workingDirectory.toRealPath()
+          if (!directory.startsWith(workspace.root.toRealPath()))
+            RAISE.invalidArgumentFault(s"Media child working directory escapes its work run: $directory")
+          val temporary = workspace.temporary.toString
+          if (temporary.contains('"') || temporary.contains('\n') || temporary.contains('\r'))
+            RAISE.invalidArgumentFault("Media work temporary path cannot be represented in JAVA_TOOL_OPTIONS")
+          val head = command.headOption.getOrElse(RAISE.invalidArgumentFault("Media child command is empty"))
+          val executable = if (head.startsWith("./") || head.startsWith("../")) {
+            val path = sourceRoot.resolve(head).normalize().toAbsolutePath
+            if (!Files.isRegularFile(path) || !Files.isExecutable(path))
+              RAISE.invalidArgumentFault(s"Media renderer command is unavailable: $path")
+            path.toString
+          } else head
+          val logs = workspace.root.resolve("logs")
+          Files.createDirectories(logs)
+          val logfile = logs.resolve(s"media-${java.util.UUID.randomUUID()}.log")
+          val builder = new ProcessBuilder((executable +: command.tail): _*).directory(directory.toFile).
+            redirectErrorStream(true).redirectOutput(logfile.toFile)
+          val environment = builder.environment()
+          environment.put("TMPDIR", temporary)
+          environment.put("TMP", temporary)
+          environment.put("TEMP", temporary)
+          environment.put("XDG_CACHE_HOME", workspace.cache.toString)
+          environment.put("UV_CACHE_DIR", workspace.cache.resolve("uv").toString)
+          environment.put("npm_config_cache", workspace.cache.resolve("npm").toString)
+          val existing = Option(environment.get("JAVA_TOOL_OPTIONS")).filter(_.nonEmpty).map(_ + " ").getOrElse("")
+          environment.put("JAVA_TOOL_OPTIONS", existing + "-Djava.io.tmpdir=\"" + temporary + "\"")
+          val exit = builder.start().waitFor()
+          if (exit != 0) System.err.println(s"Media child failed; log: $logfile")
+          exit
+        }
+      }
+
     val default: ProcessRunner = new ProcessRunner {
       def run(command: Vector[String], workingDirectory: Path): Int = {
         val process = new ProcessBuilder(command: _*).
@@ -334,6 +373,13 @@ private[cozy] object CozyMedia {
 
   private[cozy] def resolvePlan(config: CommandConfig, descriptorBytes: Vector[Byte]): Plan =
     _plan(config, Some(descriptorBytes))
+
+  private[cozy] def resolvePlan(
+    config: CommandConfig,
+    descriptorBytes: Vector[Byte],
+    rootEnvironment: String => Option[String]
+  ): Plan =
+    _plan(config, Some(descriptorBytes), Some(rootEnvironment))
 
   private[cozy] def effectiveProfile(plan: Plan, id: String): EffectiveProfile =
     Option(plan).flatMap(_.profile(id)).getOrElse {
@@ -498,7 +544,11 @@ private[cozy] object CozyMedia {
   ): Vector[PublicationResult] =
     CozyMediaPublicationTransaction.commit(prepared, beforefirstinstall)
 
-  private def _plan(config: CommandConfig, descriptorbytes: Option[Vector[Byte]] = None): Plan = {
+  private def _plan(
+    config: CommandConfig,
+    descriptorbytes: Option[Vector[Byte]] = None,
+    rootenvironment: Option[String => Option[String]] = None
+  ): Plan = {
     val sitecontextrequest = config.siteContextRequest
     val descriptorfile = config.descriptorFile.toAbsolutePath.normalize()
     if (!_is_direct_regular_file(descriptorfile))
@@ -509,18 +559,22 @@ private[cozy] object CozyMedia {
     val descriptor = StructuredDocumentLoader.loadDocument[Descriptor](descriptorinput).take
     val descriptorroot = Option(descriptorfile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
     val context = CozyProjectContext.resolve(descriptorroot)
-    val profiles = _effective_profiles(descriptorroot, descriptor, context)
-    _validate_descriptor(descriptor, profiles, descriptorfile, context)
+    val discoveredprofiles = _effective_profiles(descriptorroot, descriptor, context)
+    _validate_descriptor(descriptor, discoveredprofiles, descriptorfile, context)
     val selectedprofile = config.profile.orElse(descriptor.articleMedia.map(_.publicationProfile))
     val effectiveprofile = selectedprofile.map { id =>
-      profiles.getOrElse(id, _missing_publication_profile(
+      val profile = discoveredprofiles.getOrElse(id, _missing_publication_profile(
         descriptor,
         descriptorfile,
         context,
         id,
         _profile_selection_failure_prefix(descriptor, id)
       ))
+      rootenvironment.filter(_ => profile.externalRoot).fold(profile) { environment =>
+        profile.copy(resolvedroot = Some(profile.resolveRoot(environment)))
+      }
     }
+    val profiles = effectiveprofile.fold(discoveredprofiles)(profile => discoveredprofiles.updated(profile.id, profile))
     val knowledgesource = _resolve_relative(descriptorroot, descriptor.knowledge.source, "knowledge.source")
     val sitecontext = CozyMediaSiteContext.resolve(sitecontextrequest, effectiveprofile, knowledgesource)
     val unresolved = descriptor.resources.map { resource =>

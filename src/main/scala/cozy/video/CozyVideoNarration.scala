@@ -77,7 +77,10 @@ private[cozy] trait CozyVideoNarration {
       val rate = _json_int(voice, "rate").getOrElse(180)
       if (rate <= 0)
         RAISE.invalidArgumentFault(s"macos-say voice rate must be positive: $rate")
-      val workdir = Files.createTempDirectory("cozy-macos-say-")
+      val workdir = runner.temporaryRoot match {
+        case Some(root) => Files.createTempDirectory(root, "cozy-macos-say-")
+        case None => Files.createTempDirectory("cozy-macos-say-")
+      }
       val source = workdir.resolve("narration.aiff")
       val wav = workdir.resolve("narration.wav")
       try {
