@@ -3,7 +3,7 @@ package cozy.document
 import io.circe.{Json, JsonObject}
 import java.nio.charset.StandardCharsets
 
-/** Typed v2 envelope. Structural role and graph correspondence checks belong to P91-03. */
+/** Typed v2 envelope and structural validation. */
 private[cozy] object CozyDocumentPatternCodec {
   import CozyDocumentLogicTree.{Core, Format, LogicTreeFault, ValidatedCore}
   sealed trait Target
@@ -51,6 +51,19 @@ private[cozy] object CozyDocumentPatternCodec {
       case _ => _fail("PATTERN_REFERENCE", s"$path.kind", "expected claim or child")
     }
   }
+  private def _roles(definition: CozyDocumentPatternCatalog.Pattern, values: Vector[String], path: String): Unit = {
+    val positions = definition.roles.map(_.id)
+    values.foreach { value =>
+      if (!positions.contains(value)) _fail("PATTERN_CATALOG", path, s"unknown role: $value")
+    }
+    val indexes = values.map(positions.indexOf)
+    if (indexes != indexes.sorted) _fail("PATTERN_ROLE_ORDER", path, "roles must follow catalog order and repetitions must be contiguous")
+    definition.roles.foreach { role =>
+      val count = values.count(_ == role.id)
+      if (count < role.min || role.max.exists(count > _))
+        _fail("PATTERN_ROLE_CARDINALITY", path, s"role ${role.id} requires ${role.min}..${role.max.fold("unbounded")(_.toString)}, found $count")
+    }
+  }
   def decode(value: Json): Envelope = {
     val obj = _object(value, "$", Set("schema", "core", "catalog", "documentPattern", "sections"))
     if (_string(obj, "schema", "$") != "cozy.content-core.logic-tree.v2") _fail("PATTERN_SCHEMA", "$.schema", "expected v2 Core envelope")
@@ -71,6 +84,12 @@ private[cozy] object CozyDocumentPatternCodec {
     docroles.foreach { role =>
       if (!docdefinition.roles.exists(_.id == role.role)) _fail("PATTERN_CATALOG", "$.documentPattern.roles", s"unknown document role: ${role.role}")
       if (!core.core.root.steps.exists(_.id == role.step)) _fail("PATTERN_REFERENCE", "$.documentPattern.roles", s"not a root child: ${role.step}")
+    }
+    _roles(docdefinition, docroles.map(_.role), "$.documentPattern.roles")
+    docroles.groupBy(_.role).foreach { case (role, assignments) =>
+      val indexes = assignments.map(value => core.core.root.steps.indexWhere(_.id == value.step))
+      if (indexes.distinct.size != indexes.size || indexes != indexes.sorted)
+        _fail("PATTERN_ROLE_ORDER", "$.documentPattern.roles", s"role $role must reference distinct children in child order")
     }
     val sections = _array(obj, "sections", "$").zipWithIndex.map { case (item, index) =>
       val path = s"$$.sections[$index]"
@@ -98,9 +117,30 @@ private[cozy] object CozyDocumentPatternCodec {
     _unique(sections.map(_.question), "$.sections.question")
     if (sections.map(_.step) != core.depthFirstSteps.map(_.id))
       _fail("PATTERN_REFERENCE", "$.sections", "expected one section per Core Step in depth-first order")
+    val sectionmap = sections.map(value => value.step -> value).toMap
+    val ancestors = scala.collection.mutable.Map.empty[String, Set[String]]
+    def _collect_(step: CozyDocumentLogicTree.Step, parents: Set[String]): Unit = {
+      ancestors.update(step.id, parents)
+      step.steps.foreach(child => _collect_(child, parents + step.id))
+    }
+    _collect_(core.core.root, Set.empty)
     sections.zipWithIndex.foreach { case (section, index) =>
       val path = s"$$.sections[$index]"
       val step = core.depthFirstSteps(index)
+      val definition = CozyDocumentPatternCatalog.sections.find(_.id == section.pattern).get
+      _roles(definition, section.roles.map(_.role), s"$path.roles")
+      val answerrole = definition.answerRole.get
+      if (!section.roles.exists(role => role.role == answerrole && role.target == ClaimTarget(section.answer)))
+        _fail("PATTERN_REFERENCE", s"$path.roles", s"answer role $answerrole must reference the local answer claim ${section.answer}")
+      val eligible = Set("context", "problem", "purpose", "goal")
+      _unique(section.inheritedContext.map(_.role), s"$path.inheritedContext")
+      section.inheritedContext.foreach { context =>
+        val allowed = definition.roles.exists(role => role.id == context.role && role.min == 0) && eligible.contains(context.role)
+        val ancestor = sectionmap.get(context.ancestor)
+        if (!allowed || section.roles.exists(_.role == context.role) || !ancestors(step.id).contains(context.ancestor) ||
+            !ancestor.exists(_.roles.exists(role => role.role == context.role && role.target == ClaimTarget(context.target))))
+          _fail("PATTERN_REFERENCE", s"$path.inheritedContext", s"invalid inherited context ${context.role} from ${context.ancestor}: ${context.target}")
+      }
       val claims = step.claims.map(_.id).toSet
       val children = step.steps.map(_.id).toSet
       if (!claims.contains(section.answer)) _fail("PATTERN_REFERENCE", s"$path.answer", s"not a claim of ${step.id}: ${section.answer}")

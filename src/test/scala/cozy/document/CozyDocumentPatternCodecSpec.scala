@@ -17,9 +17,9 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
         "structure":{"pattern":"mapping","nodes":[{"id":"cs","role":"source"},{"id":"ct","role":"target"}],"relations":[{"id":"cm","relationType":"maps-to","from":"cs","to":"ct"}]},
         "flow":{"id":"cf","transitions":[]},"steps":[]}] }},
     "catalog":{"id":"cozy.document-section-patterns","version":1},
-    "documentPattern":{"pattern":"background-first","roles":[{"id":"dr","role":"lead","step":"child"}]},
-    "sections":[{"step":"root","pattern":"definition","question":"qr","answer":"root-claim","roles":[{"id":"rr","role":"properties","target":{"kind":"child","id":"child","explainsClaim":"root-claim"}}],"inheritedContext":[]},
-      {"step":"child","pattern":"mechanism","question":"qc","answer":"child-claim","roles":[{"id":"cr","role":"principle","target":{"kind":"claim","id":"child-claim"}}],"inheritedContext":[]}] }"""
+    "documentPattern":{"pattern":"background-first","roles":[{"id":"dr","role":"lead","step":"child"},{"id":"di","role":"introduction","step":"child"},{"id":"dd","role":"definition","step":"child"},{"id":"dc","role":"composition","step":"child"},{"id":"du","role":"usage","step":"child"},{"id":"dz","role":"conclusion","step":"child"}]},
+    "sections":[{"step":"root","pattern":"definition","question":"qr","answer":"root-claim","roles":[{"id":"ra","role":"definition","target":{"kind":"claim","id":"root-claim"}},{"id":"rr","role":"properties","target":{"kind":"child","id":"child","explainsClaim":"root-claim"}}],"inheritedContext":[]},
+      {"step":"child","pattern":"mechanism","question":"qc","answer":"child-claim","roles":[{"id":"cr","role":"principle","target":{"kind":"claim","id":"child-claim"}},{"id":"co","role":"operation","target":{"kind":"claim","id":"child-claim"}},{"id":"ce","role":"result-condition","target":{"kind":"claim","id":"child-claim"}}],"inheritedContext":[]}] }"""
   "The document pattern catalog" should {
     "retain all expanded identities, ordered bounds, and bilingual wording" in {
       Given("the bundled authoring catalog")
@@ -46,7 +46,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
       val result = CozyDocumentPatternCodec.decode(json)
       Then("its selections and existing child and claim identities remain distinct")
       result.sections.map(_.pattern) shouldBe Vector("definition", "mechanism")
-      result.sections.head.roles.head.target shouldBe CozyDocumentPatternCodec.ChildTarget("child", "root-claim")
+      result.sections.head.roles.last.target shouldBe CozyDocumentPatternCodec.ChildTarget("child", "root-claim")
       result.sections.last.roles.head.target shouldBe CozyDocumentPatternCodec.ClaimTarget("child-claim")
       result.source.depthFirstSteps.map(_.id) shouldBe Vector("root", "child")
     }
@@ -72,6 +72,81 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
       accepted.coreId shouldBe "sample"
       fault.code shouldBe "LOGIC_TREE_FORMAT_COVERAGE"
       fault.path shouldBe "$.stepBindings"
+    }
+    "enforce role cardinality, order, answer references and explicit inherited context" in {
+      Given("a completed recursive envelope")
+      val missing = _source.replace("{\"id\":\"di\",\"role\":\"introduction\",\"step\":\"child\"},", "")
+      val unordered = _source.replace("\"role\":\"introduction\"", "\"role\":\"usage\"")
+      val answer = _source.replace("\"id\":\"ra\",\"role\":\"definition\",\"target\":{\"kind\":\"claim\",\"id\":\"root-claim\"}", "\"id\":\"ra\",\"role\":\"definition\",\"target\":{\"kind\":\"child\",\"id\":\"child\",\"explainsClaim\":\"root-claim\"}")
+      val invalidinherit = _source.replace("\"step\":\"child\",\"pattern\":\"mechanism\"", "\"step\":\"child\",\"pattern\":\"mechanism\"").replace("\"id\":\"ce\",\"role\":\"result-condition\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[]", "\"id\":\"ce\",\"role\":\"result-condition\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[{\"ancestor\":\"root\",\"role\":\"purpose\",\"target\":\"root-claim\"}]")
+      When("malformed variants are decoded")
+      val faults = Vector(missing, unordered, answer, invalidinherit).map(value => intercept[CozyDocumentLogicTree.LogicTreeFault](CozyDocumentPatternCodec.decode(parse(value).toOption.get)))
+      Then("each fails its appropriate structural rule")
+      faults.map(_.code) shouldBe Vector("PATTERN_ROLE_CARDINALITY", "PATTERN_ROLE_ORDER", "PATTERN_REFERENCE", "PATTERN_REFERENCE")
+    }
+    "allow a direct optional context from a strict ancestor" in {
+      Given("a root context assignment and a child choosing the same context role")
+      val source = _source.replace("\"id\":\"ra\",\"role\":\"definition\"", "\"id\":\"rx\",\"role\":\"context\",\"target\":{\"kind\":\"claim\",\"id\":\"root-claim\"}},{\"id\":\"ra\",\"role\":\"definition\"")
+        .replace("\"pattern\":\"mechanism\"", "\"pattern\":\"definition\"")
+        .replace("\"role\":\"principle\"", "\"role\":\"definition\"")
+        .replace("\"role\":\"operation\"", "\"role\":\"properties\"")
+        .replace(",{\"id\":\"ce\",\"role\":\"result-condition\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}", "")
+        .replace("\"id\":\"co\",\"role\":\"properties\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[]", "\"id\":\"co\",\"role\":\"properties\",\"target\":{\"kind\":\"claim\",\"id\":\"child-claim\"}}],\"inheritedContext\":[{\"ancestor\":\"root\",\"role\":\"context\",\"target\":\"root-claim\"}]")
+      When("the envelope is decoded")
+      val result = CozyDocumentPatternCodec.decode(parse(source).toOption.get)
+      Then("the explicit inherited claim remains separate from local roles")
+      result.sections.last.inheritedContext shouldBe Vector(CozyDocumentPatternCodec.InheritedContext("root", "context", "root-claim"))
+    }
+    "produce only unwritten draft slots for every catalog selection" in {
+      Given("any catalog document and section selection")
+      val prop = Prop.forAll(Gen.oneOf(CozyDocumentPatternCatalog.documents), Gen.oneOf(CozyDocumentPatternCatalog.sections)) { (document, section) =>
+        val draft = CozyDocumentPatternDraft.create(CozyDocumentPatternCatalog.id, "1", document.id, section.id)
+        CozyDocumentPatternDraft.validate(draft)
+        val fault = intercept[CozyDocumentLogicTree.LogicTreeFault](CozyDocumentPatternDraft.rejectIncomplete(draft))
+        fault.code == "draft-incomplete" && !draft.noSpaces.contains("claim-id")
+      }
+      When("a scaffold is created and read back")
+      val result = Test.check(Test.Parameters.default, prop)
+      Then("it remains explicitly incomplete")
+      result.passed shouldBe true
+    }
+    "dispatch scaffold and reject its draft before reading Format" in {
+      Given("direct output and nonexistent Format paths")
+      val directory = java.nio.file.Files.createTempDirectory("pattern-draft")
+      val core = directory.resolve("core.yaml")
+      val format = directory.resolve("missing.yaml")
+      try {
+        When("the normal command writes and validates a scaffold")
+        val created = CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "scaffold", "--catalog", CozyDocumentPatternCatalog.id, "--version", "1", "--document-pattern", "background-first", "--section-pattern", "definition", "--save", core.toString))
+        val fault = intercept[CozyDocumentLogicTree.LogicTreeFault](CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "validate", "--core", core.toString, "--format", format.toString)))
+        Then("the command reports its unwritten state before opening Format")
+        created shouldBe true
+        fault.code shouldBe "draft-incomplete"
+      } finally {
+        java.nio.file.Files.deleteIfExists(core)
+        java.nio.file.Files.deleteIfExists(directory)
+      }
+    }
+    "refuse to overwrite an authored Core when scaffolding" in {
+      Given("an existing core.yaml containing authored content")
+      val directory = java.nio.file.Files.createTempDirectory("pattern-authored")
+      val core = directory.resolve("core.yaml")
+      val authored = "schema: cozy.content-core.logic-tree.v1\nid: authored\nroot:\n  claims: [authored-claim]\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+      java.nio.file.Files.write(core, authored)
+      try {
+        When("the scaffold command targets that file")
+        val fault = intercept[CozyDocumentLogicTree.LogicTreeFault] {
+          CozyDocumentLogicTreeCommand.execute(List("document-project", "logic-tree", "scaffold", "--catalog", CozyDocumentPatternCatalog.id, "--version", "1", "--document-pattern", "background-first", "--section-pattern", "definition", "--save", core.toString))
+        }
+        Then("it reports the existing destination and preserves the original bytes")
+        fault.code shouldBe "LOGIC_TREE_PATH"
+        fault.path shouldBe "$.save"
+        fault.reason shouldBe "scaffold destination already exists"
+        java.nio.file.Files.readAllBytes(core).toVector shouldBe authored.toVector
+      } finally {
+        java.nio.file.Files.deleteIfExists(core)
+        java.nio.file.Files.deleteIfExists(directory)
+      }
     }
     "reject wrong reference kinds, targets, and unknown fields" in {
       Given("v2 envelopes with malformed target and root shapes")

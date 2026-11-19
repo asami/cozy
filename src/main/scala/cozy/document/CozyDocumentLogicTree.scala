@@ -106,6 +106,16 @@ private[cozy] object CozyDocumentLogicTree {
     _validate(corebytes, _load_document(corepath, corebytes, "core"), _load_document(formatpath, formatbytes, "format"))
   }
 
+  private[cozy] def loadPatternCore(coreValue: Path): Json = {
+    val path = _admit_core(coreValue)
+    _load_document(path, _read_bytes(path, "core"), "core")
+  }
+
+  private[cozy] def loadPatternFormat(formatValue: Path): Json = {
+    val path = _admit_format(formatValue)
+    _load_document(path, _read_bytes(path, "format"), "format")
+  }
+
   private[cozy] def loadCore(coreValue: Path): ValidatedCore = {
     val corepath = _admit_core(coreValue)
     val corebytes = _read_bytes(corepath, "core")

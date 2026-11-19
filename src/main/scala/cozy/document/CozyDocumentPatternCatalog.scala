@@ -4,7 +4,9 @@ package cozy.document
 private[cozy] object CozyDocumentPatternCatalog {
   final case class Localized(ja: String, en: String)
   final case class Role(id: String, label: Localized, min: Int, max: Option[Int])
-  final case class Pattern(id: String, label: Localized, question: Option[Localized], roles: Vector[Role])
+  final case class Pattern(id: String, label: Localized, question: Option[Localized], roles: Vector[Role]) {
+    def answerRole: Option[String] = if (question.isDefined) roles.find(_.min > 0).map(_.id) else None
+  }
   val id = "cozy.document-section-patterns"
   val version = 1
 
