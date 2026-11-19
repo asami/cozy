@@ -35,6 +35,8 @@ private[cozy] object CozySbtBridge {
         _execute_v1(rest)
       case "v2" :: rest =>
         CozyDevelopmentGeneration.execute(_required_path(rest, "request"))
+      case "v3" :: rest =>
+        CozyDevelopmentGeneration.executeV3(_required_path(rest, "request"))
       case _ =>
         RAISE.invalidArgumentFault("Missing sbt-bridge version. Expected: sbt-bridge v1 --request <file>")
     }

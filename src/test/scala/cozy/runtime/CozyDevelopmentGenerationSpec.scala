@@ -292,6 +292,251 @@ final class CozyDevelopmentGenerationSpec extends AnyWordSpec with Matchers with
       Then("real generated Scala files exist; this does not certify a private selected JVM")
       files should not be empty
     }
+
+    "preserve v3 artifact identities, report-only rows and completed batch bindings" in {
+      Given("a supplied graph with a self-edge, two Cozy artifacts, a metadata-only node and an evicted row")
+      val request = _request_v3(false)
+      val resolution = request.resolution
+      When("the schema is round-tripped and structurally validated")
+      Json.fromJson[RequestV3](Json.toJson(request)).get shouldBe request
+      validateV3(request)
+      Then("the selected runtime subset and unavailable profile diagnostics are accepted")
+      resolution.artifacts.count(_.key.module == resolution.requestRoots.head) shouldBe 2
+      resolution.reportRows.exists(x => !x.eviction.evicted && x.artifacts.isEmpty) shouldBe true
+      resolution.reportRows.exists(_.eviction.evicted) shouldBe true
+      val batch = Json.parse(Files.readAllBytes(Paths.get(request.batchRecord))).as[BatchV3]
+      batch.members.head.artifacts.size shouldBe 3
+      validateV3(request.copy(selection = request.selection.copy(selectionId = "another-consumer")))
+    }
+
+    "retain an explicit base request and the reported target details" in {
+      Given("a development override with only its selected alias reported")
+      val request = _request_v3(false)
+      val resolution = request.resolution
+      val module = resolution.modules.find(_.development).get
+      val index = resolution.reportRows.indexWhere(x => x.module == module.identity && !x.eviction.evicted)
+      val row = resolution.reportRows(index)
+      val selector = ReportArtifactSelectorV3("selected", "jar", "jar", Some("native"), Map("flavor" -> "native"))
+      val exclusion = ExclusionV3("excluded", "dependency", "*", Vector("runtime"), Map("reason" -> "fixture"))
+      val target = row.targetModule.copy(configurations = Some("runtime->default"),
+        explicitArtifacts = Vector(selector), exclusions = Vector(exclusion), isForce = true,
+        isChanging = true, isTransitive = false, extraAttributes = Map("branch" -> "fixture"))
+      val changed = row.copy(targetModule = target, resolver = Some("public-resolver"), artifactResolver = Some("artifact-resolver"))
+      val supplied = request.copy(resolution = resolution.copy(
+        modules = resolution.modules.map(x => if (x.identity == module.identity) x.copy(requestedVersion = x.baseVersion) else x),
+        edges = resolution.edges.map(x => if (x.to == module.identity) x.copy(requestedVersion = module.baseVersion) else x),
+        reportRows = resolution.reportRows.updated(index, changed),
+        exactOverrides = Map(s"${module.organization}:${module.name}" -> module.selectedVersion)))
+      When("the supplied request is serialized and checked")
+      val roundtrip = Json.fromJson[RequestV3](Json.toJson(supplied)).get
+      validateV3(roundtrip)
+      Then("the actual row and nondefault report facts survive without a fabricated base row")
+      roundtrip shouldBe supplied
+      roundtrip.resolution.reportRows.filter(_.module == module.identity).map(_.revision) shouldBe Vector(module.selectedVersion)
+      roundtrip.resolution.edges.filter(_.to == module.identity).map(_.requestedVersion).distinct shouldBe Vector(module.baseVersion)
+      val wrongbase = supplied.resolution.edges.map(x => if (x.to == module.identity) x.copy(requestedVersion = "foreign") else x)
+      intercept[Exception](validateV3(supplied.copy(resolution = supplied.resolution.copy(edges = wrongbase))))
+      intercept[Exception](validateV3(supplied.copy(resolution = supplied.resolution.copy(exactOverrides = Map.empty))))
+      intercept[Exception](validateV3(supplied.copy(resolution = supplied.resolution.copy(edges = supplied.resolution.edges.filterNot(_.to == module.identity)))))
+      val mismatch = changed.copy(targetModule = target.copy(revision = "wrong"))
+      intercept[Exception](validateV3(supplied.copy(resolution = supplied.resolution.copy(
+        reportRows = supplied.resolution.reportRows.updated(index, mismatch)))))
+        .getMessage should include("reported target module")
+    }
+
+    "refuse incomplete or contradictory v3 evidence" in {
+      Given("a complete supplied v3 graph and immutable batch")
+      val request = _request_v3(false)
+      val resolution = request.resolution
+      val selected = resolution.reportRows.indexWhere(x => !x.eviction.evicted && x.artifacts.nonEmpty)
+      val row = resolution.reportRows(selected)
+      val missing = row.copy(missingArtifacts = Vector(row.artifacts.head.key))
+      val cases = Vector(
+        request.copy(action = "run-command"),
+        request.copy(selection = request.selection.copy(owner = "foreign")),
+        request.copy(resolution = resolution.copy(modules = resolution.modules.dropRight(1))),
+        request.copy(resolution = resolution.copy(edges = resolution.edges.dropRight(1))),
+        request.copy(resolution = resolution.copy(artifacts = resolution.artifacts.dropRight(1))),
+        request.copy(resolution = resolution.copy(reportRows = resolution.reportRows.updated(selected, missing))),
+        request.copy(resolution = resolution.copy(exactOverrides = Map("org.simplemodeling:cozy_2.12" -> "foreign"))),
+        request.copy(resolution = resolution.copy(modules = resolution.modules :+ resolution.modules.head.copy(selectedVersion = "other-alias"))),
+        request.copy(resolution = resolution.copy(modules = resolution.modules.updated(0, resolution.modules.head.copy(requestedVersion = "foreign-alias")))),
+        request.copy(resolution = resolution.copy(requestRoots = resolution.requestRoots :+ resolution.modules.last.identity)),
+        request.copy(resolution = resolution.copy(modules = resolution.modules.updated(0, resolution.modules.head.copy(baseVersion = "wrong"))))
+      )
+      When("each missing, foreign or contradictory fact is submitted")
+      Then("each is rejected before generation")
+      cases.foreach(x => intercept[Exception](validateV3(x)).getMessage should include("DEVELOPMENT_GENERATION_INVALID"))
+      intercept[Exception](observeV3(request)).getMessage should include("DEVELOPMENT_GENERATION_INVALID")
+
+      val batchpath = Paths.get(request.batchRecord)
+      val original = Files.readAllBytes(batchpath)
+      val batch = Json.parse(original).as[BatchV3]
+      Files.write(batchpath, Json.stringify(Json.toJson(batch.copy(complete = false))).getBytes(StandardCharsets.UTF_8))
+      intercept[Exception](validateV3(request)).getMessage should include("batch")
+      Files.write(batchpath, original)
+      val sourcefile = Paths.get(batch.members.head.artifacts.last.publicationFile)
+      val sourcebytes = Files.readAllBytes(sourcefile)
+      Files.delete(sourcefile)
+      intercept[Exception](validateV3(request)).getMessage should include("file does not exist")
+      Files.write(sourcefile, sourcebytes)
+      val descriptor = Paths.get(batch.members.head.module.descriptor)
+      val xml = new String(Files.readAllBytes(descriptor), StandardCharsets.UTF_8)
+      Files.write(descriptor, xml.replace("conf=\"runtime\"", "conf=\"runtime\" e:flavor=\"foreign\"").getBytes(StandardCharsets.UTF_8))
+      intercept[Exception](validateV3(request)).getMessage should include("descriptor artifact set")
+    }
+
+    "reject v3 publication paths containing symbolic links" in {
+      Given("a completed batch referenced through a symbolic link")
+      val request = _request_v3(false)
+      val batch = Paths.get(request.batchRecord)
+      val link = batch.getParent.resolve("linked-batch.json")
+      Files.createSymbolicLink(link, batch.getFileName)
+      When("the linked path is submitted")
+      Then("validation rejects it before resolving the link")
+      intercept[Exception](validateV3(request.copy(batchRecord = link.toString))).getMessage should include("symbolic link")
+    }
+
+    "execute fixed v3 generation in a fresh JVM using supplied fixture facts" in {
+      Given("real compiled Cozy and backend classes with a test-supplied graph")
+      val request = _request_v3(true)
+      val root = Paths.get(request.roots.owner)
+      val requestfile = root.resolve("v3-request.json")
+      Files.write(requestfile, Json.stringify(Json.toJson(request)).getBytes(StandardCharsets.UTF_8))
+      val paths = request.resolution.runtimeClasspath.map(key => request.resolution.artifacts.find(_.key == key).get.launchFile)
+      val log = root.resolve("v3-child.log")
+      When("the fixed v3 bridge generates the actual library CML in a new JVM")
+      val process = new ProcessBuilder(Paths.get(sys.props("java.home"), "bin", "java").toString,
+        "-cp", paths.mkString(java.io.File.pathSeparator), "cozy.Cozy", "sbt-bridge", "v3", "--request", requestfile.toString)
+        .redirectErrorStream(true).redirectOutput(log.toFile).start()
+      val exit = process.waitFor()
+      Then("actual origins, versions, classpath and generated inventory are reported separately from supplied facts")
+      withClue(new String(Files.readAllBytes(log), StandardCharsets.UTF_8)) { exit shouldBe 0 }
+      val actual = Json.parse(Files.readAllBytes(Paths.get(request.roots.result))).as[ResultV3]
+      actual.outcome shouldBe "generated"
+      actual.receivedResolution shouldBe request.resolution
+      actual.observation.classpath shouldBe paths
+      actual.observation.cozyVersion shouldBe org.simplemodeling.cozy.BuildInfo.version
+      actual.observation.simpleModelerVersion shouldBe org.simplemodeling.cozy.BuildInfo.simpleModelerVersion
+      val cozyid = request.resolution.requestRoots.head
+      val modelerid = request.resolution.requestRoots(1)
+      request.resolution.artifacts.filter(_.key.module == cozyid).map(_.launchFile) should contain(actual.observation.cozy.codeSource)
+      request.resolution.artifacts.filter(_.key.module == modelerid).map(_.launchFile) should contain(actual.observation.simpleModeler.codeSource)
+      actual.observation.cozy.resource should include("cozy/Cozy.class")
+      actual.observation.simpleModeler.resource should include("Scala3ClassGeneratorExecutor.class")
+      actual.generatedFiles.exists(_.endsWith(".scala")) shouldBe true
+      actual.generatedFiles.foreach(x => Files.isRegularFile(Paths.get(request.roots.output).resolve(x)) shouldBe true)
+    }
+  }
+
+  private def _request_v3(real: Boolean): RequestV3 = {
+    val root = _work_directory("v3-").toRealPath()
+    val build = Files.createDirectory(root.resolve("build"))
+    val source = Files.createDirectory(root.resolve("source"))
+    val publication = Files.createDirectory(root.resolve("publication"))
+    val input = source.resolve("model.cml")
+    Files.copy(Paths.get(sys.props("user.dir"), "src/test/resources/modeler/library/address.cml"), input)
+    Files.write(build.resolve("project.yaml"), "generation:\n  target: library\n".getBytes(StandardCharsets.UTF_8))
+    def _location_(clazz: Class[_]): Path = Paths.get(clazz.getProtectionDomain.getCodeSource.getLocation.toURI).toRealPath()
+    val cozyclass = _location_(classOf[_root_.cozy.Cozy])
+    val modelerclass = _location_(Class.forName("org.simplemodeling.SimpleModeler.generator.scala.Scala3ClassGeneratorExecutor"))
+    val scalaclass = _location_(classOf[scala.Option[_]])
+    val urls = Iterator.iterate(Option(getClass.getClassLoader))(_.flatMap(x => Option(x.getParent)))
+      .takeWhile(_.nonEmpty).flatMap(_.toVector).flatMap {
+        case loader: java.net.URLClassLoader => loader.getURLs.toVector
+        case _ => Vector.empty[java.net.URL]
+      }.filter(_.getProtocol == "file").map(x => Paths.get(x.toURI).toRealPath()).toVector
+    val paths = if (real) (Vector(cozyclass, modelerclass, scalaclass) ++ urls ++
+      sys.props.getOrElse("java.class.path", "").split(java.io.File.pathSeparator).filter(_.nonEmpty)
+        .map(x => Paths.get(x).toRealPath()) ++ Vector(_location_(getClass))).distinct
+      else Vector(cozyclass, modelerclass, scalaclass)
+    val cozyversion = org.simplemodeling.cozy.BuildInfo.version
+    val modelerversion = org.simplemodeling.cozy.BuildInfo.simpleModelerVersion
+    val modules = paths.zipWithIndex.map { case (path, index) =>
+      val (org, name, base, selected) =
+        if (path == cozyclass) ("org.simplemodeling", "cozy_2.12", cozyversion, "fixture-private-cozy")
+        else if (path == modelerclass) ("org.simplemodeling", "simplemodeler_2.12", modelerversion, modelerversion)
+        else if (path == scalaclass) ("org.scala-lang", "scala-library", "2.12.fixture", "2.12.fixture")
+        else ("fixture", s"dependency-$index", "1", "1")
+      val revision = publication.resolve(org).resolve(name).resolve(selected)
+      ModuleV3(org, name, selected, selected, base, path == cozyclass,
+        if (path == cozyclass) Some(revision.resolve("ivys/ivy.xml").toString) else None,
+        if (path == cozyclass) Some(revision.resolve("control.json").toString) else None)
+    }
+    val cozy = modules.find(_.development).get
+    val modeler = modules.find(_.name == "simplemodeler_2.12").get
+    val metadata = ModuleV3("fixture", "metadata", "1", "1", "1", false, None, None)
+    val allmodules = modules :+ metadata
+    def _copy_jar_(path: Path, target: Path): Unit = {
+      Files.createDirectories(target.getParent)
+      if (Files.isDirectory(path)) {
+        val out = new java.util.jar.JarOutputStream(Files.newOutputStream(target))
+        val walk = Files.walk(path)
+        try walk.iterator.asScala.filter(Files.isRegularFile(_)).foreach { file =>
+          out.putNextEntry(new java.util.jar.JarEntry(path.relativize(file).toString.replace('\\', '/')))
+          Files.copy(file, out)
+          out.closeEntry()
+        } finally { walk.close(); out.close() }
+      } else Files.copy(path, target)
+    }
+    def _empty_jar_(path: Path): Unit = {
+      Files.createDirectories(path.getParent)
+      val out = new java.util.jar.JarOutputStream(Files.newOutputStream(path))
+      out.close()
+    }
+    val ordinary = modules.zip(paths).map { case (module, path) =>
+      val target = publication.resolve(module.organization).resolve(module.name).resolve(module.selectedVersion)
+        .resolve("jars").resolve(module.name + ".jar")
+      _copy_jar_(path, target)
+      val key = ArtifactKeyV3(module.identity, module.name, "jar", "jar", None, Map.empty)
+      ArtifactV3(key, target.toString, target.toString, true)
+    }
+    val revision = publication.resolve(cozy.organization).resolve(cozy.name).resolve(cozy.selectedVersion)
+    val classifierpath = revision.resolve("jars").resolve(cozy.name + "-native.jar")
+    val sourcespath = revision.resolve("jars").resolve(cozy.name + "-sources.jar")
+    _empty_jar_(classifierpath)
+    _empty_jar_(sourcespath)
+    val classifier = ArtifactKeyV3(cozy.identity, cozy.name, "jar", "jar", Some("native"), Map("e:flavor" -> "native"))
+    val sources = ArtifactKeyV3(cozy.identity, cozy.name, "src", "jar", Some("sources"), Map.empty)
+    val extra = ArtifactV3(classifier, classifierpath.toString, classifierpath.toString, true)
+    val artifacts = ordinary :+ extra
+    val edges = allmodules.filterNot(_ == cozy).map(x => Edge(cozy.identity, x.identity, x.selectedVersion)) :+
+      Edge(cozy.identity, cozy.identity, cozy.selectedVersion)
+    def _caller_(from: String): CallerV3 = CallerV3(from, allmodules.find(_.identity == from).get.selectedVersion,
+      Vector("runtime"), Map.empty, Vector.empty, Vector.empty, false, false, true, false)
+    def _target_(module: ModuleV3, revision: String): ReportTargetModuleV3 =
+      ReportTargetModuleV3(module.organization, module.name, revision, None, Vector.empty, Vector.empty,
+        false, false, true, Map.empty)
+    val rows = allmodules.map { module =>
+      ReportRowV3(module.identity, module.selectedVersion, Vector("runtime"),
+        artifacts.filter(_.key.module == module.identity).map(x => ReportArtifactV3(x.key, x.resolverFile)), Vector.empty,
+        edges.filter(_.to == module.identity).map(x => _caller_(x.from)), EvictionV3(false, None, Vector.empty), None, Map.empty, _target_(module, module.selectedVersion), None, None)
+    } :+ ReportRowV3(modeler.identity, "evicted-revision", Vector("runtime"), Vector.empty, Vector.empty,
+      Vector.empty, EvictionV3(true, Some(modeler.selectedVersion), Vector("fixture eviction")), None, Map.empty,
+      _target_(modeler, "evicted-revision"), None, None)
+    val cozymain = ordinary.find(_.key.module == cozy.identity).get
+    val published = PublishedModuleV3(cozy.organization, cozy.name, cozy.selectedVersion, cozy.baseVersion,
+      cozy.descriptor.get, cozy.control.get)
+    val member = BatchMemberV3(published, Vector(PublishedArtifactV3(cozymain.key, cozymain.launchFile),
+      PublishedArtifactV3(classifier, classifierpath.toString), PublishedArtifactV3(sources, sourcespath.toString)))
+    val descriptor = Paths.get(published.descriptor)
+    Files.createDirectories(descriptor.getParent)
+    val xml = s"""<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra"><info organisation="${cozy.organization}" module="${cozy.name}" revision="${cozy.selectedVersion}"/><publications><artifact name="${cozy.name}" type="jar" ext="jar" conf="runtime"/><artifact name="${cozy.name}" type="jar" ext="jar" e:classifier="native" e:flavor="native"/><artifact name="${cozy.name}" type="src" ext="jar" e:classifier="sources"/></publications></ivy-module>"""
+    Files.write(descriptor, xml.getBytes(StandardCharsets.UTF_8))
+    val control = Json.obj("scope" -> "scope", "owner" -> "owner", "producerSelectionId" -> "producer", "batch" -> "batch",
+      "complete" -> true, "module" -> Json.toJson(published), "artifacts" -> Json.toJson(member.artifacts))
+    Files.write(Paths.get(published.control), Json.stringify(control).getBytes(StandardCharsets.UTF_8))
+    val batchpath = publication.resolve("batch.json")
+    Files.write(batchpath, Json.stringify(Json.toJson(BatchV3("scope", "owner", "batch", "producer", true, Vector(member)))).getBytes(StandardCharsets.UTF_8))
+    val resolution = ResolutionV3("fixture-only", Vector(cozy.identity, modeler.identity), Map.empty, Vector("runtime"), rows,
+      allmodules, artifacts, edges, artifacts.map(_.key), Json.obj(), Json.obj(),
+      Json.obj("appliedProfileTrace" -> Json.obj("status" -> "unavailable", "reason" -> "public report")))
+    val output = build.resolve("output")
+    RequestV3("v3", "generate-development", Selection("scope", "owner", "consumer", "batch", publication.toString),
+      Roots(build.toString, root.toString, source.toString, output.toString, build.resolve("result.json").toString),
+      resolution, batchpath.toString, Vector("modeler-scala-value", input.toString, "--save", output.toString),
+      Map("sbt.project_dir" -> build.toString, "generation.target" -> "library", "generation.versions.cozy" -> cozyversion,
+        "component.namespace" -> "org.simplemodeling", "component.id" -> "SimpleModelingModel"))
   }
 
   private def _work_directory(prefix: String): Path = {

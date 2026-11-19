@@ -66,6 +66,20 @@ final class CozySbtBridgeLibraryGenerationSpec
       error.getMessage should include("DEVELOPMENT_GENERATION_INVALID")
     }
 
+    "dispatch v3 only to its own typed request reader" in {
+      Given("an incomplete v3 request")
+      val work = _base.resolve("target/cozy-development-generation/work")
+      Files.createDirectories(work)
+      val root = Files.createTempDirectory(work, "bridge-v3-invalid-")
+      val request = _write(root.resolve("request.json"), "{\"version\":\"v3\",\"action\":\"generate\"}")
+      When("the v3 bridge receives it")
+      val error = intercept[Exception] {
+        cozy.Cozy.main(Array("sbt-bridge", "v3", "--request", request.toString))
+      }
+      Then("the v3 reader rejects it without falling back to another version")
+      error.getMessage should include("invalid v3 request")
+    }
+
     "reject a library runtime contradiction and an inexact Cozy runtime" in {
       Given("contradictory library bridge configurations")
       val base = Map(
