@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Nov. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozySbtBridgeLibraryGenerationSpec
@@ -50,6 +50,20 @@ final class CozySbtBridgeLibraryGenerationSpec
       generated.foreach { case (nativeout, bridgeout) =>
         _scala_bytes(nativeout) shouldBe _scala_bytes(bridgeout)
       }
+    }
+
+    "reject an invalid v2 request without falling back to v1" in {
+      Given("a v2 request with an unsupported action")
+      val work = _base.resolve("target/cozy-development-generation/work")
+      Files.createDirectories(work)
+      val root = Files.createTempDirectory(work, "bridge-v2-invalid-")
+      val request = _write(root.resolve("request.json"), "{\"version\":\"v2\",\"action\":\"generate\"}")
+      When("the versioned bridge receives the request")
+      val error = intercept[Exception] {
+        cozy.Cozy.main(Array("sbt-bridge", "v2", "--request", request.toString))
+      }
+      Then("the v2 schema rejects it rather than dispatching v1")
+      error.getMessage should include("DEVELOPMENT_GENERATION_INVALID")
     }
 
     "reject a library runtime contradiction and an inexact Cozy runtime" in {

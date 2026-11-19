@@ -645,3 +645,15 @@ EOF evidence is reused. Repository-full SBT and broader integration remain
 **deferred-not-run to PHASE-71.7**. This documentation editor ran no tests,
 self-review, source edit, Git mutation or workflow transition. No Step, Phase
 or all-removal acceptance is claimed.
+
+## Development publication bindings (sbt-bridge v2)
+
+The development-only selected-generator interface is specified in
+[development-artifact-generation.md](development-artifact-generation.md).
+Its explicit selected publication, base version, scope and completed-batch
+binding does not change ordinary or release version matching. Cozy compares its
+actual BuildInfo and the backend artifact's own manifest version with the
+selected base versions; it does not remove development suffixes. The SBT
+resolution record and the child JVM's actual loaded origins are distinct facts.
+The separately owned sbt-cozy adapter must isolate the Scala 2.12 generator
+closure from the Scala 3/CNCF consumer graph and qualify real selected execution.
