@@ -9,7 +9,10 @@ import scala.util.control.NonFatal
 
 /** Runs one explicitly selected dialogue audio or video product in an external run. */
 private[cozy] object CozyDocumentProjectVideoWorkspace {
-  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, product: String, locale: String): String = {
+  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, product: String, locale: String): String =
+    buildCandidate(project, workspace, product, locale).report
+
+  def buildCandidate(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, product: String, locale: String, validateOnly: Boolean = false): CozyDocumentProjectPackage.Candidate = {
     if (!Set("audio", "video").contains(product) || !Set("ja", "en").contains(locale))
       _failure("video workspace requires audio or video and locale ja or en")
     val descriptor = CozyDocumentProject._load_json(project.resolve("media.yaml"), "media descriptor")
@@ -58,11 +61,14 @@ private[cozy] object CozyDocumentProjectVideoWorkspace {
       val dep = Files.createDirectory(workspace.root.resolve(s"video-dependency-$index"))
       val temporary = Files.createDirectory(dep.resolve("tmp"))
       val cache = Files.createDirectory(dep.resolve("cache"))
-      CozyDocumentProjectMediaWorkspace.build(project, CozyDocumentProjectWorkRoot.Run(dep, temporary, cache), id, locale)
+      CozyDocumentProjectMediaWorkspace.buildCandidate(project, CozyDocumentProjectWorkRoot.Run(dep, temporary, cache), id, locale, validateOnly = validateOnly)
       val candidate = dep.resolve("project.dox").resolve(project.relativize(output))
-      if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) _failure(s"video dependency was not generated: $id")
-      _copy(candidate, root.resolve(project.relativize(output)))
+      if (!validateOnly) {
+        if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) _failure(s"video dependency was not generated: $id")
+        _copy(candidate, root.resolve(project.relativize(output)))
+      }
     }
+    if (validateOnly) return CozyDocumentProjectPackage.Candidate(root.resolve(project.relativize(projectfile)), "validated video inputs")
     val runner = CozyVideo.VideoProcessRunner.external(workspace)
     val probe = new CozyVideo.VideoToolProbe {
       def command(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = runner.run(args, cwd)
@@ -75,7 +81,7 @@ private[cozy] object CozyDocumentProjectVideoWorkspace {
     val provider = script.hcursor.downField("narration").get[String]("provider").toOption
     val mode = if (provider.contains("macos-say")) Some("host") else None
     val synthesis = CozyVideo.synthesize(CozyVideo.SynthesizeConfig(root.resolve(project.relativize(scriptfile)), savedir, voicevoxUrl = voiceurl, toolMode = mode), tools, CozyVideo.VoicevoxClient.default, runner)
-    if (product == "audio") synthesis
+    val report = if (product == "audio") synthesis
     else {
       val engine = part.downField("renderer").get[String]("engine").toOption.orElse(video.hcursor.downField("renderer").get[String]("engine").toOption).getOrElse(_failure("video renderer is missing"))
       val staged = root.resolve(project.relativize(projectfile))
@@ -83,6 +89,10 @@ private[cozy] object CozyDocumentProjectVideoWorkspace {
       val built = CozyVideo.buildMedia(CozyVideo.BuildConfig(staged, dryRun = false, checkTools = true), tools, runner, Vector.empty)
       Vector(synthesis, rendered, built).mkString("\n")
     }
+    val scriptbase = scriptfile.getFileName.toString.replaceFirst("\\.[^.]+$", "")
+    val candidate = if (product == "audio") savedir.resolve(s"$scriptbase.wav") else root.resolve(finaloutput)
+    if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) _failure(s"selected candidate is unavailable: $candidate")
+    CozyDocumentProjectPackage.Candidate(candidate, report)
   }
 
   private def _asset_names(video: Json, script: Json): Vector[String] = {
@@ -116,7 +126,9 @@ private[cozy] object CozyDocumentProjectVideoWorkspace {
   private def _profile(project: Path, id: String): Path = {
     if (!id.matches("[A-Za-z0-9][A-Za-z0-9_-]*")) _failure("video credit profile id is invalid")
     val names = Vector(s"$id.yaml", s"$id.yml", s"$id.json")
-    val paths = CozyProjectContext.resolve(project).layers.reverse.flatMap(_.root.toVector).flatMap { layer =>
+    val paths = CozyProjectContext.resolve(project).layers.reverse.filter { layer =>
+      layer.name == "user" || layer.root.exists(value => value.identity.startsWith(project.toRealPath()))
+    }.flatMap(_.root.toVector).flatMap { layer =>
       names.map(name => layer.path.resolve("video/credit-profiles").resolve(name))
     }
     paths.find(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(path))

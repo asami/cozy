@@ -8,7 +8,10 @@ import scala.util.control.NonFatal
 
 /** Materializes the selected native media inputs into an owned external run. */
 private[cozy] object CozyDocumentProjectMediaWorkspace {
-  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None): String = {
+  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None): String =
+    buildCandidate(project, workspace, target, locale, processRunner).report
+
+  def buildCandidate(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None, validateOnly: Boolean = false): CozyDocumentProjectPackage.Candidate = {
     if (!Set("ja", "en").contains(locale))
       _failure("media build requires --locale ja or en")
     val mediafile = project.resolve("media.yaml")
@@ -143,8 +146,14 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
     }
     val materialized = root.resolve("media.yaml")
     Files.writeString(materialized, result.noSpaces, StandardCharsets.UTF_8)
+    if (validateOnly) return CozyDocumentProjectPackage.Candidate(materialized, "validated media inputs")
     val runner = processRunner.getOrElse(CozyMedia.ProcessRunner.external(workspace, project))
-    buildids.map(value => CozyMedia.build(CozyMedia.CommandConfig(materialized, target = Some(value)), runner)).mkString("\n")
+    val report = buildids.map(value => CozyMedia.build(CozyMedia.CommandConfig(materialized, target = Some(value)), runner)).mkString("\n")
+    val output = cursor.get[String]("output").toOption.getOrElse(_failure("selected media output is missing"))
+    val candidate = root.resolve(output).normalize()
+    if (!candidate.startsWith(root) || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
+      _failure(s"selected media candidate is unavailable: $candidate")
+    CozyDocumentProjectPackage.Candidate(candidate, report)
   }
 
   private def _admit_renderer(project: Path, renderer: io.circe.ACursor, name: String, version: String, filename: String): Unit = {
@@ -185,13 +194,58 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
   }
 
   private def _validate_svg(path: Path): Unit = {
-    val text = Files.readString(path, StandardCharsets.UTF_8)
-    val reference = "(?i)(?:href|src)\\s*=\\s*[\"']([^\"']+)[\"']".r
-    reference.findAllMatchIn(text).foreach { value =>
-      val target = value.group(1)
-      if (!target.startsWith("#") && !target.startsWith("data:"))
-        _failure(s"SVG external resource is not materialized: $path: $target")
+    val document = try {
+      val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+      factory.setNamespaceAware(true)
+      factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true)
+      factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+      factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+      factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+      factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+      factory.setXIncludeAware(false)
+      factory.setExpandEntityReferences(false)
+      try factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD, "") catch { case _: IllegalArgumentException => () }
+      try factory.setAttribute(javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA, "") catch { case _: IllegalArgumentException => () }
+      val builder = factory.newDocumentBuilder()
+      builder.setEntityResolver(new org.xml.sax.EntityResolver {
+        def resolveEntity(publicId: String, systemId: String): org.xml.sax.InputSource =
+          throw new org.xml.sax.SAXException("External XML entity resolution is forbidden")
+      })
+      builder.parse(path.toFile)
+    } catch { case NonFatal(_) => _failure(s"SVG is invalid or unsafe: $path") }
+
+    def _target_(target: String): Unit = {
+      val value = target.trim
+      if (!value.matches("#[A-Za-z_][A-Za-z0-9_.:-]*") &&
+          !value.matches("(?i)data:[a-z0-9.+-]+/[a-z0-9.+-]+;base64,[a-z0-9+/=\\s]+"))
+        _failure(s"SVG external or opaque resource is not materialized: $path: $target")
     }
+    def _css_(css: String): Unit = {
+      // Escapes, comments and imports can hide a URL from a lexical scan.
+      if (css.contains("\\") || css.contains("/*") || "(?i)@import\\b".r.findFirstIn(css).nonEmpty)
+        _failure(s"SVG contains opaque CSS resource syntax: $path")
+      val reference = "(?i)url\\(\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s)'\"]+))\\s*\\)".r
+      reference.findAllMatchIn(css).foreach { value =>
+        _target_(Option(value.group(1)).orElse(Option(value.group(2))).getOrElse(value.group(3)))
+      }
+      if ("(?i)url\\s*\\(".r.findFirstIn(reference.replaceAllIn(css, "")).nonEmpty)
+        _failure(s"SVG contains opaque CSS URL syntax: $path")
+    }
+    def _visit_(node: org.w3c.dom.Node): Unit = {
+      if (node.getNodeType == org.w3c.dom.Node.ELEMENT_NODE) {
+        val attributes = node.getAttributes
+        (0 until attributes.getLength).foreach { index =>
+          val attribute = attributes.item(index)
+          val name = Option(attribute.getLocalName).getOrElse(attribute.getNodeName).toLowerCase(java.util.Locale.ROOT)
+          if (name == "href" || name == "src") _target_(attribute.getNodeValue)
+          else _css_(attribute.getNodeValue)
+        }
+        if (Option(node.getLocalName).getOrElse(node.getNodeName).equalsIgnoreCase("style")) _css_(node.getTextContent)
+      }
+      val children = node.getChildNodes
+      (0 until children.getLength).foreach(index => _visit_(children.item(index)))
+    }
+    _visit_(document.getDocumentElement)
   }
 
   private def _failure(message: String): Nothing = CozyDocumentProject._failure("DP-OP-001", message)

@@ -46,6 +46,9 @@ private[cozy] object CozyDocumentProject {
   )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
   private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean, workroot: Option[String], syncroots: Vector[String], locale: Option[String])
+  private final case class PackageRefreshRequest(root: String, selections: Vector[CozyDocumentProjectPackage.Selection], workroot: Option[String], syncroots: Vector[String])
+  private final case class PackageRecoverRequest(root: String, run: String, workroot: Option[String])
+  private final case class PackagePlaceRequest(project: String, save: String, declaration: String, workroot: Option[String], syncroots: Vector[String])
   private final case class ExportRequest(project: String, target: String, save: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
@@ -174,6 +177,43 @@ private[cozy] object CozyDocumentProject {
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
           }
           true
+        case PackageRefreshRequest(root, selections, workroot, syncroots) =>
+          val receipt = CozyDocumentProjectPackage.refresh(Paths.get(root), workroot.map(Paths.get(_)).getOrElse(CozyDocumentProjectWorkRoot.hostDefault()), syncroots.map(Paths.get(_)), selections)
+          println(s"Package refresh completed: $receipt")
+          true
+        case PackageRecoverRequest(root, run, workroot) =>
+          CozyDocumentProjectPackage.recover(Paths.get(root), workroot.map(Paths.get(_)).getOrElse(CozyDocumentProjectWorkRoot.hostDefault()), Paths.get(run))
+          println(s"Package refresh restored: $run")
+          true
+        case PackagePlaceRequest(projectvalue, save, declaration, workroot, syncroots) =>
+          val project = _admit_project(projectvalue)
+          val input = _load_json(Paths.get(declaration), "package placement declaration")
+          val cursor = input.hcursor
+          if (cursor.get[String]("schema").toOption != Some("cozy.document-package.v1"))
+            _failure("DP-CLI-001", "package declaration has an unsupported schema")
+          val projectpath = cursor.get[String]("project").toOption.getOrElse(_failure("DP-CLI-002", "package project is missing"))
+          val sources = cursor.get[Vector[String]]("sources").toOption.getOrElse(_failure("DP-CLI-002", "package sources are missing"))
+          val products = cursor.downField("products").focus.flatMap(_.asArray).getOrElse(_failure("DP-CLI-002", "package products are missing")).map { value =>
+            val item = value.hcursor
+            CozyDocumentProjectPackage.Product(
+              item.get[String]("product").toOption.getOrElse(_failure("DP-CLI-002", "package product is missing")),
+              item.get[String]("locale").toOption.getOrElse(_failure("DP-CLI-002", "package locale is missing")),
+              item.get[String]("destination").toOption.getOrElse(_failure("DP-CLI-002", "package destination is missing")))
+          }
+          val bundles = cursor.downField("bundles").focus.flatMap(_.asArray).getOrElse(Vector.empty).map { value =>
+            CozyDocumentProjectPackage.Bundle(
+              value.hcursor.get[String]("from").toOption.getOrElse(_failure("DP-CLI-002", "bundle source is missing")),
+              value.hcursor.get[String]("to").toOption.getOrElse(_failure("DP-CLI-002", "bundle destination is missing")))
+          }
+          val references = cursor.downField("references").focus.flatMap(_.asArray).getOrElse(Vector.empty).map { value =>
+            CozyDocumentProjectPackage.Reference(
+              value.hcursor.get[String]("from").toOption.getOrElse(_failure("DP-CLI-002", "reference source is missing")),
+              value.hcursor.get[String]("to").toOption.getOrElse(_failure("DP-CLI-002", "reference destination is missing")))
+          }
+          val placement = CozyDocumentProjectPackage.Placement(projectpath, sources, products, bundles, references)
+          val result = CozyDocumentProjectPackage.place(project, Paths.get(save), workroot.map(Paths.get(_)).getOrElse(CozyDocumentProjectWorkRoot.hostDefault()), syncroots.map(Paths.get(_)), placement)
+          println(s"Package declaration: $result")
+          true
         case ExportRequest(projectvalue, target, save) =>
           val project = _admit_project(projectvalue)
           val descriptor = _load_project(project)
@@ -193,6 +233,9 @@ private[cozy] object CozyDocumentProject {
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
     case "review" :: rest => _review_request(rest)
     case "build" :: rest => _build_request(rest)
+    case "package" :: "place" :: rest => _package_place_request(rest)
+    case "package" :: "refresh" :: rest => _package_refresh_request(rest)
+    case "package" :: "recover" :: rest => _package_recover_request(rest)
     case "content-core" :: rest => _content_core_request(rest)
     case "verify" :: rest => _project_request("verify", rest, Set("mode", "work-product", "review-run"), Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
@@ -243,6 +286,50 @@ private[cozy] object CozyDocumentProject {
     if (syncroots.distinct.size != syncroots.size)
       _failure("DP-CLI-001", "duplicate --sync-root")
     BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"), parsed.values.get("work-root"), syncroots, parsed.values.get("locale"))
+  }
+
+  private def _package_refresh_request(args: List[String]): PackageRefreshRequest = {
+    @annotation.tailrec
+    def _pairs_(rest: List[String], retained: List[String], pairs: Vector[CozyDocumentProjectPackage.Selection], roots: Vector[String]): (List[String], Vector[CozyDocumentProjectPackage.Selection], Vector[String]) = rest match {
+      case "--product" :: product :: "--locale" :: locale :: tail if !product.startsWith("-") && !locale.startsWith("-") =>
+        _pairs_(tail, retained, pairs :+ CozyDocumentProjectPackage.Selection(product, locale), roots)
+      case "--product" :: _ => _failure("DP-CLI-002", "each --product must be followed by --locale")
+      case "--locale" :: _ => _failure("DP-CLI-002", "--locale must follow --product")
+      case "--sync-root" :: value :: tail if !value.startsWith("-") => _pairs_(tail, retained, pairs, roots :+ value)
+      case "--sync-root" :: _ => _failure("DP-CLI-002", "--sync-root requires a value")
+      case value :: tail => _pairs_(tail, value :: retained, pairs, roots)
+      case Nil => (retained.reverse, pairs, roots)
+    }
+    val (remaining, pairs, roots) = _pairs_(args, Nil, Vector.empty, Vector.empty)
+    val parsed = _parse_options(remaining, Set("work-root"), Set.empty)
+    if (parsed.positionals.size != 1 || pairs.isEmpty || pairs.distinct.size != pairs.size || roots.distinct.size != roots.size || roots.exists(value => value.isEmpty || value != value.trim))
+      _failure("DP-CLI-001", "invalid package refresh command grammar")
+    PackageRefreshRequest(parsed.positionals.head, pairs, parsed.values.get("work-root"), roots)
+  }
+
+  private def _package_recover_request(args: List[String]): PackageRecoverRequest = {
+    val parsed = _parse_options(args, Set("run", "work-root"), Set.empty)
+    if (parsed.positionals.size != 1) _failure("DP-CLI-001", "invalid package recover command grammar")
+    PackageRecoverRequest(parsed.positionals.head, parsed.values.getOrElse("run", _failure("DP-CLI-002", "package recover requires --run")), parsed.values.get("work-root"))
+  }
+
+  private def _package_place_request(args: List[String]): PackagePlaceRequest = {
+    @annotation.tailrec
+    def _sync_roots_(rest: List[String], retained: List[String], roots: Vector[String]): (List[String], Vector[String]) = rest match {
+      case "--sync-root" :: value :: tail if !value.startsWith("-") => _sync_roots_(tail, retained, roots :+ value)
+      case "--sync-root" :: _ => _failure("DP-CLI-002", "--sync-root requires a value")
+      case value :: tail => _sync_roots_(tail, value :: retained, roots)
+      case Nil => (retained.reverse, roots)
+    }
+    val (remaining, roots) = _sync_roots_(args, Nil, Vector.empty)
+    val parsed = _parse_options(remaining, Set("save", "declaration", "work-root"), Set.empty)
+    if (parsed.positionals.size != 1 || roots.distinct.size != roots.size || roots.exists(value => value.isEmpty || value != value.trim))
+      _failure("DP-CLI-001", "invalid package place command grammar")
+    val save = parsed.values.getOrElse("save", _failure("DP-CLI-002", "package place requires --save"))
+    val declaration = parsed.values.getOrElse("declaration", _failure("DP-CLI-002", "package place requires --declaration"))
+    if ((Vector(save, declaration) ++ parsed.values.get("work-root").toVector).exists(value => value.isEmpty || value != value.trim))
+      _failure("DP-CLI-001", "package paths must be nonempty exact values")
+    PackagePlaceRequest(parsed.positionals.head, save, declaration, parsed.values.get("work-root"), roots)
   }
 
   private def _export_request(args: List[String]): ExportRequest = {

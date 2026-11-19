@@ -56,6 +56,29 @@ final class CozyDocumentProjectSmartDoxArticleHtmlSpec extends AnyWordSpec with 
       }
     }
 
+    "render a bilingual index using only the explicitly selected language" in {
+      _with_temp_dir("cozy-document-project-bilingual-review") { root =>
+        Given("one article with explicit Japanese and English spans")
+        val project = _empty_project(root, "bilingual.dox")
+        _write(project.resolve("index.dox"), """#+TITLE: Bilingual
+
+<span lang="ja">日本語の本文</span><span lang="en">English body text</span>
+""")
+        val prepared = CozyDocumentProjectSmartDoxArticleHtml.prepare(project)
+
+        When("the same source is rendered separately for each locale")
+        val japanese = CozyDocumentProjectSmartDoxArticleHtml.render(prepared, Some("ja")).html
+        val english = CozyDocumentProjectSmartDoxArticleHtml.render(prepared, Some("en")).html
+
+        Then("each result contains its own text and excludes the other language")
+        japanese should include("日本語の本文")
+        japanese should not include("English body text")
+        english should include("English body text")
+        english should not include("日本語の本文")
+        intercept[Exception] { CozyDocumentProjectSmartDoxArticleHtml.render(prepared, Some("fr")) }
+      }
+    }
+
     "disclose the direct renderer binding without installing outputs or assets" in {
       _with_temp_dir("cozy-document-project-smartdox-article-binding") { root =>
         Given("an admitted .dox project with index.dox and its actual selected raster image")

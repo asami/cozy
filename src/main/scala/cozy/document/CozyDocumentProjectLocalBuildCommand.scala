@@ -43,7 +43,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private val _config_relative = "build/document-project-targets.yaml"
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
 
-  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None): Result = {
+  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None, articleLocale: Option[String] = None): Result = {
     val selected = try CozyDocumentProjectLocalBuild.select(targetId) catch {
       case value: CozyDocumentProjectLocalBuild.UnknownTarget =>
         CozyDocumentProject._failure("DP-CLI-001", value.getMessage)
@@ -69,13 +69,39 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         case CozyDocumentProjectLocalBuild.FreshnessDecision.ReuseCurrentOutput =>
           outcomes += plan.contract.id -> "reused"
         case _ =>
-          _install(plan, _render(plan))
+          _install(plan, _render(plan, articleLocale))
           outcomes += plan.contract.id -> "built"
       }
     }
 
     val plan = plans(selected.id)
     Result(selected.id, plan.inputs.map(_._1), if (workRoot.isDefined) plan.output.toString else _project_relative(project, plan.output), outcomes(selected.id))
+  }
+
+  def validateTargetConfiguration(project: Path, targetId: String): Vector[String] = {
+    val configuration = _load_configuration(project)
+    val complete = mutable.Set.empty[String]
+    val visiting = mutable.Set.empty[String]
+    def _visit_(id: String): Vector[String] = {
+      if (visiting.contains(id)) _failure("target prerequisite graph contains a cycle", id)
+      if (complete.contains(id)) Vector.empty
+      else {
+        visiting += id
+        val definition = configuration.definitions.getOrElse(id, _failure("missing target definition", id))
+        val dependencies = definition.prerequisites.flatMap(_visit_)
+        definition.inputs.foreach(value => CozyDocumentProject._direct_file(project, value, s"local-build $id input"))
+        visiting -= id
+        complete += id
+        dependencies ++ definition.inputs
+      }
+    }
+    _visit_(targetId)
+  }
+
+  def validateInputs(project: Path, targetId: String, outputRoot: Path): Vector[String] = {
+    val configuration = _load_configuration(project)
+    val closure = _closure(project, configuration, targetId, outputRoot)
+    closure.find(_.contract.id == targetId).getOrElse(_failure("selected target is missing", targetId)).inputs.map(_._1)
   }
 
   private def _load_configuration(project: Path): Configuration = {
@@ -197,7 +223,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     }
   }
 
-  private def _render(plan: Plan): String = plan.contract.id match {
+  private def _render(plan: Plan, articlelocale: Option[String]): String = plan.contract.id match {
     case "document-structure-html" =>
       val validated = _document(plan)
       val vocabulary = _vocabulary(plan, validated)
@@ -207,7 +233,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val vocabulary = _vocabulary(plan, validated)
       CozyDocumentReaderProjectionV2.render(validated, vocabulary, plan.assets).html
     case "smartdox-article-html" =>
-      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id))).html
+      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id)), articlelocale).html
     case value => _failure("target renderer is missing", value)
   }
 

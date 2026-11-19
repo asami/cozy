@@ -39,3 +39,7 @@ Document Project/local-build、SmartDox/LaTeXと既存の各媒体producerを再
 匿名化した同等fixtureで自動検証し、実記事は明示したローカル受入範囲で使用します。既存のLive Prototyping内部資料の配置例も保持します。内部資料や実記事一式をCozyの公開fixtureへ取り込みません。今回の計画更新は記事の再生成を実行せず、公開・配備・元原稿削除も許可しません。Phase実行時の受入は隔離した作業コピーで行い、現行の完成物とYouTube公開を上書きしません。
 
 既存Phaseの優先順位・状態・Goalを変更せず、実装・再生成・公開・配備・commitを開始しません。
+
+### P90-03 implementation candidate
+
+The editable-package candidate adds explicit source and bundled-toolchain placement, ordered selected-product refresh, and external refresh receipts with conservative restoration. Command grammar and current restrictions are recorded in the [external WorkRoot specification](../spec/document-project-external-workroot.md#phase-90-implementation-candidate). Its executable specifications and integration have not yet been validated. Real bilingual relocation, full dependency closure, review-product selection, and ambiguous interrupted-copy reconciliation remain open; this record does not close P90-03 or Phase 90.
