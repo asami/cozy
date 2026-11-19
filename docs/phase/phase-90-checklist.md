@@ -7,21 +7,23 @@ Owner: Cozy development
 
 ## Stage Status
 
-- Current status: OPEN
+- Current status: IN_PROGRESS
 - Owner: Cozy development
 - Update rule: 実装・検証結果に対応する項目だけ更新します。
 - Closure basis: P90-01–P90-04の全受入項目。計画更新は実装・媒体生成の完了ではありません。
 
 ## P90-01: Contract and write-path inventory
 
-- [ ] Project、provider、renderer、launcher、preview、state/cache/logについて、日英のPDF・infographic・スライド・音声・動画と確認HTMLの書き込み先を調査する。
-- [ ] notesをdesign/specへ具体化し、配置設定、CLI、製品・ロケール選択、所有出力と衝突処理を定義する。
-- [ ] 外部WorkRootの既定値・設定優先順・重複拒否・実行ごとの所有範囲と一時物の保持／破棄を定義する。
-- [ ] Core、日英Document、統合index.dox、原図、スライドIR、動画台本、永続設定・外部素材、完成物、中間物を用途で分類し、手書きの入力を保護する。音声の完成物選択と中間音声を区別する。
-- [ ] 原稿・設定・必要な画像と選択完成物のGit管理方針、WorkRootがGit作業ツリーに含まれる場合の限定ignoreを定義する。既存ignoreと追跡済みファイルを保持する。
-- [ ] 共通toolchain・renderer・style設定と記事固有設定の境界、設定層・参照解決・再生成判定を定義する。現行の共有コールバックと上流APIの変更要否を調査する。
-- [ ] 原稿資源の移設と既存絶対参照の移行、必要な資源materializationを定義する。記事PDFの日英入力を同じindex.doxとロケール選択で表す。
-- [ ] 生成失敗と完成物反映の失敗／中断を区別し、同期領域内一時物なしの復旧方式と既存中間物の明示的な移行範囲を定義する。
+Completed in commit `c48ad34b` after compile and independent review.
+
+- [x] Project、provider、renderer、launcher、preview、state/cache/logについて、日英のPDF・infographic・スライド・音声・動画と確認HTMLの書き込み先を調査する。
+- [x] notesをdesign/specへ具体化し、配置設定、CLI、製品・ロケール選択、所有出力と衝突処理を定義する。
+- [x] 外部WorkRootの既定値・設定優先順・重複拒否・実行ごとの所有範囲と一時物の保持／破棄を定義する。
+- [x] Core、日英Document、統合index.dox、原図、スライドIR、動画台本、永続設定・外部素材、完成物、中間物を用途で分類し、手書きの入力を保護する。音声の完成物選択と中間音声を区別する。
+- [x] 原稿・設定・必要な画像と選択完成物のGit管理方針、WorkRootがGit作業ツリーに含まれる場合の限定ignoreを定義する。既存ignoreと追跡済みファイルを保持する。
+- [x] 共通toolchain・renderer・style設定と記事固有設定の境界、設定層・参照解決・再生成判定を定義する。現行の共有コールバックと上流APIの変更要否を調査する。
+- [x] 原稿資源の移設と既存絶対参照の移行、必要な資源materializationを定義する。記事PDFの日英入力を同じindex.doxとロケール選択で表す。
+- [x] 生成失敗と完成物反映の失敗／中断を区別し、同期領域内一時物なしの復旧方式と既存中間物の明示的な移行範囲を定義する。
 
 ## P90-02: External rendering workspace
 

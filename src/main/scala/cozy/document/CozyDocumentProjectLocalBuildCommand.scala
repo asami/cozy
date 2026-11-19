@@ -28,6 +28,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private final case class Configuration(path: Path, definitions: Map[String, TargetDefinition])
   private final case class Plan(
     project: Path,
+    outputroot: Path,
     contract: CozyDocumentProjectLocalBuild.TargetContract,
     definition: TargetDefinition,
     inputs: Vector[(String, Path)],
@@ -42,13 +43,13 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private val _config_relative = "build/document-project-targets.yaml"
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
 
-  def execute(project: Path, targetId: Option[String], force: Boolean): Result = {
+  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None): Result = {
     val selected = try CozyDocumentProjectLocalBuild.select(targetId) catch {
       case value: CozyDocumentProjectLocalBuild.UnknownTarget =>
         CozyDocumentProject._failure("DP-CLI-001", value.getMessage)
     }
     val configuration = _load_configuration(project)
-    val closure = _closure(project, configuration, selected.id)
+    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project))
     val plans = closure.map(value => value.contract.id -> value).toMap
     val outcomes = mutable.Map.empty[String, String]
 
@@ -74,7 +75,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     }
 
     val plan = plans(selected.id)
-    Result(selected.id, plan.inputs.map(_._1), _project_relative(project, plan.output), outcomes(selected.id))
+    Result(selected.id, plan.inputs.map(_._1), if (workRoot.isDefined) plan.output.toString else _project_relative(project, plan.output), outcomes(selected.id))
   }
 
   private def _load_configuration(project: Path): Configuration = {
@@ -116,7 +117,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     TargetDefinition(inputs, prerequisites)
   }
 
-  private def _closure(project: Path, configuration: Configuration, selectedid: String): Vector[Plan] = {
+  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path): Vector[Plan] = {
     val contracts = CozyDocumentProjectLocalBuild.targetContracts.map(value => value.id -> value).toMap
     val plans = mutable.Map.empty[String, Plan]
     val complete = mutable.Set.empty[String]
@@ -137,10 +138,10 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project)) else None
       val usedassets = article.map(_.assets).getOrElse(assets)
       val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
-      val output = _output(project, contract)
+      val output = _output(outputroot, contract)
       if (inputs.exists { case (_, input) => output == input || output.startsWith(input) })
         _failure("target output collides with a declared source", id)
-      Plan(project, contract, definition, inputs, output, locale, document, assets, article)
+      Plan(project, outputroot, contract, definition, inputs, output, locale, document, assets, article)
     })
 
     def _visit_(id: String): Unit = {
@@ -226,7 +227,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
 
   private def _install(plan: Plan, html: String): Unit = {
     val directory = plan.output.getParent
-    _ensure_output_directory(plan.project, directory)
+    _ensure_output_directory(plan.outputroot, directory)
     try {
       Files.writeString(plan.output, html, StandardCharsets.UTF_8)
     } catch {

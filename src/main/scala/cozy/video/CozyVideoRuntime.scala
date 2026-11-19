@@ -61,9 +61,49 @@ private[cozy] trait CozyVideoRuntime {
   private[video] lazy val NarrationSelection = CozyVideoRuntime.NarrationSelection
   trait VideoProcessRunner {
     def run(args: Vector[String], cwd: Path): VideoCommandResult
+    def temporaryRoot: Option[Path] = None
   }
   object VideoProcessRunner {
     val default: VideoProcessRunner = DefaultVideoProcessRunner
+
+    private[cozy] def external(workspace: cozy.document.CozyDocumentProjectWorkRoot.Run): VideoProcessRunner =
+      new VideoProcessRunner {
+        override def temporaryRoot: Option[Path] = Some(workspace.temporary)
+        def run(args: Vector[String], cwd: Path): VideoCommandResult = {
+          implicit val ec: ScalaExecutionContext = ScalaExecutionContext.global
+          try {
+            val directory = cwd.toRealPath()
+            if (!directory.startsWith(workspace.root.toRealPath()))
+              RAISE.invalidArgumentFault(s"Video child working directory escapes its work run: $directory")
+            val temporary = workspace.temporary.toString
+            if (temporary.contains('"') || temporary.contains('\n') || temporary.contains('\r'))
+              RAISE.invalidArgumentFault("Video temporary path cannot be represented in JAVA_TOOL_OPTIONS")
+            val builder = new ProcessBuilder(args.asJava).directory(directory.toFile).redirectErrorStream(false)
+            val environment = builder.environment()
+            environment.put("TMPDIR", temporary)
+            environment.put("TMP", temporary)
+            environment.put("TEMP", temporary)
+            environment.put("XDG_CACHE_HOME", workspace.cache.toString)
+            environment.put("UV_CACHE_DIR", workspace.cache.resolve("uv").toString)
+            environment.put("npm_config_cache", workspace.cache.resolve("npm").toString)
+            val existing = Option(environment.get("JAVA_TOOL_OPTIONS")).filter(_.nonEmpty).map(_ + " ").getOrElse("")
+            environment.put("JAVA_TOOL_OPTIONS", existing + "-Djava.io.tmpdir=\"" + temporary + "\"")
+            val process = builder.start()
+            val stdout = Future(blocking(new String(process.getInputStream.readAllBytes(), StandardCharsets.UTF_8)))
+            val stderr = Future(blocking(new String(process.getErrorStream.readAllBytes(), StandardCharsets.UTF_8)))
+            val exit = process.waitFor()
+            val result = VideoCommandResult(exit, Await.result(stdout, 30.seconds), Await.result(stderr, 30.seconds))
+            val logs = workspace.root.resolve("logs")
+            Files.createDirectories(logs)
+            val id = java.util.UUID.randomUUID().toString
+            Files.writeString(logs.resolve(s"video-$id.stdout.log"), result.stdout, StandardCharsets.UTF_8)
+            Files.writeString(logs.resolve(s"video-$id.stderr.log"), result.stderr, StandardCharsets.UTF_8)
+            result
+          } catch {
+            case NonFatal(error) => VideoCommandResult(127, "", Option(error.getMessage).getOrElse(error.getClass.getSimpleName))
+          }
+        }
+      }
   }
 
   private[video] object DefaultVideoProcessRunner extends VideoProcessRunner {

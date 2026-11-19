@@ -217,6 +217,42 @@ private[cozy] object CozyMedia {
     def run(command: Vector[String], workingDirectory: Path): Int
   }
   object ProcessRunner {
+    private[cozy] def external(workspace: cozy.document.CozyDocumentProjectWorkRoot.Run, sourceRoot: Path): ProcessRunner =
+      new ProcessRunner {
+        def run(command: Vector[String], workingDirectory: Path): Int = {
+          val directory = workingDirectory.toRealPath()
+          if (!directory.startsWith(workspace.root.toRealPath()))
+            RAISE.invalidArgumentFault(s"Media child working directory escapes its work run: $directory")
+          val temporary = workspace.temporary.toString
+          if (temporary.contains('"') || temporary.contains('\n') || temporary.contains('\r'))
+            RAISE.invalidArgumentFault("Media work temporary path cannot be represented in JAVA_TOOL_OPTIONS")
+          val head = command.headOption.getOrElse(RAISE.invalidArgumentFault("Media child command is empty"))
+          val executable = if (head.startsWith("./") || head.startsWith("../")) {
+            val path = sourceRoot.resolve(head).normalize().toAbsolutePath
+            if (!Files.isRegularFile(path) || !Files.isExecutable(path))
+              RAISE.invalidArgumentFault(s"Media renderer command is unavailable: $path")
+            path.toString
+          } else head
+          val logs = workspace.root.resolve("logs")
+          Files.createDirectories(logs)
+          val logfile = logs.resolve(s"media-${java.util.UUID.randomUUID()}.log")
+          val builder = new ProcessBuilder((executable +: command.tail): _*).directory(directory.toFile).
+            redirectErrorStream(true).redirectOutput(logfile.toFile)
+          val environment = builder.environment()
+          environment.put("TMPDIR", temporary)
+          environment.put("TMP", temporary)
+          environment.put("TEMP", temporary)
+          environment.put("XDG_CACHE_HOME", workspace.cache.toString)
+          environment.put("UV_CACHE_DIR", workspace.cache.resolve("uv").toString)
+          environment.put("npm_config_cache", workspace.cache.resolve("npm").toString)
+          val existing = Option(environment.get("JAVA_TOOL_OPTIONS")).filter(_.nonEmpty).map(_ + " ").getOrElse("")
+          environment.put("JAVA_TOOL_OPTIONS", existing + "-Djava.io.tmpdir=\"" + temporary + "\"")
+          val exit = builder.start().waitFor()
+          if (exit != 0) System.err.println(s"Media child failed; log: $logfile")
+          exit
+        }
+      }
+
     val default: ProcessRunner = new ProcessRunner {
       def run(command: Vector[String], workingDirectory: Path): Int = {
         val process = new ProcessBuilder(command: _*).

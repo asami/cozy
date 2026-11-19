@@ -39,10 +39,13 @@ private[cozy] object CozyDocumentProject {
     kind: Option[String],
     save: Option[String],
     verificationpolicy: CozyDocumentWorkflow.VerificationPolicy,
-    workproduct: Option[String]
+    workproduct: Option[String],
+    workroot: Option[String] = None,
+    syncroots: Vector[String] = Vector.empty,
+    reviewrun: Option[String] = None
   )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
-  private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean)
+  private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean, workroot: Option[String], syncroots: Vector[String], locale: Option[String])
   private final case class ExportRequest(project: String, target: String, save: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
@@ -64,11 +67,30 @@ private[cozy] object CozyDocumentProject {
           }
           println(output)
           true
-        case BuildRequest(projectvalue, targetid, force) =>
+        case BuildRequest(projectvalue, targetid, force, workroot, syncroots, locale) =>
           val project = _admit_project(projectvalue)
-          println(CozyDocumentProjectLocalBuildCommand.execute(project, targetid, force).report)
+          val mediatarget = targetid.filter(value => value == "infographic" || value == "article-pdf" || value == "summary-slides" || value.startsWith("infographic-") || value.startsWith("article-pdf-") || value.startsWith("summary-slides-") || value == "audio" || value == "video" || value.startsWith("audio-") || value.startsWith("video-"))
+          val selectedroot = workroot.map(value => Paths.get(value)).orElse {
+            if (mediatarget.nonEmpty) Some(CozyDocumentProjectWorkRoot.hostDefault()) else None
+          }
+          val run = selectedroot.map(value => CozyDocumentProjectWorkRoot.allocate(value, project, None, syncroots.map(value => Paths.get(value))))
+          mediatarget match {
+            case Some(target) =>
+              val workspace = run.getOrElse(_failure("DP-CLI-002", "media build requires --work-root"))
+              val language = locale.getOrElse(_failure("DP-CLI-002", "media build requires --locale ja|en"))
+              val product = if (target == "audio" || target == s"audio-$language") Some("audio")
+                else if (target == "video" || target == s"video-$language") Some("video")
+                else None
+              if ((target.startsWith("audio-") || target.startsWith("video-")) && product.isEmpty)
+                _failure("DP-CLI-001", "video target and locale do not match")
+              println(product.map(value => CozyDocumentProjectVideoWorkspace.build(project, workspace, value, language))
+                .getOrElse(CozyDocumentProjectMediaWorkspace.build(project, workspace, target, language)))
+            case None =>
+              if (locale.nonEmpty) _failure("DP-CLI-001", "--locale is supported for media build targets")
+              println(CozyDocumentProjectLocalBuildCommand.execute(project, targetid, force, run.map(_.root)).report)
+          }
           true
-        case ProjectRequest(command, projectvalue, operation, dryrun, kind, save, verificationpolicy, workproduct) =>
+        case ProjectRequest(command, projectvalue, operation, dryrun, kind, save, verificationpolicy, workproduct, workroot, syncroots, reviewrun) =>
           val project = _admit_project(projectvalue)
           if (command == "verify")
             _verify_initial_sources(project)
@@ -82,18 +104,19 @@ private[cozy] object CozyDocumentProject {
           }
           if (command == "run" && operation.contains("content-core.compose"))
             _failure("DP-OP-001", "content-core.compose must be executed with document-project content-core candidate <project> <dialogue>")
+          val evidencerun = reviewrun.map(value => _admit_review_run(project, descriptor, Paths.get(value)))
           command match {
             case "inspect" =>
-              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
-              val state = _write_state_snapshot(project, descriptor, snapshot)
+              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor, evidencerun)
+              val state = _write_state_snapshot(project, descriptor, snapshot, evidencerun)
               println(_inspect(project, descriptor, snapshot, state))
             case "plan" => println(CozyDocumentProjectVerification.plan(project, descriptor))
             case "verify" =>
-              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor, evidencerun)
               val verification = CozyDocumentProjectVerification.verify(project, descriptor, snapshot, verificationpolicy, workproduct)
               verificationpolicy match {
                 case CozyDocumentWorkflow.VerificationPolicy.Structural =>
-                  val state = _write_state_snapshot(project, descriptor, snapshot)
+                  val state = _write_state_snapshot(project, descriptor, snapshot, evidencerun)
                   println(_with_state(verification, state))
                 case CozyDocumentWorkflow.VerificationPolicy.Visual => println(verification)
               }
@@ -129,10 +152,16 @@ private[cozy] object CozyDocumentProject {
                 case "video-logical-chart" => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
                 case _ => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, video-logical-chart, or presentation")
               }
-              val destination = CozyDocumentProjectProjection.admitDestination(project, save, s"$reviewkind-review.html")
+              val run = workroot.map(value => CozyDocumentProjectWorkRoot.allocate(Paths.get(value), project, None, syncroots.map(value => Paths.get(value))))
+              val requested = run.map(value => value.root.resolve("target/document-project").resolve(s"$reviewkind-review.html").toString).orElse(save)
+              val destination = CozyDocumentProjectProjection.admitDestination(project, requested, s"$reviewkind-review.html")
               CozyDocumentProjectProjection.publish(destination, html)
               if (save.isEmpty && Set("article", "video").contains(reviewkind))
-                CozyDocumentProjectEvidence.writeGeneratedReviewReceipt(project, descriptor, reviewkind, destination)
+                CozyDocumentProjectEvidence.writeGeneratedReviewReceipt(project, descriptor, reviewkind, destination, run.map(_.root))
+              if (reviewkind == "article") run.foreach { value =>
+                val owner = Json.obj("project" -> Json.fromString(project.toRealPath().toString), "id" -> Json.fromString(descriptor.id))
+                Files.writeString(value.root.resolve("review-owner.json"), owner.noSpaces, StandardCharsets.UTF_8)
+              }
               val reviewlabel = reviewkind match {
                 case "core" => "Core Review"
                 case "article" => "Article Review"
@@ -159,13 +188,13 @@ private[cozy] object CozyDocumentProject {
   }
 
   private def _parse(args: List[String]): Product = args match {
-    case "inspect" :: rest => _project_request("inspect", rest, Set.empty, Set.empty)
+    case "inspect" :: rest => _project_request("inspect", rest, Set("review-run"), Set.empty)
     case "plan" :: rest => _project_request("plan", rest, Set.empty, Set.empty)
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
-    case "review" :: rest => _project_request("review", rest, Set("kind", "save"), Set.empty)
+    case "review" :: rest => _review_request(rest)
     case "build" :: rest => _build_request(rest)
     case "content-core" :: rest => _content_core_request(rest)
-    case "verify" :: rest => _project_request("verify", rest, Set("mode", "work-product"), Set.empty)
+    case "verify" :: rest => _project_request("verify", rest, Set("mode", "work-product", "review-run"), Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
     case "export" :: rest => _export_request(rest)
     case "scaffold" :: rest => _scaffold_request(rest)
@@ -173,11 +202,47 @@ private[cozy] object CozyDocumentProject {
     case Nil => _failure("DP-CLI-001", "missing document-project command")
   }
 
+  private def _review_request(args: List[String]): ProjectRequest = {
+    @annotation.tailrec
+    def _sync_roots_(rest: List[String], retained: List[String], roots: Vector[String]): (List[String], Vector[String]) = rest match {
+      case "--sync-root" :: value :: tail if !value.startsWith("-") => _sync_roots_(tail, retained, roots :+ value)
+      case "--sync-root" :: _ => _failure("DP-CLI-002", "--sync-root requires a value")
+      case value :: tail => _sync_roots_(tail, value :: retained, roots)
+      case Nil => (retained.reverse, roots)
+    }
+    val (remaining, roots) = _sync_roots_(args, Nil, Vector.empty)
+    val request = _project_request("review", remaining, Set("kind", "save", "work-root"), Set.empty)
+    if (roots.nonEmpty && request.workroot.isEmpty) _failure("DP-CLI-001", "--sync-root requires --work-root")
+    if (roots.distinct.size != roots.size || roots.exists(value => value.isEmpty || value != value.trim))
+      _failure("DP-CLI-001", "invalid or duplicate --sync-root")
+    if (request.workroot.nonEmpty && request.save.nonEmpty) _failure("DP-CLI-001", "--work-root cannot be combined with --save")
+    if (request.workroot.exists(value => value.isEmpty || value != value.trim)) _failure("DP-CLI-001", "--work-root must be a nonempty exact path")
+    if (request.workroot.nonEmpty && !request.kind.exists(Set("core", "article")))
+      _failure("DP-CLI-001", "external review supports core or article")
+    request.copy(syncroots = roots)
+  }
+
   private def _build_request(args: List[String]): BuildRequest = {
-    val parsed = _parse_options(args, Set("target"), Set("force"))
+    @annotation.tailrec
+    def _sync_roots_(rest: List[String], retained: List[String], roots: Vector[String]): (List[String], Vector[String]) = rest match {
+      case "--sync-root" :: value :: tail if !value.startsWith("-") => _sync_roots_(tail, retained, roots :+ value)
+      case "--sync-root" :: _ => _failure("DP-CLI-002", "--sync-root requires a value")
+      case value :: tail => _sync_roots_(tail, value :: retained, roots)
+      case Nil => (retained.reverse, roots)
+    }
+    val (remaining, syncroots) = _sync_roots_(args, Nil, Vector.empty)
+    val parsed = _parse_options(remaining, Set("target", "work-root", "locale"), Set("force"))
     if (parsed.positionals.size != 1)
       _failure("DP-CLI-001", "invalid build command grammar")
-    BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"))
+    if ((parsed.values.get("work-root").toVector ++ syncroots).exists(value => value.isEmpty || value != value.trim))
+      _failure("DP-CLI-001", "work and synchronization root paths must be nonempty exact values")
+    if (syncroots.nonEmpty && !parsed.values.contains("work-root") && !parsed.values.get("target").exists(value =>
+      Set("infographic", "article-pdf", "summary-slides", "audio", "video").contains(value) ||
+        Vector("infographic-", "article-pdf-", "summary-slides-", "audio-", "video-").exists(prefix => value.startsWith(prefix))))
+      _failure("DP-CLI-001", "--sync-root requires an external-workspace build")
+    if (syncroots.distinct.size != syncroots.size)
+      _failure("DP-CLI-001", "duplicate --sync-root")
+    BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"), parsed.values.get("work-root"), syncroots, parsed.values.get("locale"))
   }
 
   private def _export_request(args: List[String]): ExportRequest = {
@@ -228,7 +293,7 @@ private[cozy] object CozyDocumentProject {
       }
     if (parsed.positionals.isEmpty)
       _failure("DP-CLI-002", s"$command requires <project>")
-    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"), verificationpolicy, parsed.values.get("work-product"))
+    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"), verificationpolicy, parsed.values.get("work-product"), parsed.values.get("work-root"), reviewrun = parsed.values.get("review-run"))
   }
 
   private def _content_core_request(args: List[String]): ContentCoreRequest = {
@@ -735,6 +800,21 @@ private[cozy] object CozyDocumentProject {
   private[cozy] def _project_relative(project: Path, path: Path): String =
     project.relativize(path).toString.replace('\\', '/')
 
+  private def _admit_review_run(project: Path, descriptor: Descriptor, path: Path): Path = {
+    val run = path.toAbsolutePath.normalize()
+    val physical = try run.toRealPath() catch { case NonFatal(_) => _failure("DP-PATH-001", "review run is unavailable") }
+    if (physical != run || !Files.isDirectory(run, LinkOption.NOFOLLOW_LINKS) || run.startsWith(project) || project.startsWith(run))
+      _failure("DP-PATH-001", "review run must be a direct external directory")
+    val owner = run.resolve("review-owner.json")
+    if (Files.isSymbolicLink(owner) || !Files.isRegularFile(owner, LinkOption.NOFOLLOW_LINKS))
+      _failure("DP-PATH-001", "review run owner is unavailable")
+    val identity = _load_json(owner, "review run owner")
+    if (identity.hcursor.get[String]("project").toOption != Some(project.toRealPath().toString) ||
+        identity.hcursor.get[String]("id").toOption != Some(descriptor.id))
+      _failure("DP-PATH-001", "review run belongs to another project")
+    run
+  }
+
   private def _inspect(
     project: Path,
     descriptor: Descriptor,
@@ -763,10 +843,12 @@ private[cozy] object CozyDocumentProject {
   private def _write_state_snapshot(
     project: Path,
     descriptor: Descriptor,
-    snapshot: CozyDocumentProjectEvidence.Snapshot
+    snapshot: CozyDocumentProjectEvidence.Snapshot,
+    outputroot: Option[Path] = None
   ): Path = {
-    val statedirectory = project.resolve("target").resolve("document-project").normalize()
-    if (!statedirectory.startsWith(project) || Files.isSymbolicLink(project.resolve("target")) || Files.isSymbolicLink(statedirectory))
+    val root = outputroot.getOrElse(project)
+    val statedirectory = root.resolve("target").resolve("document-project").normalize()
+    if (!statedirectory.startsWith(root) || Files.isSymbolicLink(root.resolve("target")) || Files.isSymbolicLink(statedirectory))
       _failure("DP-PATH-001", "state cache directory must be contained in the project and must not be a symbolic link")
     val state = statedirectory.resolve("state.yaml")
     if (Files.isSymbolicLink(state))

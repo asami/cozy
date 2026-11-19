@@ -4,7 +4,7 @@ import cozy.scaffold.CozyHelpText
 import cozy.media.{CozyExplanation, CozyMedia, CozyVisualPage}
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.nio.file.attribute.FileTime
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -452,6 +452,42 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         sidecar.indexOf("id: content-core") should be < sidecar.indexOf("id: article-review-html")
         sidecar.indexOf("id: article-review-html") should be < sidecar.indexOf("id: visual-pages")
         sidecar should not include "id: core-review-html"
+      }
+    }
+
+    "write Core and article reviews with their receipt to an external work run" in {
+      _with_temp_dir("cozy-document-project-external-review") { root =>
+        Given("a project with both review products selected")
+        val project = _scaffolded_project(root, "external-review")
+        _write_valid_presentation_semantics(project)
+        _activate_optional_work_products(project, "standard", Vector("core-review-html", "article-review-html"))
+        val work = root.resolve("work")
+
+        When("both review projections are requested with an external work root")
+        val core = _execute(List("document-project", "review", project.toString, "--kind", "core", "--work-root", work.toString))
+        val article = _execute(List("document-project", "review", project.toString, "--kind", "article", "--work-root", work.toString))
+
+        Then("the HTML and article receipt are retained under their respective runs")
+        val coreoutput = Paths.get(core.split("\n").find(_.startsWith("output: ")).get.stripPrefix("output: "))
+        val articleoutput = Paths.get(article.split("\n").find(_.startsWith("output: ")).get.stripPrefix("output: "))
+        Files.isRegularFile(coreoutput) shouldBe true
+        Files.isRegularFile(articleoutput) shouldBe true
+        Files.isRegularFile(articleoutput.resolveSibling("article-review.receipt.yaml")) shouldBe true
+        Files.exists(project.resolve("target/document-project/core-review.html")) shouldBe false
+        Files.exists(project.resolve("target/document-project/article-review.receipt.yaml")) shouldBe false
+
+        When("inspect and verify explicitly select the article run")
+        val run = articleoutput.getParent.getParent.getParent
+        _execute(List("document-project", "inspect", project.toString, "--review-run", run.toString))
+        _execute(List("document-project", "verify", project.toString, "--review-run", run.toString))
+
+        Then("the run-local receipt supplies current evidence without project state")
+        val state = Files.readString(run.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        state should include("id: article-review-html")
+        state should include("currentness: current")
+        val articlestanza = state.split("id: article-review-html", 2)(1).split("\n  - id:", 2)(0)
+        articlestanza should include("currentness: current")
+        Files.exists(project.resolve("target/document-project/state.yaml")) shouldBe false
       }
     }
 
