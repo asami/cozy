@@ -127,12 +127,20 @@ private[cozy] object CozyDocumentLogicTree {
     _decode_utf8(corebytes, "$.core")
     val core = _core(corevalue)
     _validate_tree(core.root)
-    val format = _format(formatvalue)
+    val format = validateFormat(core, formatvalue)
+    Validated(core, format, _depth_first(core.root))
+  }
+
+  private[document] def validateFormat(core: Core, value: Json): Format = {
+    val format = _format(value)
     if (format.coreId != core.id)
       _fail("LOGIC_TREE_FORMAT_CORE", "$.coreId", "must exactly equal the direct Core id")
     _validate_wording(core, format)
-    Validated(core, format, _depth_first(core.root))
+    format
   }
+
+  private[cozy] def validateCore(coreBytes: Array[Byte], coreValue: Json): ValidatedCore =
+    _validate_core(coreBytes, coreValue)
 
   private def _validate_core(corebytes: Array[Byte], corevalue: Json): ValidatedCore = {
     val source = _source_core(corebytes, corevalue)

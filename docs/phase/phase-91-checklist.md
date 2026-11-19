@@ -25,6 +25,10 @@ Owner: Cozy development
 
 ## P91-02: Pattern catalogs and recursive Core model
 
+拡張対象は文書5型・節9型です。元の2型・8型の義務を保持します。実装結果は検証・受入前です。
+
+- [ ] concept-to-realization、comparison-and-selection、technology-survey-and-catalog と verification-and-evaluation を追加する。
+
 - [ ] 文書構造のbackground-first、definition-firstを、章立ての役割付き定義として選択できる。
 - [ ] 節構造のdefinition、rationale、problem-solution、decomposition、mechanism、comparison、procedure、worked-exampleを選択できる。
 - [ ] 文書選択と節選択を独立して保持し、各節・小節が親と異なる型を明示できる。
@@ -59,6 +63,8 @@ Owner: Cozy development
 - [ ] 機械的な参照・構造検査と、人間・AIによる論理や文章の意味的な判断を区別する。
 
 ## P91-06: Integrated acceptance and closure
+
+- [ ] 拡張カタログの文書5型・節9型を統合経路で検証する。
 
 - [ ] 観測モデルを基にした持ち運び可能なCozy内fixtureで、2種類の文書構造と8種類の節構造、異なる型を持つ親子を検証する。
 - [ ] 作成支援→CoreとDocumentの執筆→構造検査→HTML確認→本文との対応を、一連の正規経路で実行する。

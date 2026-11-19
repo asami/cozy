@@ -4,7 +4,7 @@ Status: P91-01 specified, not implemented or accepted. Paired design: [responsib
 
 ## Catalog and selection
 
-The bundled catalog identity is `cozy.document-section-patterns`, version `1`; its source is the three documents at ai-directive revision `606cb56`. Version 1 is immutable. A future change creates a new explicit version and tests migration; unknown identities, versions, pattern IDs and role IDs reject. Inputs select by stable ID, never localized label. The machine-readable catalog includes ordered role definitions, min/max cardinality and Japanese/English pattern and role labels and questions. Labels are nonempty; both locales `ja` and `en` are required. The two document patterns and eight section patterns below are the complete v1 set. Document and section choice are independent; each Step including descendants explicitly chooses its own section pattern.
+The bundled catalog identity is `cozy.document-section-patterns`, version `1`; its source is the retained three-document working-tree snapshot based on ai-directive `e4a84bcc8e8e9c149f0ee20c5259d9b494ce5841`; `technical-writing.md` and `technical-writing-templates.md` had uncommitted source changes, including technology-survey-and-catalog. Version 1 is immutable. A future change creates a new explicit version and tests migration; unknown identities, versions, pattern IDs and role IDs reject. Inputs select by stable ID, never localized label. The machine-readable catalog includes ordered role definitions, min/max cardinality and Japanese/English pattern and role labels and questions. Labels are nonempty; both locales `ja` and `en` are required. The five document patterns and nine section patterns below are the complete initial v1 set. Document and section choice are independent; each Step including descendants explicitly chooses its own section pattern.
 
 The pattern labels and canonical questions are catalog data, not user-authored content. Document templates have no canonical question.
 
@@ -12,16 +12,20 @@ The pattern labels and canonical questions are catalog data, not user-authored c
 | --- | --- | --- | --- | --- |
 | document / background-first | 背景導入型 | Background First | — | — |
 | document / definition-first | 定義・課題対応型 | Definition First | — | — |
+| document / concept-to-realization | 概念・実現解説型 | Concept to Realization | — | — |
+| document / comparison-and-selection | 比較・選択型 | Comparison and Selection | — | — |
+| document / technology-survey-and-catalog | 技術調査・カタログ型 | Technology Survey and Catalog | — | — |
 | section / definition | 定義型 | Definition | それは何か。 | What is it? |
 | section / rationale | 必要性型 | Rationale | なぜ必要か。 | Why is it needed? |
-| section / problem-solution | 課題対応型 | Problem–Solution | 課題にどう対応するか。 | How is the problem addressed? |
-| section / decomposition | 構成分解型 | Decomposition | 何から成るか。 | What does it consist of? |
+| section / problem-solution | 課題対応型 | Problem–Solution | 課題にどう対応するか。 | How can we address the problem? |
+| section / decomposition | 構成分解型 | Decomposition | 何から成るか。 | What are its parts? |
 | section / mechanism | 仕組み型 | Mechanism | どう働くか。 | How does it work? |
-| section / comparison | 比較選択型 | Comparison | 何を選ぶか。 | What should be chosen? |
-| section / procedure | 実施方法型 | Procedure | どう実施するか。 | How is it performed? |
+| section / comparison | 比較選択型 | Comparison | 選択肢をどう比較し、どの条件で選ぶか。 | How do the options compare? If a choice is needed, which option fits which conditions? |
+| section / procedure | 実施方法型 | Procedure | どう実施するか。 | How do we do it? |
 | section / worked-example | 具体例型 | Worked Example | 実際にはどうなるか。 | What happens in practice? |
+| section / verification-and-evaluation | 検証・評価型 | Verification and Evaluation | 根拠は主張について何をどの範囲で示すか。 | What does the evidence establish about the claim, and within which limits? |
 
-Role labels are likewise localized catalog data. The following is the complete role vocabulary for this profile; the same ID has the same label in either kind of pattern. English labels are shown after the slash.
+Role labels are likewise localized catalog data. The original role vocabulary follows; the catalog additionally supplies localized names for the expanded roles listed in the ordered tables below; the same ID has the same label in either kind of pattern. English labels are shown after the slash.
 
 | Role ID | Japanese / English |
 | --- | --- |
@@ -61,12 +65,43 @@ Role labels are likewise localized catalog data. The following is the complete r
 | result | 結果 / Result |
 | correspondence | 一般説明との対応 / Correspondence |
 
+Expanded role labels are:
+
+| Role ID | Japanese / English |
+| --- | --- |
+| background-purpose | 背景と目的 / Background and purpose |
+| concepts-overview | 概念と全体像 / Concepts and overview |
+| design-concerns | 主要な設計上の関心事 / Principal design concerns |
+| design-to-execution | 設計から実行へ / From design to execution |
+| worked-example | 具体例 / Worked example |
+| summary | まとめ / Summary |
+| decision-context | 判断の文脈と目的 / Decision context and purpose |
+| comparison-basis | 共通の比較基盤 / Common comparison basis |
+| alternatives | 各選択肢の仕組み / How each alternative works |
+| worked-comparison | 具体的な比較 / Worked comparison |
+| findings-tradeoffs | 比較結果とトレードオフ / Findings and tradeoffs |
+| selection-conditions | 選択条件 / Selection conditions |
+| background-scope | 背景と対象範囲 / Background and scope |
+| classification-relationships | 分類と関係 / Classification and relationships |
+| technology-index | 技術索引 / Technology index |
+| catalog-entries | カタログ項目 / Catalog entries |
+| combinations-outlook | 組合せと展望 / Combinations and outlook |
+| judgment | 判断 / Judgment |
+| claim-criteria | 主張と評価基準 / Claim and criteria |
+| subject-conditions | 対象と条件 / Subject and conditions |
+| evidence-results | 根拠と結果 / Evidence and results |
+| interpretation | 解釈 / Interpretation |
+| judgment-limits | 判断と限界 / Judgment and limits |
+
 For each table, `1` means exactly one, `?` zero or one and `+` one or more. Assignments appear in the given role order; repeated instances remain contiguous. These counts govern the selected Cozy profile, not an assertion that the shared prose demands separate headings for every role. One Step may occupy multiple document roles explicitly. Each document role reference resolves to a distinct immediate child of the root within that role; repetitions must follow child order. Document roles are:
 
 | ID | Ordered roles and cardinalities |
 | --- | --- |
 | background-first | lead 1, introduction 1, definition 1, composition 1, usage 1, example ?, conclusion 1 |
 | definition-first | lead 1, definition 1, purpose 1, application-framework ?, issues 1, composition 1, responses 1, usage 1, example ?, conclusion 1 |
+| concept-to-realization | lead 1, background-purpose 1, concepts-overview 1, design-concerns +, design-to-execution 1, worked-example 1, summary 1 |
+| comparison-and-selection | lead 1, decision-context 1, comparison-basis 1, alternatives +, worked-comparison 1, findings-tradeoffs 1, selection-conditions 1, summary 1 |
+| technology-survey-and-catalog | lead 1, background-scope 1, classification-relationships 1, technology-index 1, catalog-entries +, combinations-outlook ? |
 
 Every section has one authored question, one answer claim, and ordered role assignments below. Context roles may be omitted when not needed or replaced by explicitly inherited context as specified below; other listed required roles cannot be replaced by inherited context.
 
@@ -80,8 +115,9 @@ Every section has one authored question, one answer claim, and ordered role assi
 | comparison | purpose ?, conclusion 1, axes-evidence +, selection-condition ? |
 | procedure | goal ?, method 1, prerequisites ?, steps +, verification 1 |
 | worked-example | context ?, example-point 1, conditions ?, operation +, result 1, correspondence 1 |
+| verification-and-evaluation | judgment 1, claim-criteria 1, subject-conditions 1, evidence-results +, interpretation +, judgment-limits 1 |
 
-The answer role (`definition`, `necessity`, `response`, `overview`, `principle`, `conclusion`, `method`, `example-point` respectively) must reference the Step's answer claim. All other role assignments explicitly reference a claim of that Step or an immediate child Step. A child assignment has `explainsClaim` referencing a claim of its parent; it does not imply a Relation or Flow. Order in assignments is reading order, child nesting is containment, and existing Relations/Flow remain separate logical data. No role may refer to a node as a claim or to a distant child as an immediate child.
+The answer role (`definition`, `necessity`, `response`, `overview`, `principle`, `conclusion`, `method`, `example-point`, `judgment` respectively) must reference the Step's answer claim. All other role assignments explicitly reference a claim of that Step or an immediate child Step. A child assignment has `explainsClaim` referencing a claim of its parent; it does not imply a Relation or Flow. Order in assignments is reading order, child nesting is containment, and existing Relations/Flow remain separate logical data. No role may refer to a node as a claim or to a distant child as an immediate child.
 
 ## Source shape and references
 
