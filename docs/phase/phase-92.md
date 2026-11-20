@@ -31,6 +31,10 @@ Joint contract alignment precedes shared-boundary implementation. Phase 92 accep
 
 The [producer–consumer decision record](../design/lexidox-producer-consumer-boundary.md) and [handoff](../spec/lexidox-knowledge-space-handoff.md) adopt SmartDox contract revision `7207fa191cd32bd383684ca4b278ff402ddbc096`. The earlier investigation found the joint additions uncommitted; the contract separately pins the committed conceptual proposal and Cozy joint plan. The built producer and P93-01 presentation decisions remain outstanding. P92-01 records the cross-phase requirements and common baseline; workflow review remains pending. P93-01 retains its own presentation decisions and acceptance, and this design delivery does not change public outputs.
 
+## P92-02 producer delivery — 2026-11-21
+
+SmartDox delivered source `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the locally published `org.smartdox:smartdox_2.12:2.4.19-lexidox-v1-SNAPSHOT` artifact. The [handoff](../spec/lexidox-knowledge-space-handoff.md) records the fixture evidence, external `dox` runtime selection and exact output paths. Cozy's metadata finalizer carries those outputs without reconstituting them; validation and subsequent projections remain pending.
+
 ## Planned Steps
 
 1. P92-01: 現行の解析・metadata/RDF経路と所有者を確認し、型別スキーマ、節認識、互換性、Space/IRIとproducer受渡しのdesign/specを定める。

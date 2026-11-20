@@ -56,6 +56,120 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
+    "preserve the delivered LexiDox envelope and graph files across finalization and remove stale output" in {
+      _with_temp_dir("cozy-bok-lexidox-finalization") { dir =>
+        Given("the SmartDox f8a3847 portable fixture envelope and generated graph handoffs")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false)
+        Files.createDirectories(dir.resolve("website.d"))
+        val envelope = """{"schema":"lexidox-knowledge/1","spaces":[{"id":"sales","iri":"https://example.org/space/sales"},{"id":"history","iri":"https://example.org/space/history"}],"pages":[{"profile":"simplemodeling-v1","space":"history","space_iri":"https://example.org/space/history","term_iri":"https://example.org/term/work","concept_iri":"https://example.org/concept/literary-work","page_iri":"https://example.org/page/history/work","source_document_iri":"https://example.org/source/history-work","titles":[{"text":"作品"}],"aliases":[],"sections":[{"kind":"standard","name":"DEFINITION","original_heading":"DEFINITION","content":{"format":"smartdox-source/1","source":"\n文学史の作品。\n","text":"文学史の作品。\n"},"span":{"source":"spaces/history.dox","start":{"line":15,"column":1},"end":{"line":18,"column":1}}}],"metadata":[]},{"profile":"simplemodeling-v1","space":"sales","space_iri":"https://example.org/space/sales","term_iri":"https://example.org/term/retry","concept_iri":"https://example.org/concept/retry","page_iri":"https://example.org/page/sales/retry","source_document_iri":"https://example.org/source/pattern","titles":[{"text":"Retry"}],"aliases":[],"concept_type":"process","knowledge_form":"pattern","sections":[{"kind":"standard","name":"DEFINITION","original_heading":"DEFINITION","content":{"format":"smartdox-source/1","source":"\nRepeat a failed operation.\n\n","text":"Repeat a failed operation.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":17,"column":1},"end":{"line":21,"column":1}}},{"kind":"standard","name":"CONTEXT","original_heading":"CONTEXT","content":{"format":"smartdox-source/1","source":"\nTransient failures.\n\n","text":"Transient failures.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":21,"column":1},"end":{"line":25,"column":1}}},{"kind":"standard","name":"PROBLEM","original_heading":"PROBLEM","content":{"format":"smartdox-source/1","source":"\nAn operation may fail temporarily.\n\n","text":"An operation may fail temporarily.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":25,"column":1},"end":{"line":29,"column":1}}},{"kind":"standard","name":"SOLUTION","original_heading":"SOLUTION","content":{"format":"smartdox-source/1","source":"\nRetry with [backoff](https://example.org/backoff).\n\n","text":"Retry with backoff.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":29,"column":1},"end":{"line":33,"column":1}}},{"kind":"standard","name":"SOURCE","original_heading":"SOURCE","content":{"format":"smartdox-source/1","source":"\nThe original source.\n\n","text":"The original source.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":33,"column":1},"end":{"line":37,"column":1}}},{"kind":"standard","name":"REFERENCES","original_heading":"REFERENCES","content":{"format":"smartdox-source/1","source":"\nFurther reading.\n\n","text":"Further reading.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":37,"column":1},"end":{"line":41,"column":1}}},{"kind":"standard","name":"SIMPLEMODELING","original_heading":"SimpleModeling","content":{"format":"smartdox-source/1","source":"\nRelates the pattern to the methodology.\n\n","text":"Relates the pattern to the methodology.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":41,"column":1},"end":{"line":45,"column":1}}},{"kind":"free","name":"Implementation Notes","original_heading":"Implementation Notes","content":{"format":"smartdox-source/1","source":"\nKeep this **markup**.\n","text":"Keep this **markup**.\n"},"span":{"source":"spaces/pattern.dox","start":{"line":45,"column":1},"end":{"line":48,"column":1}}}],"metadata":[]},{"profile":"simplemodeling-v1","space":"sales","space_iri":"https://example.org/space/sales","term_iri":"https://example.org/term/work","concept_iri":"https://example.org/concept/sales-work","page_iri":"https://example.org/page/sales/work","source_document_iri":"https://example.org/source/sales-work","titles":[{"text":"作品"}],"aliases":[],"sections":[{"kind":"standard","name":"DEFINITION","original_heading":"DEFINITION","content":{"format":"smartdox-source/1","source":"\n販売される作品。\n","text":"販売される作品。\n"},"span":{"source":"spaces/sales.dox","start":{"line":15,"column":1},"end":{"line":18,"column":1}}}],"metadata":[]}],"references":[{"label":"作品","span":{"source":"spaces/reference.dox","start":{"line":10,"column":5},"end":{"line":10,"column":36}},"scope":{"kind":"space","space":"sales"},"resolution":{"status":"resolved","space":"sales","term_iri":"https://example.org/term/work","concept_iri":"https://example.org/concept/sales-work","page_iri":"https://example.org/page/sales/work"}},{"label":"作品","span":{"source":"spaces/reference.dox","start":{"line":11,"column":5},"end":{"line":11,"column":52}},"scope":{"kind":"space","space":"history"},"resolution":{"status":"resolved","space":"history","term_iri":"https://example.org/term/work","concept_iri":"https://example.org/concept/literary-work","page_iri":"https://example.org/page/history/work"}},{"label":"未知","span":{"source":"spaces/reference.dox","start":{"line":12,"column":5},"end":{"line":12,"column":36}},"scope":{"kind":"space","space":"sales"},"resolution":{"status":"failed","diagnostic_indexes":[1]}}],"diagnostics":[{"code":"LEX_SECTION_RECOMMENDED","severity":"warning","message":"Recommended section missing","span":{"source":"spaces/pattern.dox","start":{"line":1,"column":1},"end":{"line":1,"column":6}},"value":"CONSEQUENCES","related":[],"candidates":[]},{"code":"LEX_REFERENCE_UNDEFINED","severity":"error","message":"Undefined lexical reference","span":{"source":"spaces/reference.dox","start":{"line":12,"column":5},"end":{"line":12,"column":36}},"value":"未知","related":[],"candidates":[]}]}"""
+        val artifacts = Vector(
+          "json" -> envelope,
+          "ttl" -> "@prefix lx: <https://example.org/lexidox#> .\n",
+          "jsonld" -> "{\"@graph\":[]}\n"
+        )
+        artifacts.foreach { case (suffix, content) =>
+          _write(dir.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$suffix"), content)
+        }
+
+        When("the existing finalizer copies the producer handoffs")
+        CozyBok.finalizeMetadata(_build_config(dir))
+
+        Then("all bytes including section order, source links, classification and diagnostics are retained")
+        artifacts.foreach { case (suffix, content) =>
+          _read(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe content
+        }
+        val json = _parse_json(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json"))
+        json.hcursor.get[String]("schema") shouldBe Right("lexidox-knowledge/1")
+        envelope should include("LEX_REFERENCE_UNDEFINED")
+        envelope should include("Implementation Notes")
+        envelope should include("https://example.org/backoff")
+        envelope should include("\"concept_type\":\"process\"")
+
+        When("the next producer run is legacy and emits no LexiDox files")
+        artifacts.foreach { case (suffix, _) =>
+          Files.delete(dir.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$suffix"))
+        }
+        CozyBok.finalizeMetadata(_build_config(dir))
+
+        Then("the previous LexiDox outputs are removed without synthesizing replacements")
+        artifacts.foreach { case (suffix, _) =>
+          Files.exists(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe false
+        }
+      }
+    }
+
+    "reject every partial LexiDox handoff before replacing website metadata" in {
+      val suffixes = Vector("json", "ttl", "jsonld")
+      (1 until suffixes.size).flatMap(suffixes.combinations).foreach { present =>
+        _with_temp_dir("cozy-bok-lexidox-partial") { dir =>
+          Given("a partial producer handoff and existing website output")
+          _write_site_source(dir, glossaryterm = false)
+          _write_prepared_metadata(dir, includeterms = false)
+          present.foreach { suffix =>
+            _write(dir.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$suffix"), "{\"schema\":\"lexidox-knowledge/1\"}")
+          }
+          suffixes.foreach { suffix =>
+            _write(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix"), s"sentinel-$suffix")
+          }
+
+          When("direct finalization admits the handoff")
+          val error = intercept[Throwable] { CozyBok.finalizeMetadata(_build_config(dir)) }
+
+          Then("the incomplete set is rejected and all existing outputs are retained")
+          error.getMessage should include("Incomplete LexiDox metadata handoff")
+          suffixes.foreach { suffix =>
+            _read(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe s"sentinel-$suffix"
+          }
+        }
+      }
+    }
+
+    "reject non-regular LexiDox handoff files before replacing website metadata" in {
+      Vector("json", "ttl", "jsonld").foreach { invalid =>
+        Vector("directory", "symbolic-link").foreach { variant =>
+          _with_temp_dir("cozy-bok-lexidox-invalid-file") { dir =>
+            Given("a complete handoff with one non-regular input and existing website output")
+            _write_site_source(dir, glossaryterm = false)
+            _write_prepared_metadata(dir, includeterms = false)
+            Vector("json", "ttl", "jsonld").filterNot(_ == invalid).foreach { suffix =>
+              _write(dir.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$suffix"), "{\"schema\":\"lexidox-knowledge/1\"}")
+            }
+            val path = dir.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$invalid")
+            if (variant == "directory") Files.createDirectories(path)
+            else Files.createSymbolicLink(path, dir.resolve("missing-target"))
+            _write(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json"), "sentinel")
+
+            When("direct finalization admits the handoff")
+            val error = intercept[Throwable] { CozyBok.finalizeMetadata(_build_config(dir)) }
+
+            Then("it rejects the input before changing the website")
+            error.getMessage should include("BoK generated metadata input must be a regular file")
+            _read(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json")) shouldBe "sentinel"
+          }
+        }
+      }
+    }
+
+    "reject an unsupported LexiDox envelope before replacing website metadata" in {
+      _with_temp_dir("cozy-bok-lexidox-version") { dir =>
+        Given("a generated envelope with an unsupported major version and a website sentinel")
+        _write_site_source(dir, glossaryterm = false)
+        _write_prepared_metadata(dir, includeterms = false)
+        _write(dir.resolve("doxsite.d/metadata/lexidox/knowledge-v1.json"), "{\"schema\":\"lexidox-knowledge/2\"}")
+        _write(dir.resolve("doxsite.d/metadata/lexidox/knowledge-v1.ttl"), "turtle")
+        _write(dir.resolve("doxsite.d/metadata/lexidox/knowledge-v1.jsonld"), "jsonld")
+        _write(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json"), "sentinel")
+
+        When("the finalizer admits the handoff")
+        val error = intercept[Throwable] { CozyBok.finalizeMetadata(_build_config(dir)) }
+
+        Then("it reports the schema and preserves existing website output")
+        error.getMessage should include("Unsupported LexiDox metadata schema")
+        _read(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json")) shouldBe "sentinel"
+      }
+    }
+
     "ignore an authored source graph when generated graph metadata is valid" in {
       _with_temp_dir("cozy-bok-metadata-finalization-source-graph-ignored") { dir =>
         Given("valid generated graph metadata and an authored source graph with an extra node")

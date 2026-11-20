@@ -28,6 +28,8 @@ Evidence: [decision record](../design/lexidox-producer-consumer-boundary.md) and
 
 ## P92-02: Typed section handoff
 
+Producer delivery `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and its physical/virtual fixture outputs have been received. The handoff implementation and executable specifications await workflow validation and review; unchecked entries are not acceptance claims. See the [handoff](../spec/lexidox-knowledge-space-handoff.md) for runtime selection and artifact identity.
+
 - [ ] 受入済みSmartDox出力の実際の改訂・形式を用い、Cozyの既存受入経路へ接続する。
 - [ ] 記述形式ごとの必須節と未知の大文字節に対するproducer診断を確認する。
 - [ ] 小文字・mixed-case・日本語の自由節の内容・順序・リンク・ロケールを保持し、不要な順序制約を加えない。
