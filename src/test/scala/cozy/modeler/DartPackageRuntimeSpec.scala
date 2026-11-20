@@ -11,7 +11,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct. 13, 2026
+ *  version Oct. 13, 2026
+ * @version Nov. 20, 2026
  */
 class DartPackageRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Independent consumers of a generated Dart package" should {
@@ -366,9 +367,13 @@ class DartPackageRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThe
     val argv = sdk.toString +: arguments
     val stdoutpath = scratch.resolve(name + ".stdout.txt")
     val stderrpath = scratch.resolve(name + ".stderr.txt")
+    val cache = Files.createDirectories(scratch.resolve("pub-cache"))
+    val builder = new ProcessBuilder(argv: _*).directory(directory.toFile).
+      redirectOutput(stdoutpath.toFile).redirectError(stderrpath.toFile)
+    builder.environment().remove("HOME")
+    builder.environment().put("PUB_CACHE", cache.toString)
     val started = System.nanoTime()
-    val process = new ProcessBuilder(argv: _*).directory(directory.toFile).
-      redirectOutput(stdoutpath.toFile).redirectError(stderrpath.toFile).start()
+    val process = builder.start()
     val completed = try process.waitFor(120, TimeUnit.SECONDS) catch {
       case interrupted: InterruptedException =>
         _stop_children(process)

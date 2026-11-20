@@ -15,7 +15,8 @@ import scala.util.control.NonFatal
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct.  9, 2026
+ *  version Oct.  9, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
@@ -85,21 +86,27 @@ private[cozy] object CozyArticleMediaSiteBinding {
     candidates: Vector[Candidate]
   )
 
-  def plan(config: Config): Plan = {
+  def plan(config: Config): Plan = _plan(config, None)
+
+  private[publication] def plan(config: Config, rootEnvironment: String => Option[String]): Plan =
+    _plan(config, Some(rootEnvironment))
+
+  private def _plan(config: Config, rootenvironment: Option[String => Option[String]]): Plan = {
     if (config == null || config.descriptorFile == null || config.target == null ||
       config.siteRoot == null || config.siteConfig == null)
       _invalid("Article-media site binding configuration must be defined")
     val descriptorfile = _normalized_host_path(config.descriptorFile, "descriptor")
     val descriptorsnapshot = _file_snapshot(descriptorfile, "descriptor")
-    val mediaplan = CozyMedia.resolvePlan(
-      CozyMedia.CommandConfig(
-        descriptorfile,
-        target = config.target,
-        siteRoot = config.siteRoot,
-        siteConfig = config.siteConfig
-      ),
-      descriptorsnapshot.bytes
+    val mediaconfig = CozyMedia.CommandConfig(
+      descriptorfile,
+      target = config.target,
+      siteRoot = config.siteRoot,
+      siteConfig = config.siteConfig
     )
+    val mediaplan = rootenvironment match {
+      case Some(environment) => CozyMedia.resolvePlan(mediaconfig, descriptorsnapshot.bytes, environment)
+      case None => CozyMedia.resolvePlan(mediaconfig, descriptorsnapshot.bytes)
+    }
     if (mediaplan == null || mediaplan.descriptor == null || mediaplan.descriptorFile != descriptorfile)
       _invalid("Article-media site binding descriptor plan is invalid")
     val descriptorroot = Option(descriptorfile.getParent).getOrElse(

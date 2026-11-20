@@ -1,22 +1,40 @@
 # docs/phase
 
-## Document and section structure patterns — planned — 2026-11-15
+## Shared bibliography and PDF references — planned — 2026-11-20
 
-[Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造2型と節構造8型をCoreの後継版へ結び付け、再帰的な構造検査、作成支援、標準ロジックツリーHTMLと本文への対応を追加する計画です。全項目OPEN、未着手で、既存Phaseの優先順位は変更しません。
+[Phase 94](phase-94.md) / [checklist](phase-94-checklist.md) plans shared bibliography definitions across Document Projects and numbered, document-local references in Japanese and English article PDFs. It retains SmartDox's existing `bib:[key]` syntax. Implementation is unstarted and all checklist items are OPEN.
 
-## Internal document packages — planned — 2026-11-11
+## LexiDox Phase 92/93 alignment — planned — 2026-11-18
 
-[Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。全項目OPEN、未着手です。既存Phaseの優先順位は変更しません。
+The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both Phase checklists to canonical LX-J01–LX-J08: one producer grammar/metadata lineage, identity resolution before display selection, independent concept/knowledge-form/display roles and shared source fixtures. Phase 92 supplies the semantic baseline; Phase 93 adds a compatible presentation extension. Both remain unstarted and existing priorities are unchanged.
+
+## Glossary labels and term/pattern presentation — planned — 2026-11-17
+
+[Phase 93](phase-93.md) / [checklist](phase-93-checklist.md), DEV-043: glossary-owned labels and original-language pattern names flow into HTML and LaTeX/PDF color and typography. Three profiles select original-language, established-Japanese-translation or Japanese preference. PDF selects at generation time; HTML selects its initial default at generation time and allows reader switching. Include supported versioned Core-side term identity/presentation intent and its Document/renderer handoff, including bold/color pattern styling; retain current Core compatibility. Explicitly include required LexiDox grammar/schema, parser/validation, examples and serialization/metadata delivery, with compatibility and source-to-output acceptance. Confirm glossary/SmartDox ownership and accepted producer delivery before integration. All items are OPEN; implementation is unstarted. The DDD guide adopts the feature after Phase completion and usable delivery. Existing Phase priorities remain unchanged.
+
+## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
+
+[Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。全項目OPEN、実装未着手です。番号の割当は既存Phaseの優先順位を変更しません。
+
+## Document and section structure patterns — 2026-11-15
+
+[Phase 91](phase-91.md) / [checklist](phase-91-checklist.md): 文書構造5型と節構造9型をCoreの後継版へ結び付けます。全6 Stepは受入・コミット済み、Phase validation 289のcompile/testは成功しました。独立Phaseレビューでの修復と後続の完了状態は[Phase記録](phase-91.md)およびPhaseのnative記録を参照してください。
+
+## Internal document packages — in progress — 2026-11-19
+
+[Phase 90](phase-90.md) / [checklist](phase-90-checklist.md): 案件内source/で原稿を管理し、同期対象外のWorkRootで生成して完成物のみを配置します。4 Stepはローカルコミット済みで、受入実績は[記録](../journal/2026/11/2026-11-19-phase90-native-acceptance.md)を参照してください。記録修復後の再レビューとnative最終閉鎖は未了です。既存Phaseの優先順位は変更しません。
 
 2026-11-15追記: Git管理でも中間物・ログ・キャッシュを対象外とし、原稿・設定・必要な画像の追跡と完成物の管理方針を保持する要件を追加しました。
 
 ## Strict Scala 3 consumer delivery — planned — 2026-11-09
 
-[Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md) records
+[Phase 89: delivery](phase-89.md) / [checklist](phase-89-checklist.md), DEV-042, records
 COZY-01–COZY-05, all OPEN. Qualify existing SimpleModeler strictEquality output,
 Cozy-owned emitters and normal generated compilation; adopt accepted Core safe
 collection APIs afterward. This bounded plan changes no numbered Phase priority
 or existing acceptance and starts no implementation.
+
+2026-11-16追記: consumerは旧6.12から移ったsm-workflow 8.1です。確認済みの受渡し表を参照し、未確認のproducer-local契約と受入改訂は消費前に特定します。
 
 ## Document body figures and tables — closed — 2026-10-25
 
@@ -39,7 +57,7 @@ asset-free v2 behavior and all other Phase priorities.
 
 ## Application Function generation — planned — 2026-10-25
 
-[Phase 88](phase-88.md) retains the incoming Application Function Subcomponent
+[Phase 88](phase-88.md) / [checklist](phase-88-checklist.md) retains the incoming Application Function Subcomponent
 Generation plan, including local/AWS/Google adapters and the AuthHandle-aware
 Function security boundary. It was renumbered from the incoming planned Phase
 87 to preserve the closed figure/table Phase 87. Scope and priorities are
@@ -705,3 +723,5 @@ Phase 47.2.2 closes the Cozy producer boundary only; CNCF Phase 64.2
 retains consumer execution acceptance. Its non-normative planning inputs are
 `docs/notes/cml-composite-statemachine-workflow-proposal.md` and
 `docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.
+
+Phase 90の最終ローカル完了は[Phase文書](phase-90.md)末尾のnative受付記録とnative Terminalを参照します。上記は記録修復時点の状態です。

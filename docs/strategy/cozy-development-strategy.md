@@ -1,15 +1,37 @@
 # Cozy Development Strategy
 
 Date: 2026-07-28
-Updated: 2026-10-25 (Asia/Tokyo)
+Updated: 2026-11-20 (Asia/Tokyo)
 
 Status: active
 
-## Internal document packages — planned — 2026-11-11
+## Shared bibliography and PDF references — planned — 2026-11-20
+
+[Phase 94](../phase/phase-94.md) / [checklist](../phase/phase-94-checklist.md) plans a shared bibliography catalog for Document Projects. Authors use SmartDox's existing `bib:[key]` syntax. Article PDFs number citations in first-use order and display only cited entries in the final References section. The initial acceptance covers Japanese and English PDFs and reproducible offline builds. The plan is unstarted and all checklist items are OPEN.
+
+## LexiDox knowledge/presentation alignment — planned — 2026-11-18
+
+[Phases 92 and 93 share one delivery plan](../notes/lexidox-phase92-93-integration.md) under canonical LX-J01–LX-J08. One SmartDox grammar/parser/schema/metadata lineage serves the semantic baseline and compatible presentation extension. Resolve semantic identities/Space before selecting labels, keep classification/knowledge forms/display roles distinct and reuse source fixtures to preserve canonical knowledge across profiles. Both Phase contracts/checklists bind to one coordinated producer decision record; no implementation or priority change starts here.
+
+## Glossary labels and term/pattern presentation — planned — 2026-11-17
+
+[Phase 93](../phase/phase-93.md) / [checklist](../phase/phase-93-checklist.md), DEV-043, adds glossary-owned labels, original-language pattern defaults and shared semantic styling for HTML and LaTeX/PDF. Three presentation profiles prefer original-language names, established Japanese translations, or Japanese names. PDF selection occurs at generation time; HTML has a generated default and a reader switch. Include supported versioned Core-side term identity, label/presentation intent and propagation through localized Documents into renderer output, with English pattern names, bold emphasis and optional configured color. Explicitly include LexiDox source grammar/schema, examples, parser/validation and serialization/metadata delivery, reusing relevant Phase 92 contracts. Preserve existing Core/LexiDox compatibility and confirm canonical glossary/writing-policy and SmartDox producer contracts before integration. Named design patterns remain distinct from Phase 91 explanation patterns and Phase 92 knowledge-form metadata. Actual output acceptance and usable delivery precede live DDD document adoption. All criteria are OPEN; registration starts no implementation and changes no existing priority.
+
+## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
+
+[Phase 92](../phase/phase-92.md) / [checklist](../phase/phase-92-checklist.md), DEV-041, adopts the [original proposal](../phase/lexidox-typed-schema-proposal.md) as planning input. It owns Cozy's consumption and BoK integration of typed sections, free sections, Knowledge Space/Context and Term/Concept identities. SmartDox retains source parsing and initial metadata/RDF production; confirm its new producer contract and accepted delivery before consumption. Resolve the concept proposal's identity questions before changing RDF. All items are OPEN and execution is unstarted; allocation changes no existing Phase priority.
+
+## Strict Scala 3 generation integration — planned — 2026-11-16 registration
+
+[Phase 89](../phase/phase-89.md) / [checklist](../phase/phase-89-checklist.md), DEV-042, retains the 2026-11-09 SLP-COZY plan and COZY-01–COZY-05. Its consumer is sm-workflow Phase 8.1, formerly 6.12. Qualify the normal generator and Cozy-owned emitters for B independently of Core-dependent C adoption. Use the confirmed coordination contract; producer-local contract locations and accepted handoffs remain unconfirmed until recorded for consumption. No implementation or acceptance is claimed.
+
+## Internal document packages — in progress — 2026-11-19
 
 [Phase 90](../phase/phase-90.md) adds editable internal-document packages with source/ and selected top-level deliverables. Native rendering uses an external workspace, with no transient files in the synchronized package tree. Existing publication export and Phase priorities remain unchanged. See the [proposal](../notes/document-project-private-package.md).
 
-The 2026-11-15 refinement also excludes intermediate outputs, logs and caches from Git while keeping sources, persistent configuration and required images trackable. Deliverable tracking follows the project's selected policy. Phase 90 remains planned and unstarted.
+The 2026-11-15 refinement also excludes intermediate outputs, logs and caches from Git while keeping sources, persistent configuration and required images trackable. Deliverable tracking follows the project's selected policy. Phase 90 has four locally committed Steps; the accepted qualified evidence and pre-repair Phase checks are recorded in the [acceptance journal](../journal/2026/11/2026-11-19-phase90-native-acceptance.md). The current repair re-review and native final closure remain pending.
+
+The [2026-11-16 scope refinement](../journal/2026/11/2026-11-16-phase90-bilingual-media-resource-scope.md) includes Japanese and English article PDFs, infographics, summary slides, audio and video in Phase 90, alongside existing confirmation HTML. All native producer workspaces and shared toolchain/renderer/style inputs participate in external WorkRoot handling. Preserve editable sources and selected final products; use isolated copies of the Runtime Evidence Model and Knowledge Harness articles as paired JA/EN acceptance cases, including relocation and failure/interruption behavior. This is a plan update, not media regeneration or execution start.
 
 ## Document explanation figures and tables — closed — 2026-10-25
 
@@ -44,6 +66,8 @@ provider-neutral CML, complete Container realization, common TypeScript logic,
 local/AWS/Google adapters and AuthHandle-aware security generation. The incoming
 planned Phase 87 was renumbered to preserve the closed figure/table Phase 87;
 no implementation, acceptance or priority change is introduced by this sync.
+
+The [Phase 88 checklist](../phase/phase-88-checklist.md), registered on 2026-11-16, covers P88-01–P88-06 and explicitly retains AuthHandle negative paths, multi-Domain orchestration, Domain-side authorization and supported downstream limits in closure. All items remain OPEN. Local integration does not establish separately scoped live cloud acceptance.
 
 ## DataStore producer status — 2026-10-18
 
@@ -1724,13 +1748,15 @@ it selects no successor and records no final release.
 
 ### Phase 91: Document and Section Structure Patterns
 
-Status: PLANNED; execution has not started.
+Status: all six Steps are locally accepted and committed; Phase validation 289 reported compile/test success. The independent Phase review identified a repair on 2026-11-20. See the [Phase record](../phase/phase-91.md) and Phase native record for subsequent closure.
 
 Purpose: make document-wide structure and recursive section explanation patterns first-class Cozy authoring inputs, with a versioned successor to the recursive Core, structural validation, skeleton authoring support, native logic-tree confirmation and explicit Document/prose correspondence.
 
 The initial scope is two document patterns (background-first and definition-first) and eight section patterns. Preserve the distinction among section semantic roles, explanation patterns, local logical graphs, containment and reading Flow. Reuse Phase 37's catalog and explicit-selection design without changing its closed v1 acceptance subset. Pattern selection and semantic authoring remain human/AI responsibilities; Cozy owns deterministic model admission, validation and projection.
 
-[Phase 91](../phase/phase-91.md) and its [checklist](../phase/phase-91-checklist.md) own P91-01–P91-06. The [proposal](../notes/document-and-section-structure-patterns.md) supplies planned capability details; design/spec promotion is P91-01 work. Use an observed-model-derived Cozy-local fixture for acceptance. Existing Phase priority and current implementation work remain unchanged. No implementation, publication, deployment, directive distribution or bulk manuscript migration starts with this registration.
+[Phase 91](../phase/phase-91.md) and its [checklist](../phase/phase-91-checklist.md) own P91-01–P91-06. The [proposal](../notes/document-and-section-structure-patterns.md) supplies planned capability details; design/spec promotion is P91-01 work. Use an observed-model-derived Cozy-local fixture for acceptance. Existing Phase priority and current implementation work remain unchanged. Publication, deployment, directive distribution and bulk manuscript migration remain outside this Phase.
+
+As of 2026-11-16, the three shared writing documents are present in Cozy's pinned ai-directive revision 606cb56. P91-01 confirms that candidate revision and its catalog correspondence; rule distribution is not a new entry prerequisite and does not establish implementation acceptance. The earlier journal retains the historical undistributed state.
 
 ### Future Follow-up: Explicit Component Root Generation
 
@@ -1800,8 +1826,11 @@ Origin:
 | DEV-036 | [2026-10-05 encoder selection request and placement decision](../journal/2026/10/2026-10-05-video-encoder-selection-and-benchmark-request.md); [main-route-first revision](../journal/2026/10/2026-10-08-phase-71-main-route-first.md) | Add explicit per-tool host/Docker configuration, local software/hardware encoder selection, Docker rendering with host encoding, and measured native/end-to-end comparison while preserving video semantics and the removal policy. | NEW_PHASE | [Phase 71.6](../phase/phase-71.6.md) CLOSED projection on 2026-10-11 under `P716-RELEASE-20261011@1`, effective only on parent verification of the distinct native release commit; all three Steps, actual representative mixed software/selected hardware execution and current hearing, 233 focused specifications in nine suites and sole full review PASS at ledger revision 8 accepted; three nonblocking maintenance Hygiene records retained; remaining combinations, benchmark and repository-full SBT deferred-not-run to [Phase 71.7](../phase/phase-71.7.md), PLANNED and unstarted | ADOPTED |
 | DEV-037 | [2026-10-11 joint video/audio quality-profile request and same-day ladder refinement](../journal/2026/10/2026-10-11-phase-71.8-video-quality-profile-plan.md) | Select picture/audio quality together with individual overrides across direct rendering and assembly. Rename current lightweight to new standard, shift existing upper settings upward and add a lower-quality faster practice profile. Preserve narration/end-card semantics; accept preset audio quality and practice speed through actual observations. | NEW_PHASE | [Phase 71.8](../phase/phase-71.8.md) CLOSED on 2026-10-13; release `bcd3ba2`; joint profiles, actual JA/EN listening and measured practice speed accepted; full Cozy suite and runtime classpath export passed | ADOPTED |
 | DEV-038 | User direction on 2026-10-25 to record claim-linked body figures/tables as specification and Phase planning | Add localized Figure/Table Document blocks grounded in Core claims, concise tree navigation, native HTML explanations and existing SmartDox article/PDF continuity, with actual paired JA/EN acceptance. | NEW_PHASE | [Phase 87](../phase/phase-87.md) / [checklist](../phase/phase-87-checklist.md), CLOSED under `cozy-p87-release-20261025@1` after native commit/receipt verification; all five Steps and 24 criteria accepted, actual paired PDFs inspected, sole Phase review PASS, final FULL 3,972 passed (23 existing cancellations), follow-ups retained | ADOPTED |
-| DEV-039 | [2026-11-11 internal package request](../journal/2026/11/2026-11-11-private-document-package-plan.md); [2026-11-15 Git policy refinement](../journal/2026/11/2026-11-15-document-project-workroot-git-policy.md) | Package editable Document Projects and final products for internal case folders; render and preview outside the synchronized tree, then refresh selected deliverables. Keep intermediate outputs, logs and caches out of Git while preserving trackable sources and selected deliverable policy. | NEW_PHASE | [Phase 90](../phase/phase-90.md), PLANNED, unstarted | ADOPTED |
-| DEV-040 | [2026-11-15 document/section pattern request](../journal/2026/11/2026-11-15-document-and-section-structure-patterns-plan.md) | Make two document structure patterns and eight recursive section explanation patterns first-class Core authoring inputs, with catalog/version selection, typed role references, structural validation, skeleton support, native HTML and Document/prose correspondence. | NEW_PHASE | [Phase 91](../phase/phase-91.md) / [checklist](../phase/phase-91-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-039 | [2026-11-11 internal package request](../journal/2026/11/2026-11-11-private-document-package-plan.md); [2026-11-15 Git policy refinement](../journal/2026/11/2026-11-15-document-project-workroot-git-policy.md); [2026-11-16 bilingual media scope](../journal/2026/11/2026-11-16-phase90-bilingual-media-resource-scope.md) | Package editable Document Projects and final products for internal case folders; render and preview outside the synchronized tree, then refresh selected deliverables. Cover JA/EN article PDFs, infographics, summary slides, audio and video through an external WorkRoot and shared settings. Preserve editable inputs and selected final products; accept isolated Runtime Evidence Model and Knowledge Harness cases, keeping intermediate outputs, logs and caches out of the project/synchronized tree and Git. | NEW_PHASE | [Phase 90](../phase/phase-90.md) / [checklist](../phase/phase-90-checklist.md), four Steps locally committed; see the Phase native record for acceptance and closure | ADOPTED |
+| DEV-040 | [2026-11-15 document/section pattern request](../journal/2026/11/2026-11-15-document-and-section-structure-patterns-plan.md) | Make five document structure patterns and nine recursive section explanation patterns first-class Core authoring inputs, with catalog/version selection, typed role references, structural validation, skeleton support, native HTML and Document/prose correspondence. | NEW_PHASE | [Phase 91](../phase/phase-91.md) / [checklist](../phase/phase-91-checklist.md), all six Steps committed; Phase validation 289 compile/test passed; see Phase native record for review repair and closure | ADOPTED |
+| DEV-041 | [LexiDox proposal](../phase/lexidox-typed-schema-proposal.md); [2026-11-16 allocation and reconciliation](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Consume SmartDox-owned typed sections, free sections and agreed Knowledge Space/Term/Concept metadata through existing Cozy BoK integration; confirm producer ownership and identity semantics before implementation. | NEW_PHASE | [Phase 92](../phase/phase-92.md) / [checklist](../phase/phase-92-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-042 | [2026-11-09 strict generation plan](../phase/phase-89.md); [2026-11-16 Strategy registration](../journal/2026/11/2026-11-16-development-plan-review-reconciliation.md) | Deliver SLP-COZY normal generation and direct-emitter qualification to sm-workflow 8.1-B/C, preserving the existing COZY-01–COZY-05 scope and the independent B/C dependency boundaries. | MERGED_EXISTING_PHASE | [Phase 89](../phase/phase-89.md) / [checklist](../phase/phase-89-checklist.md), PLANNED, unstarted | ADOPTED |
+| DEV-043 | [2026-11-17 DDD review request](../journal/2026/11/2026-11-17-term-pattern-presentation-plan.md) | Carry glossary-owned labels and original-language pattern names through accepted producer metadata into HTML and LaTeX/PDF color and typography. Supply LexiDox grammar/parser/validation/serialization delivery, versioned Core-side term identity/presentation intent and Document/renderer propagation, original-language/established-Japanese-translation/Japanese profiles, PDF selection and HTML reader switching, including bold/color pattern styles; deliver usable versions/configuration before downstream DDD adoption. | NEW_PHASE | [Phase 93](../phase/phase-93.md) / [checklist](../phase/phase-93-checklist.md), PLANNED, unstarted | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the
@@ -2337,3 +2366,5 @@ Current follow-up directions include:
   integration is needed
 - Knowledge source compiler expansion
 - Model-driven CAR project scaffolding
+
+Phase 90 local completion is determined by the native acceptance record appended to the [Phase document](../phase/phase-90.md) and the native Terminal; the status above describes the record-repair snapshot.

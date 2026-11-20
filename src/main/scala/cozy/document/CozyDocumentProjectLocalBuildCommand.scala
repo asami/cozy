@@ -28,6 +28,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private final case class Configuration(path: Path, definitions: Map[String, TargetDefinition])
   private final case class Plan(
     project: Path,
+    outputroot: Path,
     contract: CozyDocumentProjectLocalBuild.TargetContract,
     definition: TargetDefinition,
     inputs: Vector[(String, Path)],
@@ -42,13 +43,13 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
   private val _config_relative = "build/document-project-targets.yaml"
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
 
-  def execute(project: Path, targetId: Option[String], force: Boolean): Result = {
+  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None, articleLocale: Option[String] = None): Result = {
     val selected = try CozyDocumentProjectLocalBuild.select(targetId) catch {
       case value: CozyDocumentProjectLocalBuild.UnknownTarget =>
         CozyDocumentProject._failure("DP-CLI-001", value.getMessage)
     }
     val configuration = _load_configuration(project)
-    val closure = _closure(project, configuration, selected.id)
+    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project), articleLocale)
     val plans = closure.map(value => value.contract.id -> value).toMap
     val outcomes = mutable.Map.empty[String, String]
 
@@ -57,24 +58,60 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         val prerequisiteplan = plans.getOrElse(prerequisite, _failure("missing generated prerequisite producer", prerequisite))
         _project_relative(project, prerequisiteplan.output) -> prerequisiteplan.output
       }
+      val marker = plan.output.resolveSibling(".article-locale")
+      val isarticle = plan.contract.id == "smartdox-article-html"
+      if (isarticle && Files.exists(marker, LinkOption.NOFOLLOW_LINKS) && (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)))
+        _failure("article locale marker must be a direct regular file or absent", marker.toString)
       val observation = CozyDocumentProjectLocalBuild.FreshnessObservation(
         (plan.inputs ++ generated).map { case (relative, path) =>
           CozyDocumentProjectLocalBuild.InputObservation(relative, Some(_modified_time(path)))
         },
         CozyDocumentProjectLocalBuild.OutputObservation(_output_time(plan.output)),
-        force
+        force || (isarticle && (articleLocale.isDefined || Files.exists(marker, LinkOption.NOFOLLOW_LINKS)))
       )
       CozyDocumentProjectLocalBuild.evaluate(observation) match {
         case CozyDocumentProjectLocalBuild.FreshnessDecision.ReuseCurrentOutput =>
           outcomes += plan.contract.id -> "reused"
         case _ =>
-          _install(plan, _render(plan))
+          val html = _render(plan, articleLocale)
+          if (isarticle && articleLocale.isDefined) {
+            _ensure_output_directory(plan.outputroot, plan.output.getParent)
+            Files.writeString(marker, articleLocale.get, StandardCharsets.UTF_8)
+          }
+          _install(plan, html)
+          if (isarticle && articleLocale.isEmpty) Files.deleteIfExists(marker)
           outcomes += plan.contract.id -> "built"
       }
     }
 
     val plan = plans(selected.id)
-    Result(selected.id, plan.inputs.map(_._1), _project_relative(project, plan.output), outcomes(selected.id))
+    Result(selected.id, plan.inputs.map(_._1), if (workRoot.isDefined) plan.output.toString else _project_relative(project, plan.output), outcomes(selected.id))
+  }
+
+  def validateTargetConfiguration(project: Path, targetId: String): Vector[String] = {
+    val configuration = _load_configuration(project)
+    val complete = mutable.Set.empty[String]
+    val visiting = mutable.Set.empty[String]
+    def _visit_(id: String): Vector[String] = {
+      if (visiting.contains(id)) _failure("target prerequisite graph contains a cycle", id)
+      if (complete.contains(id)) Vector.empty
+      else {
+        visiting += id
+        val definition = configuration.definitions.getOrElse(id, _failure("missing target definition", id))
+        val dependencies = definition.prerequisites.flatMap(_visit_)
+        definition.inputs.foreach(value => CozyDocumentProject._direct_file(project, value, s"local-build $id input"))
+        visiting -= id
+        complete += id
+        dependencies ++ definition.inputs
+      }
+    }
+    _visit_(targetId)
+  }
+
+  def validateInputs(project: Path, targetId: String, outputRoot: Path): Vector[String] = {
+    val configuration = _load_configuration(project)
+    val closure = _closure(project, configuration, targetId, outputRoot)
+    closure.find(_.contract.id == targetId).getOrElse(_failure("selected target is missing", targetId)).inputs.map(_._1)
   }
 
   private def _load_configuration(project: Path): Configuration = {
@@ -116,7 +153,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     TargetDefinition(inputs, prerequisites)
   }
 
-  private def _closure(project: Path, configuration: Configuration, selectedid: String): Vector[Plan] = {
+  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path, articlelocale: Option[String] = None): Vector[Plan] = {
     val contracts = CozyDocumentProjectLocalBuild.targetContracts.map(value => value.id -> value).toMap
     val plans = mutable.Map.empty[String, Plan]
     val complete = mutable.Set.empty[String]
@@ -134,13 +171,13 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
         CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
       }
       val assets = document.map(CozyDocumentFigureAssets.materialize(project, _)).getOrElse(CozyDocumentFigureAssets.empty)
-      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project)) else None
+      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project, articlelocale)) else None
       val usedassets = article.map(_.assets).getOrElse(assets)
       val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
-      val output = _output(project, contract)
+      val output = _output(outputroot, contract)
       if (inputs.exists { case (_, input) => output == input || output.startsWith(input) })
         _failure("target output collides with a declared source", id)
-      Plan(project, contract, definition, inputs, output, locale, document, assets, article)
+      Plan(project, outputroot, contract, definition, inputs, output, locale, document, assets, article)
     })
 
     def _visit_(id: String): Unit = {
@@ -196,7 +233,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     }
   }
 
-  private def _render(plan: Plan): String = plan.contract.id match {
+  private def _render(plan: Plan, articlelocale: Option[String]): String = plan.contract.id match {
     case "document-structure-html" =>
       val validated = _document(plan)
       val vocabulary = _vocabulary(plan, validated)
@@ -206,7 +243,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val vocabulary = _vocabulary(plan, validated)
       CozyDocumentReaderProjectionV2.render(validated, vocabulary, plan.assets).html
     case "smartdox-article-html" =>
-      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id))).html
+      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id)), articlelocale).html
     case value => _failure("target renderer is missing", value)
   }
 
@@ -226,7 +263,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
 
   private def _install(plan: Plan, html: String): Unit = {
     val directory = plan.output.getParent
-    _ensure_output_directory(plan.project, directory)
+    _ensure_output_directory(plan.outputroot, directory)
     try {
       Files.writeString(plan.output, html, StandardCharsets.UTF_8)
     } catch {

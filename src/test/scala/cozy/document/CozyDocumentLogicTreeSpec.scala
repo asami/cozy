@@ -258,6 +258,8 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           Then("the self-contained reader tree has stable bytes, no output identity token, and every declared Step, local relation, and Flow edge")
           first shouldBe second
           first.kind shouldBe "overview"
+          first.html should not include(":target{")
+          first.html should not include(":focus-visible{")
           first.html should include("id=\"logic-tree-overview\"")
           first.html should not include("sha256:")
           first.html should not include("data-core-identity=")
@@ -288,6 +290,9 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           Then("every parent and leaf has one deterministic no-identity depth-first page with ancestor context, keyboard navigation, and one-page print form")
           first shouldBe second
           first.kind shouldBe "slides"
+          first.html should not include(":target{")
+          first.html should not include(":focus-visible{")
+          first.html should include("location.hash=pages[index].id")
           first.html should not include("sha256:")
           first.html should not include("data-core-identity=")
           validated.depthFirstSteps.foreach(step => first.html should include(s"""id="slide-${step.id}""""))
@@ -350,6 +355,12 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           report should not include("identity:")
           report should not include("sha256:")
           _relative_files(root) shouldBe Set("content/core.yaml", "content/format-ja.yaml", "overview.html")
+
+          When("the same v1 inputs are rendered as slides")
+          val slides = root.resolve("slides.html")
+          _execute(List("document-project", "logic-tree", "render", "--core", fixture._1.toString, "--format", fixture._2.toString, "--kind", "slides", "--save", slides.toString))
+          Then("the established slide route remains available")
+          Files.readString(slides, StandardCharsets.UTF_8) should include("logic-tree-slides")
         }
       }
 

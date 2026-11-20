@@ -3,6 +3,9 @@
 Status: PLANNED
 
 Plan date: 2026-10-24
+Updated: 2026-11-16
+Progress: [Phase 88 checklist](phase-88-checklist.md)
+execution_started=false
 
 Renumbered: 2026-10-25 from the incoming planned Phase 87 to preserve the
 closed [Phase 87](phase-87.md) figure/table delivery. Scope and planned status
@@ -115,20 +118,6 @@ adapter.
 - creating a runtime dependency between provider Function CARs and a common
   Function CAR.
 
-## Completion Criteria
-
-Phase 88 completes when one representative Application Service defined with
-ordinary CML generates:
-- its complete CNCF Container realization;
-- a provider-neutral TypeScript Function core for the eligible subset;
-- local, AWS, and Google adapters;
-- self-contained AWS and Google Function Subcomponent CARs;
-- a local/test realization; and
-- passing local Function-to-Domain integration/equivalence evidence.
-
-The generated CAR metadata must remain compatible with the accepted CNCF Phase
-92 Platform Subcomponent distribution contract.
-
 ## P88-06: AuthHandle-aware Function security generation
 
 Generate the Function-side security boundary required by the CNCF AuthHandle
@@ -162,3 +151,26 @@ edge/deployment concerns outside the common TypeScript logic. Generated
 deployment metadata must expose bounded downstream concurrency/admission knobs
 where the platform profile supports them so Function autoscaling does not imply
 unbounded load on User Management or Domain tiers.
+
+## Completion Criteria
+
+The [checklist](phase-88-checklist.md) is the completion ledger for all six
+Steps, P88-01–P88-06. Every item is OPEN; this plan update starts no execution.
+Phase 88 completes when one representative Application Service defined with
+ordinary CML generates:
+
+- its complete CNCF Container realization;
+- a provider-neutral TypeScript Function core for the eligible subset;
+- local, AWS, and Google adapters;
+- self-contained AWS and Google Function Subcomponent CARs;
+- a local/test realization;
+- passing local Function-to-Domain integration/equivalence evidence; and
+- the P88-06 AuthHandle boundary, including cache hit/miss/expiry, credential
+  rejection, one-handle multi-Domain orchestration, Domain-side context and
+  Capability/Guard enforcement, with executable specifications.
+
+The generated CAR metadata must remain compatible with the accepted CNCF Phase
+92 Platform Subcomponent distribution contract. Generated provider metadata
+must retain the supported downstream concurrency/admission limits. Local
+acceptance does not establish live AWS/Google acceptance; any selected live
+deployment evidence remains separately scoped and authorized.

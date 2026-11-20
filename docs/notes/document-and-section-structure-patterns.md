@@ -2,6 +2,7 @@
 
 Status: non-normative implementation proposal
 Date: 2026-11-15
+Updated: 2026-11-16
 Plan: [Phase 91](../phase/phase-91.md)
 
 ## 目的
@@ -67,4 +68,4 @@ Phase 37のカタログ・役割・明示選択の設計を再利用します。
 - [再帰Coreの既存仕様](../spec/document-project-recursive-content-core.md)
 - [Documentの既存DSL](../spec/document-project-document-and-summary-description-dsl.md)
 - [確認HTMLの既存仕様](../spec/document-project-document-confirmation-renderer-v2.md)
-- 共有正本：ai-directiveのcore/technical-writing.md、core/technical-writing-templates.md、core/technical-writing-patterns.md。今回採用した最新改訂はstandalone checkoutにあり、Cozyのsubmoduleへの配布は未実施です。採用する改訂と同期方法をP91-01で確定します。
+- 共有正本：ai-directiveのcore/technical-writing.md、core/technical-writing-templates.md、core/technical-writing-patterns.md。2026-11-16時点のCozyの固定submodule改訂606cb56に3文書が含まれます。P91-01ではこの採用候補の内容と機械可読カタログの対応を確認し、採用版を明示します。共有ルールの配置済みという事実は、Cozyのモデル・検査・表示の実装や受入を意味しません。2026-11-15のjournalにある未配布の説明は当時の記録として保持します。

@@ -3,7 +3,7 @@ package cozy.document
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.FileTime
-import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths, StandardWatchEventKinds}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -30,6 +30,271 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
   import CozyDocumentProjectLocalBuildCommandSpec.Fixture
 
   "Cozy Document Project local-build command" should {
+    "scope child temporary and cache settings to the external run" in {
+      _with_temp_dir("cozy-document-project-child-environment") { root =>
+        Given("an admitted external run and its scoped media runner")
+        val fixture = _fixture(root)
+        val workspace = CozyDocumentProjectWorkRoot.allocate(root.resolve("work"), fixture.project, None, Vector.empty)
+        val runner = cozy.media.CozyMedia.ProcessRunner.external(workspace, fixture.project)
+        val script = "case \"$JAVA_TOOL_OPTIONS\" in *-Djava.io.tmpdir=*) ;; *) exit 4;; esac; printf '%s\\n' \"$TMPDIR\" \"$XDG_CACHE_HOME\" > child-paths.txt"
+
+        When("a child process observes its environment and writes a file")
+        val exit = runner.run(Vector("/bin/sh", "-c", script), workspace.root)
+
+        Then("the child sees run-local paths and its output and log remain in that run")
+        exit shouldBe 0
+        val paths = Files.readAllLines(workspace.root.resolve("child-paths.txt"), StandardCharsets.UTF_8).asScala.toVector
+        paths shouldBe Vector(workspace.temporary.toString, workspace.cache.toString)
+        Files.isDirectory(workspace.root.resolve("logs")) shouldBe true
+        Files.exists(fixture.project.resolve("child-paths.txt")) shouldBe false
+      }
+    }
+
+    "keep native infographic writes in the external run while the producer executes" in {
+      _with_temp_dir("cozy-document-project-media-boundary") { root =>
+        Given("a project with a declared SVG and an unrelated private file")
+        val fixture = _fixture(root)
+        val images = Files.createDirectory(fixture.project.resolve("images"))
+        _write(images.resolve("figure.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+        _write(fixture.project.resolve(".cozy/private.txt"), "private")
+        _write(fixture.project.resolve("media.yaml"), """{
+          "schema":"cozy.media.v1", "knowledge":{"id":"sample","type":"documentmodel:KnowledgeUnit","source":"index.dox"},
+          "languages":["ja"], "resources":[{"id":"infographic-ja","kind":"infographic","language":"ja",
+          "source":"images/figure.svg","output":"images/figure.png","build":"svg-to-png"}]
+        }""")
+        val workspace = CozyDocumentProjectWorkRoot.allocate(root.resolve("work"), fixture.project, None, Vector.empty)
+        val watcher = java.nio.file.FileSystems.getDefault.newWatchService()
+        fixture.project.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE)
+        images.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE)
+        val runner = new cozy.media.CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
+            workingDirectory.startsWith(workspace.root) shouldBe true
+            val transient = workingDirectory.resolve("temporary-child-file")
+            Files.writeString(transient, "intermediate", StandardCharsets.UTF_8)
+            Files.delete(transient)
+            Files.write(Paths.get(command.last), Array[Byte](1, 2, 3))
+            0
+          }
+        }
+
+        When("the native media build runs with a wrapped child producer")
+        val result = try {
+          val report = CozyDocumentProjectMediaWorkspace.build(fixture.project, workspace, "infographic", "ja", Some(runner))
+          val event = watcher.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS)
+          (report, Option(event).toVector.flatMap(_.pollEvents().asScala.toVector))
+        } finally watcher.close()
+
+        Then("the original project has no observed writes and only declared inputs are materialized")
+        result._1 should include("infographic-ja: built")
+        result._2 shouldBe empty
+        Files.exists(fixture.project.resolve("images/figure.png")) shouldBe false
+        Files.isRegularFile(workspace.root.resolve("project.dox/images/figure.png")) shouldBe true
+        Files.exists(workspace.root.resolve("project.dox/.cozy/private.txt")) shouldBe false
+      }
+    }
+
+    "reject an escaping media output before invoking a producer" in {
+      _with_temp_dir("cozy-document-project-media-output-escape") { root =>
+        Given("an external media selection with an escaping output")
+        val fixture = _fixture(root)
+        _write(fixture.project.resolve("figure.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+        _write(fixture.project.resolve("media.yaml"), """{"resources":[{"id":"infographic-ja","build":"svg-to-png","language":"ja","source":"figure.svg","output":"../../escape.png"}]}""")
+        val workspace = CozyDocumentProjectWorkRoot.allocate(root.resolve("work"), fixture.project, None, Vector.empty)
+        var invoked = false
+        val runner = new cozy.media.CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingDirectory: Path): Int = { invoked = true; 0 }
+        }
+
+        When("the selected product is built")
+        val error = intercept[Exception] {
+          CozyDocumentProjectMediaWorkspace.build(fixture.project, workspace, "infographic", "ja", Some(runner))
+        }
+
+        Then("the path is rejected before materialization or producer execution")
+        error.getMessage should include("media output escapes")
+        invoked shouldBe false
+        Files.exists(workspace.root.resolve("project.dox")) shouldBe false
+      }
+    }
+
+    "resolve the external default from host configuration" in {
+      _with_temp_dir("cozy-document-project-host-work") { root =>
+        Given("a host home with one explicit WorkRoot")
+        val configured = root.resolve("external")
+        _write(root.resolve(".cozy/config.json"), s"""{"documentProject":{"workRoot":"$configured"}}""")
+
+        When("the host default is resolved")
+        val result = CozyDocumentProjectWorkRoot.hostDefault(root)
+
+        Then("the host setting is used")
+        result shouldBe configured
+      }
+    }
+
+    "reject duplicate host WorkRoot declarations" in {
+      _with_temp_dir("cozy-document-project-host-duplicate") { root =>
+        Given("two host configuration files declaring the same setting")
+        val value = root.resolve("external")
+        _write(root.resolve(".cozy/config.json"), s"""{"documentProject":{"workRoot":"$value"}}""")
+        _write(root.resolve(".cozy/config.yaml"), s"documentProject:\n  workRoot: $value\n")
+
+        When("the host default is resolved")
+        val error = intercept[Exception] { CozyDocumentProjectWorkRoot.hostDefault(root) }
+
+        Then("the conflicting layer is rejected")
+        error.getMessage should include("duplicated")
+      }
+    }
+
+    "diagnose a missing dialogue script before starting audio synthesis" in {
+      _with_temp_dir("cozy-document-project-audio-input") { root =>
+        Given("an audio selection whose declared dialogue script is absent")
+        val fixture = _fixture(root)
+        _write(fixture.project.resolve("media.yaml"), """{"resources":[{"id":"video-ja","project":"video-ja.yaml"}]}""")
+        _write(fixture.project.resolve("video-ja.yaml"), """{"parts":[{"id":"dialogue","type":"dialogue","script":"missing.json","audioDir":"target/audio","output":"target/part.mp4"}],"output":"target/final.mp4"}""")
+        val work = root.resolve("work")
+
+        When("the Japanese audio product is requested")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "audio", "--locale", "ja", "--work-root", work.toString))
+        }
+
+        Then("the source diagnostic is returned without project-local output")
+        error.getMessage should include("video input is unavailable")
+        Files.exists(fixture.project.resolve("target")) shouldBe false
+      }
+    }
+
+    "reject an unsupported summary renderer before starting any producer" in {
+      _with_temp_dir("cozy-document-project-summary-renderer") { root =>
+        Given("a locale-selected summary with an unknown shared renderer")
+        val fixture = _fixture(root)
+        val renderer = fixture.project.resolve("render-pdf")
+        _write(renderer, "#!/bin/sh\nexit 0\n")
+        renderer.toFile.setExecutable(true) shouldBe true
+        _write(fixture.index, "An article without figures.")
+        _write(fixture.project.resolve("media.yaml"), """{
+          "profiles":{"business":{"presentation":{"renderer":{"name":"unknown","version":"2","command":["./render-summary"]}}}},
+          "resources":[
+            {"id":"infographic-ja","build":"svg-to-png","language":"ja","source":"figure.svg","output":"figure.png"},
+            {"id":"article-pdf-ja","build":"article-pdf","language":"ja","source":"index.dox","output":"article.pdf",
+             "articlePdf":{"infographic":"infographic-ja","renderer":{"name":"simplemodeling-smartdox-pdf","version":"1","command":["./render-pdf"]}}},
+            {"id":"summary-slides-ja","build":"summary-slides-pdf","language":"ja","source":"slide.json",
+             "summarySlidesPdf":{"contract":"slide-ir-v1","profile":"business","articlePdf":"article-pdf-ja","infographic":"infographic-ja"}}
+          ]
+        }""")
+        val work = root.resolve("work")
+
+        When("the external summary target is requested")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "summary-slides", "--locale", "ja", "--work-root", work.toString))
+        }
+
+        Then("the unsupported renderer is diagnosed before the infographic or PDF can run")
+        error.getMessage should include("renderer has no admitted external-workspace capability")
+        Files.exists(fixture.project.resolve("figure.png")) shouldBe false
+        Files.exists(fixture.project.resolve("article.pdf")) shouldBe false
+      }
+    }
+
+    "diagnose a missing article image before starting the PDF renderer" in {
+      _with_temp_dir("cozy-document-project-media-input") { root =>
+        Given("a PDF target with an unavailable project-relative image")
+        val fixture = _fixture(root)
+        val renderer = fixture.project.resolve("render-pdf")
+        _write(renderer, "#!/bin/sh\nexit 0\n")
+        renderer.toFile.setExecutable(true) shouldBe true
+        _write(fixture.index, "[[images/missing.png]]")
+        _write(fixture.project.resolve("figure.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+        _write(fixture.project.resolve("media.yaml"), """{
+          "resources": [{"id":"infographic-ja","build":"svg-to-png","language":"ja","source":"figure.svg","output":"figure.png"},
+            {"id":"article-pdf-ja","build":"article-pdf","language":"ja","source":"index.dox",
+            "articlePdf":{"infographic":"infographic-ja","renderer":{"name":"simplemodeling-smartdox-pdf","version":"1","command":["./render-pdf"]}}}]
+        }""")
+        val work = root.resolve("work")
+
+        When("the external PDF target is requested")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "article-pdf", "--locale", "ja", "--work-root", work.toString))
+        }
+
+        Then("the missing input is reported and no project-local build output appears")
+        error.getMessage should include("article image requires a resolvable project-relative input")
+        Files.exists(fixture.project.resolve("target")) shouldBe false
+      }
+    }
+
+    "render confirmation HTML in an explicitly selected external run" in {
+      _with_temp_dir("cozy-document-project-external-html") { root =>
+        Given("a project and a separate local work root")
+        val fixture = _fixture(root)
+        val work = root.resolve("external-work")
+
+        When("the article HTML target is built with that work root")
+        val report = _execute(List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html", "--work-root", work.toString))
+
+        Then("the report points into the owned run and the project receives no local output")
+        report should include("outcome: built")
+        report should include(work.resolve("target/document-project/runs").toString)
+        val output = report.split("\n").iterator.find(_.startsWith("output: ")).get.stripPrefix("output: ")
+        Files.readString(Paths.get(output), StandardCharsets.UTF_8).toLowerCase should include("<article")
+        Files.exists(fixture.project.resolve("target/document-project/local-build")) shouldBe false
+      }
+    }
+
+    "reject a synchronization root inside the work root" in {
+      _with_temp_dir("cozy-document-project-sync-overlap") { root =>
+        Given("a separate work root containing an identified synchronization root")
+        val fixture = _fixture(root)
+        val work = root.resolve("external-work")
+        val sync = work.resolve("target/document-project")
+
+        When("the build identifies that synchronization root")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--work-root", work.toString, "--sync-root", sync.toString))
+        }
+
+        Then("admission fails before allocating any work")
+        error.getMessage should include("overlaps protected root")
+        Files.exists(work) shouldBe false
+      }
+    }
+
+    "reject a work subtree redirected into the project" in {
+      _with_temp_dir("cozy-document-project-work-symlink") { root =>
+        Given("an external work root whose target points into the project")
+        val fixture = _fixture(root)
+        val work = Files.createDirectory(root.resolve("external-work"))
+        Files.createSymbolicLink(work.resolve("target"), fixture.project)
+
+        When("a build requests that work root")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--work-root", work.toString))
+        }
+
+        Then("admission rejects the redirect before creating a run")
+        error.getMessage should include("work subtree must contain only direct directories")
+        Files.exists(fixture.project.resolve("document-project")) shouldBe false
+      }
+    }
+
+    "reject an external work root that overlaps the project" in {
+      _with_temp_dir("cozy-document-project-overlap") { root =>
+        Given("a project and a work root inside it")
+        val fixture = _fixture(root)
+        val work = fixture.project.resolve("work")
+
+        When("a build requests the overlapping work root")
+        val error = intercept[Exception] {
+          _execute(List("document-project", "build", fixture.project.toString, "--work-root", work.toString))
+        }
+
+        Then("admission fails before creating the work directory")
+        error.getMessage should include("overlaps protected root")
+        Files.exists(work) shouldBe false
+      }
+    }
+
     "select the default and render each frozen target without loading a descriptor" in {
       _with_temp_dir("cozy-document-project-local-build-routes") { root =>
         Given("a direct .dox package with the closed target definition and no descriptor")

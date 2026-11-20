@@ -1,7 +1,7 @@
 package cozy.document
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.file.{FileAlreadyExistsException, Files, LinkOption, Path, Paths, StandardOpenOption}
 import scala.util.control.NonFatal
 
 /*
@@ -18,17 +18,69 @@ private[cozy] object CozyDocumentLogicTreeCommand {
   def execute(args: List[String]): Boolean = args match {
     case "document-project" :: "logic-tree" :: "render" :: rest =>
       val request = _request(rest)
-      val validated = CozyDocumentLogicTree.load(_input_path(request.core, "core"), _input_path(request.format, "format"))
-      val rendered = request.kind match {
-        case "overview" => CozyDocumentLogicTreeProjection.overview(validated)
-        case "slides" => CozyDocumentLogicTreeProjection.slides(validated)
-        case _ => _fail("LOGIC_TREE_CLI", "$.kind", "--kind must be overview or slides")
+      val source = try Some(CozyDocumentLogicTree.loadPatternCore(_input_path(request.core, "core"))) catch {
+        case _: CozyDocumentLogicTree.LogicTreeFault => None
+      }
+      source.filter(CozyDocumentPatternDraft.isDraft).foreach(CozyDocumentPatternDraft.rejectIncomplete)
+      val isv2 = source.exists(_.hcursor.get[String]("schema").toOption.contains("cozy.content-core.logic-tree.v2"))
+      val (rendered, coreid, locale) = if (isv2) {
+        if (request.kind != "overview") _fail("LOGIC_TREE_CLI", "$.kind", "v2 supports overview only")
+        val envelope = CozyDocumentPatternCodec.decode(source.get)
+        val format = CozyDocumentPatternCodec.decodeFormat(CozyDocumentLogicTree.loadPatternFormat(_input_path(request.format, "format")), envelope)
+        (CozyDocumentLogicTreeProjection.patternOverview(envelope, format), envelope.core.id, format.locale)
+      } else {
+        val validated = CozyDocumentLogicTree.load(_input_path(request.core, "core"), _input_path(request.format, "format"))
+        val result = request.kind match {
+          case "overview" => CozyDocumentLogicTreeProjection.overview(validated)
+          case "slides" => CozyDocumentLogicTreeProjection.slides(validated)
+          case _ => _fail("LOGIC_TREE_CLI", "$.kind", "--kind must be overview or slides")
+        }
+        (result, validated.core.id, validated.format.locale)
       }
       val destination = _destination(request.save)
       _publish(destination, rendered.html)
-      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\noutput: $destination")
+      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: $coreid\nlocale: $locale\noutput: $destination")
+      true
+    case "document-project" :: "logic-tree" :: "validate" :: rest =>
+      val values = _parse_options(rest, Set("core", "format", "document", "correspondence"))
+      if (!Set("core", "format").subsetOf(values.keySet) || values.contains("document") != values.contains("correspondence"))
+        _fail("LOGIC_TREE_CLI", "$.command", "requires --core and --format; --document and --correspondence occur together")
+      val source = CozyDocumentLogicTree.loadPatternCore(_input_path(values("core"), "core"))
+      if (CozyDocumentPatternDraft.isDraft(source)) CozyDocumentPatternDraft.rejectIncomplete(source)
+      val envelope = CozyDocumentPatternCodec.decode(source)
+      val format = CozyDocumentPatternCodec.decodeFormat(CozyDocumentLogicTree.loadPatternFormat(_input_path(values("format"), "format")), envelope)
+      values.get("document").foreach { path =>
+        val document = CozyDocumentDescriptionV2.loadDocumentWithCore(envelope.source, _input_path(path, "document"))
+        val input = CozyDocumentLogicTree._admit_file(_input_path(values("correspondence"), "correspondence"), "correspondence")
+        val correspondence = CozyDocumentLogicTree._load_document(input, CozyDocumentLogicTree._read_bytes(input, "correspondence"), "correspondence")
+        CozyDocumentPatternCorrespondence.validate(correspondence, envelope, format, document)
+      }
+      println(s"Cozy Content Core Logic Tree Validate\ncore: ${envelope.core.id}\nlocale: ${format.locale}")
+      true
+    case "document-project" :: "logic-tree" :: "scaffold" :: rest =>
+      val expected = Set("catalog", "version", "document-pattern", "section-pattern", "save")
+      val values = _parse_options(rest, expected)
+      if (values.keySet != expected) _fail("LOGIC_TREE_CLI", "$.command", "requires --catalog, --version, --document-pattern, --section-pattern and --save")
+      val draft = CozyDocumentPatternDraft.create(values("catalog"), values("version"), values("document-pattern"), values("section-pattern"))
+      val destination = _destination(values("save"), "core.yaml")
+      _publish_new(destination, draft.spaces2 + "\n")
+      println(s"Cozy Content Core Logic Tree Scaffold\noutput: $destination")
       true
     case _ => false
+  }
+
+  private def _parse_options(args: List[String], allowed: Set[String]): Map[String, String] = {
+    @annotation.tailrec
+    def _parse_(remaining: List[String], values: Map[String, String]): Map[String, String] = remaining match {
+      case Nil => values
+      case option :: value :: tail if option.startsWith("--") && !value.startsWith("--") =>
+        val name = option.drop(2)
+        if (!allowed.contains(name)) _fail("LOGIC_TREE_CLI", "$.command", s"unknown option: $option")
+        if (values.contains(name)) _fail("LOGIC_TREE_CLI", "$.command", s"duplicate option: $option")
+        _parse_(tail, values + (name -> value))
+      case _ => _fail("LOGIC_TREE_CLI", "$.command", "expected options with one value each")
+    }
+    _parse_(args, Map.empty)
   }
 
   private def _request(args: List[String]): Request = {
@@ -49,12 +101,12 @@ private[cozy] object CozyDocumentLogicTreeCommand {
     Request(values("core"), values("format"), values("kind"), values("save"))
   }
 
-  private def _destination(value: String): Path = {
+  private def _destination(value: String, suffix: String = ".html"): Path = {
     val path = try Paths.get(value).toAbsolutePath.normalize() catch {
       case NonFatal(_) => _fail("LOGIC_TREE_PATH", "$.save", "output path is invalid")
     }
-    if (!path.getFileName.toString.endsWith(".html"))
-      _fail("LOGIC_TREE_PATH", "$.save", "output destination must end with .html")
+    if ((suffix == "core.yaml" && path.getFileName.toString != suffix) || (suffix != "core.yaml" && !path.getFileName.toString.endsWith(suffix)))
+      _fail("LOGIC_TREE_PATH", "$.save", if (suffix == ".html") "output destination must end with .html" else s"output destination must match $suffix")
     if (Files.isSymbolicLink(path) || (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)))
       _fail("LOGIC_TREE_PATH", "$.save", "output destination must be an absent or direct regular non-symlink file")
     val parent = Option(path.getParent).getOrElse(_fail("LOGIC_TREE_PATH", "$.save", "output destination has no safe parent"))
@@ -67,6 +119,15 @@ private[cozy] object CozyDocumentLogicTreeCommand {
     try Paths.get(value) catch {
       case NonFatal(_) => _fail("LOGIC_TREE_PATH", s"$$.$label", "input path is invalid")
     }
+
+  private def _publish_new(destination: Path, content: String): Unit = {
+    try {
+      Files.writeString(destination, content, StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+    } catch {
+      case _: FileAlreadyExistsException => _fail("LOGIC_TREE_PATH", "$.save", "scaffold destination already exists")
+      case NonFatal(_) => _fail("LOGIC_TREE_PATH", "$.save", "output cannot be written")
+    }
+  }
 
   private def _publish(destination: Path, content: String): Unit = {
     try {

@@ -90,13 +90,15 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     kind: String,
-    output: Path
+    output: Path,
+    workRoot: Option[Path] = None
   ): Unit = {
-    val expectedoutput = _generated_review_output(project, kind)
+    val outputroot = workRoot.getOrElse(project)
+    val expectedoutput = _generated_review_output(outputroot, kind)
     if (output != expectedoutput)
       CozyDocumentProject._failure("DP-PATH-001", "generated review receipt requires the fixed default review output")
-    val receipt = _generated_review_receipt_path(project, kind)
-    val outputidentity = FileReference(CozyDocumentProject._project_relative(project, output))
+    val receipt = _generated_review_receipt_path(outputroot, kind)
+    val outputidentity = FileReference(CozyDocumentProject._project_relative(outputroot, output))
     val inputs = _generated_review_inputs(project, descriptor, kind)
     val lines = Vector(
       s"kind: $kind",
@@ -129,7 +131,7 @@ private[cozy] object CozyDocumentProjectEvidence {
   ): NativeClosure =
     CozyDocumentProjectNativeEvidence.closeNativeExecution(project, descriptor, operation, inputs, result)
 
-  def snapshot(project: Path, descriptor: CozyDocumentProject.Descriptor): Snapshot = {
+  def snapshot(project: Path, descriptor: CozyDocumentProject.Descriptor, reviewRun: Option[Path] = None): Snapshot = {
     val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
@@ -140,7 +142,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     val sidecar = _sidecar(project, descriptor, resolved, sources)
     val attempts = _attempts(project, descriptor)
     val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
-    val products = _products(project, descriptor, resolved, sources, sidecar, attempts, presentationstate)
+    val products = _products(project, descriptor, resolved, sources, sidecar, attempts, presentationstate, reviewRun)
     val productsbycriterion = products.flatMap { product =>
       product.value.workProduct.criteria.map(_ -> product)
     }.toMap
@@ -365,7 +367,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     sources: Vector[FileReference],
     sidecar: Option[Sidecar],
     attempts: Vector[Attempt],
-    presentationstate: CozyDocumentProjectPresentationSemanticsState.State
+    presentationstate: CozyDocumentProjectPresentationSemanticsState.State,
+    reviewrun: Option[Path] = None
   ): Vector[WorkProductState] = {
     val sourcepaths = sources.map(_.path).toSet
     val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
@@ -378,9 +381,9 @@ private[cozy] object CozyDocumentProjectEvidence {
       } else if (value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional) {
         product.id -> EvidenceStatus("nonparticipating", Some("optional Work Product is not selected"))
       } else if (product.id == "article-review-html") {
-        product.id -> _article_review_status(project, descriptor, sourcepaths, attempts)
+        product.id -> _article_review_status(project, descriptor, sourcepaths, attempts, reviewrun)
       } else if (product.id == "video-review") {
-        product.id -> _generated_review_status(project, descriptor, sourcepaths, "video")
+        product.id -> _generated_review_status(project, descriptor, sourcepaths, "video", project)
       } else if (Set("explanation-structure-review-html", "video-logical-chart-html").contains(product.id)) {
         product.id -> _logical_chart_status(project, descriptor, sourcepaths, product.id)
       } else if (product.id == "presentation-semantics") {
@@ -506,10 +509,11 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     sourcepaths: Set[String],
-    kind: String
+    kind: String,
+    outputroot: Path
   ): EvidenceStatus = {
-    val output = _generated_review_output(project, kind)
-    val receiptpath = _generated_review_receipt_path(project, kind)
+    val output = _generated_review_output(outputroot, kind)
+    val receiptpath = _generated_review_receipt_path(outputroot, kind)
     val sourcesavailable = _generated_review_sources_available(descriptor, kind, sourcepaths)
     if (!Files.exists(receiptpath, LinkOption.NOFOLLOW_LINKS)) {
       if (Files.exists(output, LinkOption.NOFOLLOW_LINKS))
@@ -519,9 +523,9 @@ private[cozy] object CozyDocumentProjectEvidence {
       else
         EvidenceStatus("missing", None)
     } else {
-      val receiptfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, receiptpath), "generated review receipt")
-      val receipt = _generated_review_receipt(project, descriptor, kind, receiptfile)
-      val outputcurrent = CozyDocumentProjectNativeEvidence.fileAvailable(project, receipt.output)
+      val receiptfile = CozyDocumentProject._direct_file(outputroot, CozyDocumentProject._project_relative(outputroot, receiptpath), "generated review receipt")
+      val receipt = _generated_review_receipt(project, descriptor, kind, receiptfile, outputroot)
+      val outputcurrent = CozyDocumentProjectNativeEvidence.fileAvailable(outputroot, receipt.output)
       val inputscurrent = receipt.inputs.forall(identity => CozyDocumentProjectNativeEvidence.fileAvailable(project, identity))
       if (outputcurrent && inputscurrent)
         EvidenceStatus("current", None)
@@ -534,11 +538,13 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     sourcepaths: Set[String],
-    attempts: Vector[Attempt]
+    attempts: Vector[Attempt],
+    reviewrun: Option[Path]
   ): EvidenceStatus = {
+    if (reviewrun.nonEmpty) return _generated_review_status(project, descriptor, sourcepaths, "article", reviewrun.get)
     val native = attempts.filter(attempt => attempt.schema == _attempt_v2_schema && attempt.operation == "article.render-review")
     if (native.isEmpty) {
-      _generated_review_status(project, descriptor, sourcepaths, "article")
+      _generated_review_status(project, descriptor, sourcepaths, "article", project)
     } else {
       val accepted = native.filter(_.outcome == "accepted")
       if (accepted.exists(CozyDocumentProjectNativeEvidence.nativeOutputsAvailable(project, _))) {
@@ -555,7 +561,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     kind: String,
-    path: Path
+    path: Path,
+    outputroot: Path
   ): GeneratedReviewReceipt = {
     val label = "generated review receipt"
     _require_top_level_order(path, Vector("kind", "project", "profile", "output", "inputs"), label)
@@ -566,8 +573,8 @@ private[cozy] object CozyDocumentProjectEvidence {
       _invalid("generated review receipt kind must equal the fixed review kind")
     if (_string(fields, "project", label) != descriptor.id || _string(fields, "profile", label) != descriptor.profile)
       _invalid("generated review receipt project or profile must equal the descriptor")
-    val output = _nested_file_reference(project, _field(fields, "output", label), "generated review receipt output")
-    if (output.path != CozyDocumentProject._project_relative(project, _generated_review_output(project, kind)))
+    val output = _nested_file_reference(outputroot, _field(fields, "output", label), "generated review receipt output")
+    if (output.path != CozyDocumentProject._project_relative(outputroot, _generated_review_output(outputroot, kind)))
       _invalid("generated review receipt output must be the fixed default review output")
     val expectedinputs = _generated_review_input_paths(descriptor, kind)
     val inputs = _field(fields, "inputs", label).asArray.getOrElse(_invalid("generated review receipt inputs must be an array"))

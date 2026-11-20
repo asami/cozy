@@ -8,6 +8,7 @@ maven-local
 target
 .*
 !/.gitattributes
+!/.scalafix.conf
 boot
 codex-test.d
 *.d
