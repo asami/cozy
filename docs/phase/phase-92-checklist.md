@@ -1,7 +1,7 @@
 # Phase 92 checklist — LexiDox Typed Sections and Knowledge Space Integration
 
-status=planned
-execution_started=false
+status=in-progress
+execution_started=true
 Plan: [Phase 92](phase-92.md)
 Development item: DEV-041
 Owner: Cozy development; SmartDox owns its producer delivery
@@ -15,14 +15,16 @@ Owner: Cozy development; SmartDox owns its producer delivery
 
 ## P92-01: Contracts and producer ownership
 
-- [ ] 現行SmartDoxの解析・検証・serialization・metadata/RDF経路と、Cozy/SIEの消費境界を確認する。
-- [ ] 概念提案の採用改訂、SmartDoxのproducer担当・実装計画・受渡し形式・版と互換性を明示する。
-- [ ] 型別の標準節、必須性・cardinality、自由節、未知の大文字節の診断、BoK固有profileをdesign/specへ具体化する。
-- [ ] `concept_type`・`knowledge_form`・`space`の構文、SimpleModeling旧表記の認識、既存SmartDox構文と自由節の保持を定義する。
-- [ ] Spaceの識別、単一／複数Spaceと概念の対応、Term/Concept IRI、provenance・extensions・constraintsのRDF対応を決定し、未決事項を残したまま出力仕様を変更しない。
+Evidence: [decision record](../design/lexidox-producer-consumer-boundary.md) and [handoff](../spec/lexidox-knowledge-space-handoff.md) adopt SmartDox design contract `7207fa191cd32bd383684ca4b278ff402ddbc096`, the committed conceptual proposal and separately pinned joint plan. Built producer delivery and P93-01 presentation decisions remain outstanding. P92-01 entries record the document decisions and comparison; workflow review remains pending. Contract documentation does not establish implementation acceptance.
 
-- [ ] [共通計画](../notes/lexidox-phase92-93-integration.md)と正本LX-J01–LX-J08をP93-01と照合し、同じproducer文法・schema・metadata契約の基線／互換拡張、採用改訂と所有者を一つのdesign/spec決定記録へ結び付ける。
-- [ ] Space／Term／Conceptの解決と表示名の選択順序、概念分類・知識記述形式・表示役割の独立性を両Phaseで一致させる。
+- [x] 現行SmartDoxの解析・検証・serialization・metadata/RDF経路と、Cozy/SIEの消費境界を確認する。
+- [x] 概念提案の採用改訂、SmartDoxのproducer担当・実装計画・受渡し形式・版と互換性を明示する。
+- [x] 型別の標準節、必須性・cardinality、自由節、未知の大文字節の診断、BoK固有profileをdesign/specへ具体化する。
+- [x] `concept_type`・`knowledge_form`・`space`の構文、SimpleModeling旧表記の認識、既存SmartDox構文と自由節の保持を定義する。
+- [x] Spaceの識別、単一／複数Spaceと概念の対応、Term/Concept IRI、provenance・extensions・constraintsのRDF対応を決定し、未決事項を残したまま出力仕様を変更しない。
+
+- [x] [共通計画](../notes/lexidox-phase92-93-integration.md)と正本LX-J01–LX-J08をP93-01と照合し、同じproducer文法・schema・metadata契約の基線／互換拡張、採用改訂と所有者を一つのdesign/spec決定記録へ結び付ける。
+- [x] Space／Term／Conceptの解決と表示名の選択順序、概念分類・知識記述形式・表示役割の独立性を両Phaseで一致させる。
 
 ## P92-02: Typed section handoff
 

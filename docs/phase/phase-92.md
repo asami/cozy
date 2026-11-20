@@ -1,7 +1,7 @@
 # Phase 92 — LexiDox Typed Sections and Knowledge Space Integration
 
-status=planned
-execution_started=false
+status=in-progress
+execution_started=true
 
 Planned: 2026-11-16
 Development item: DEV-041
@@ -27,6 +27,10 @@ Resolve Space and Term/Concept identity before display-label selection. Knowledg
 
 Joint contract alignment precedes shared-boundary implementation. Phase 92 accepts the semantic baseline without waiting for all Phase 93 rendering; Phase 93 consumes the accepted required subset and verifies cumulative compatibility. Existing priorities and unrelated work are unchanged.
 
+## P92-01 investigation — 2026-11-20
+
+The [producer–consumer decision record](../design/lexidox-producer-consumer-boundary.md) and [handoff](../spec/lexidox-knowledge-space-handoff.md) adopt SmartDox contract revision `7207fa191cd32bd383684ca4b278ff402ddbc096`. The earlier investigation found the joint additions uncommitted; the contract separately pins the committed conceptual proposal and Cozy joint plan. The built producer and P93-01 presentation decisions remain outstanding. P92-01 records the cross-phase requirements and common baseline; workflow review remains pending. P93-01 retains its own presentation decisions and acceptance, and this design delivery does not change public outputs.
+
 ## Planned Steps
 
 1. P92-01: 現行の解析・metadata/RDF経路と所有者を確認し、型別スキーマ、節認識、互換性、Space/IRIとproducer受渡しのdesign/specを定める。
@@ -34,7 +38,7 @@ Joint contract alignment precedes shared-boundary implementation. Phase 92 accep
 3. P92-03: 合意したSpace/Term/Conceptの識別と型情報を、既存BoK表示・索引・metadata/RDF連携へ反映する。
 4. P92-04: 既存形式と型付き形式の日英fixtureを正規経路で統合検証し、互換性・診断・利用手順と最終受入を確認する。
 
-全Step・全checklist項目はOPENです。実装は未着手です。
+P92-01の文書上の決定は記録済みです。後続Stepの実装・受入は未着手です。
 
 ## Acceptance boundaries
 
