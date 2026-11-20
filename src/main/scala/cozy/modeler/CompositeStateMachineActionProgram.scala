@@ -28,10 +28,10 @@ private[modeler] object CompositeStateMachineActionProgram {
     source: CompositeStateMachineSourceIdentity
   )
 
-  def generate(definitions: Vector[CompositeStateMachineDefinition]): Realm = {
+  def generate(definitions: Vector[CompositeStateMachineDefinition], coreC3: Boolean = false): Realm = {
     val builder = Realm.Builder()
     builder.set(s"${_root}/CompositeStateMachineActionProgramAbi.scala", _abi_source)
-    builder.set(s"${_root}/LogicalActionCompiler.scala", _compiler_source)
+    builder.set(s"${_root}/LogicalActionCompiler.scala", _compiler_source(coreC3))
     builder.set(s"${_root}/CompositeStateMachineActionProgramBootstrap.scala", _bootstrap_source(definitions))
     definitions.zipWithIndex.foreach { case (definition, index) =>
       val objectname = _object_name(definition, index)
@@ -65,14 +65,17 @@ private[modeler] object CompositeStateMachineActionProgram {
        |}
        |""".stripMargin
 
-  private def _compiler_source: String =
-    """package domain.composite.statemachine.actionprogram
+  private def _compiler_source(coreC3: Boolean): String = {
+    val coreimport = if (coreC3) "\nimport org.goldenport.util.TypeSafeCollections.*" else ""
+    val equality = if (coreC3) "\n  private given cats.Eq[String] = cats.Eq.fromUniversalEquals[String]" else ""
+    val membership = if (coreC3) "typeSafe.containsEq" else "contains"
+    s"""package domain.composite.statemachine.actionprogram
        |
        |import scala.language.strictEquality
        |
-       |import cats.free.Free
+       |import cats.free.Free$coreimport
        |
-       |object LogicalActionCompiler {
+       |object LogicalActionCompiler {$equality
        |  type ExecProgram[A] = org.goldenport.cncf.unitofwork.ExecProgram[A]
        |
        |  final case class Binding(actionId: String, operation: CompositeStateMachineActionProgramAbi.Operation, inputBinding: Option[String], program: ExecProgram[Unit])
@@ -104,7 +107,7 @@ private[modeler] object CompositeStateMachineActionProgram {
        |  }
        |
        |  private def _selected_occurrences(definition: CompositeStateMachineActionProgramAbi.Definition, requestedOccurrenceIds: Vector[String]): Vector[CompositeStateMachineActionProgramAbi.Occurrence] =
-       |    definition.occurrences.filter(occurrence => requestedOccurrenceIds.contains(occurrence.occurrenceId))
+       |    definition.occurrences.filter(occurrence => requestedOccurrenceIds.$membership(occurrence.occurrenceId))
        |
        |  private def _binding_errors(definition: CompositeStateMachineActionProgramAbi.Definition, bindings: Vector[Binding], selected: Vector[CompositeStateMachineActionProgramAbi.Occurrence]): Vector[ValidationError] = {
        |    val unknown = bindings.collect {
@@ -122,7 +125,7 @@ private[modeler] object CompositeStateMachineActionProgram {
        |      }
        |    }
        |    val requiredActionIds = selected.foldLeft(Vector.empty[String]) { (acc, occurrence) =>
-       |      if (acc.contains(occurrence.actionId)) acc else acc :+ occurrence.actionId
+       |      if (acc.$membership(occurrence.actionId)) acc else acc :+ occurrence.actionId
        |    }
        |    val missing = requiredActionIds.collect {
        |      case actionId if !bindings.exists(_.actionId == actionId) => MissingBinding(actionId)
@@ -135,7 +138,7 @@ private[modeler] object CompositeStateMachineActionProgram {
        |      case occurrenceId if !definition.occurrences.exists(_.occurrenceId == occurrenceId) => UnknownOccurrenceSelection(occurrenceId)
        |    }
        |    val duplicates = requestedOccurrenceIds.zipWithIndex.collect {
-       |      case (occurrenceId, index) if requestedOccurrenceIds.take(index).contains(occurrenceId) => DuplicateOccurrenceSelection(occurrenceId)
+       |      case (occurrenceId, index) if requestedOccurrenceIds.take(index).$membership(occurrenceId) => DuplicateOccurrenceSelection(occurrenceId)
        |    }
        |    unknown ++ duplicates
        |  }
@@ -172,6 +175,7 @@ private[modeler] object CompositeStateMachineActionProgram {
        |    }
        |}
        |""".stripMargin
+  }
 
   private def _bootstrap_source(definitions: Vector[CompositeStateMachineDefinition]): String = {
     val references = definitions.zipWithIndex.map { case (definition, index) =>

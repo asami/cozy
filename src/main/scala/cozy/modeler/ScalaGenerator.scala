@@ -55,7 +55,12 @@ class ScalaGenerator(
     val actionproducermetadata = CompositeStateMachineActionProducerMetadata.generate(compositeStateMachines)
     val actionproducermetadatajson = CompositeStateMachineActionProducerMetadata.canonicalJson(compositeStateMachines)
     val actionprogramdefinitions = compositeStateMachines ++ workflows.map(_.compositeStateMachine)
-    val actionprogram = CompositeStateMachineActionProgram.generate(actionprogramdefinitions)
+    val corec3 = sys.props.get("cozy.generation.logical-action-membership") match {
+      case None | Some("") => false
+      case Some("core-c3") => true
+      case Some(value) => throw new IllegalArgumentException(s"Unsupported cozy.generation.logical-action-membership: $value")
+    }
+    val actionprogram = CompositeStateMachineActionProgram.generate(actionprogramdefinitions, corec3)
     val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(actionprogramdefinitions)
     val statemachineworkflowabi = StateMachineWorkflowAbiGenerator.generate(workflows)
     val statemachineworkflowabijson = StateMachineWorkflowAbiGenerator.canonicalJson(workflows)

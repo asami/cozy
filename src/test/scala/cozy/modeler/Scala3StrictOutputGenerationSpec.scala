@@ -2,6 +2,7 @@ package cozy.modeler
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
+import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -10,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
-class Scala3StrictOutputGenerationSpec extends AnyWordSpec with Matchers {
+class Scala3StrictOutputGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   override def withFixture(test: NoArgTest): org.scalatest.Outcome = {
     val outcome = super.withFixture(test)
     outcome match {
@@ -22,6 +23,93 @@ class Scala3StrictOutputGenerationSpec extends AnyWordSpec with Matchers {
 
   private val base = Paths.get("").toAbsolutePath
   private val managed = "target/scala-3.3.8/src_managed/"
+
+  "Core C3 logical-action membership" should {
+    "emit selected and legacy source through the public generator" in {
+      Given("the workflow fixture and both membership selections")
+      When("the public generator emits fresh output")
+      val (legacy, selected) = _c3_generate()
+      val oldsource = Files.readString(legacy.resolve("LogicalActionCompiler.scala"))
+      val source = Files.readString(selected.resolve("LogicalActionCompiler.scala"))
+      Then("only the selected membership expressions and their dependencies differ")
+      oldsource should include ("requestedOccurrenceIds.contains(occurrence.occurrenceId)")
+      source should include ("requestedOccurrenceIds.typeSafe.containsEq(occurrence.occurrenceId)")
+      source should include ("acc.typeSafe.containsEq(occurrence.actionId)")
+      source should include ("requestedOccurrenceIds.take(index).typeSafe.containsEq(occurrenceId)")
+      val restored = source
+        .replace("import cats.free.Free\nimport org.goldenport.util.TypeSafeCollections.*", "import cats.free.Free")
+        .replace("object LogicalActionCompiler {\n  private given cats.Eq[String] = cats.Eq.fromUniversalEquals[String]", "object LogicalActionCompiler {")
+        .replace(".typeSafe.containsEq(", ".contains(")
+      restored shouldBe oldsource
+      structuralErrors(source) shouldBe empty
+    }
+
+    "compile selected output with the selected Core and reject missing or incompatible membership" in {
+      Given("selected and legacy target classpaths")
+      val selectedcp = sys.env.get("COZY_C3_STRICT_SCALA3_CLASSPATH_DIR").map(Paths.get(_)).getOrElse {
+        cancel("C3 qualification requires COZY_C3_STRICT_SCALA3_CLASSPATH_DIR")
+      }
+      val legacycp = sys.env.get("COZY_STRICT_SCALA3_CLASSPATH_DIR").map(Paths.get(_)).getOrElse {
+        cancel("C3 qualification requires COZY_STRICT_SCALA3_CLASSPATH_DIR")
+      }
+      val (legacy, selected) = _c3_generate()
+      val compiler = Files.readString(selectedcp.resolve("compiler-classpath.txt")).trim
+      val adopted = Files.readString(selectedcp.resolve("compile-classpath.txt")).trim
+      val old = Files.readString(legacycp.resolve("compile-classpath.txt")).trim
+      val flags = Vector("-language:strictEquality", "-Yexplicit-nulls", "-Ysafe-init", "-Wvalue-discard",
+        "-Wnonunit-statement", "-Wunused:imports,privates,locals", "-unchecked", "-deprecation", "-feature", "-Werror")
+      def compile(label: String, root: Path, classpath: String): (Int, String) = {
+        val destination = base.resolve(s"target/test-generated/c3-compile-$label")
+        Files.createDirectories(destination)
+        val command = Vector(Paths.get(sys.props("java.home"), "bin", "java").toString, "-cp", compiler,
+          "dotty.tools.dotc.Main", "-color:never", "-classpath", classpath, "-d", destination.toString) ++ flags ++
+          Vector("CompositeStateMachineActionProgramAbi.scala", "LogicalActionCompiler.scala").map(root.resolve(_).toString)
+        val process = new ProcessBuilder(command: _*).redirectErrorStream(true).start()
+        val output = scala.io.Source.fromInputStream(process.getInputStream, "UTF-8")
+        val result = try output.mkString finally output.close()
+        (process.waitFor(), result)
+      }
+      When("the generated source is compiled against each Core and with an incompatible argument")
+      val (legacyStatus, legacyOutput) = compile("legacy", legacy, old)
+      Then("the supported combinations compile and missing or incompatible capability fails")
+      withClue(legacyOutput) { legacyStatus shouldBe 0 }
+      val (selectedStatus, selectedOutput) = compile("selected", selected, adopted)
+      withClue(selectedOutput) { selectedStatus shouldBe 0 }
+      val (missingStatus, missingOutput) = compile("missing-core", selected, old)
+      missingStatus should not be 0
+      missingOutput should include ("TypeSafeCollections")
+      val invalid = base.resolve("target/test-generated/c3-invalid")
+      Files.createDirectories(invalid)
+      Files.copy(selected.resolve("CompositeStateMachineActionProgramAbi.scala"), invalid.resolve("CompositeStateMachineActionProgramAbi.scala"), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+      val source = Files.readString(selected.resolve("LogicalActionCompiler.scala"))
+      Files.writeString(invalid.resolve("LogicalActionCompiler.scala"), source.replace("containsEq(occurrence.occurrenceId)", "containsEq(1)"))
+      val (invalidStatus, invalidOutput) = compile("invalid", invalid, adopted)
+      invalidStatus should not be 0
+      invalidOutput should include ("containsEq(1)")
+      invalidOutput should include ("Int =:= String")
+    }
+  }
+
+  private def _c3_generate(): (Path, Path) = {
+    val property = "cozy.generation.logical-action-membership"
+    val previous = sys.props.get(property)
+    val input = "src/test/resources/modeler/workflow-semantic-outcome.cml"
+    val legacy = base.resolve("target/test-generated/c3-legacy")
+    val selected = base.resolve("target/test-generated/c3-selected")
+    try {
+      sys.props.remove(property)
+      generate(input, legacy, "modeler-scala")
+      sys.props.update(property, "core-c3")
+      generate(input, selected, "modeler-scala")
+    } finally {
+      previous match {
+        case Some(value) => sys.props.update(property, value)
+        case None => sys.props.remove(property)
+      }
+    }
+    val path = managed + "main/scala/domain/composite/statemachine/actionprogram"
+    (legacy.resolve(path), selected.resolve(path))
+  }
 
   "Scala 3 strict output" should {
     "emit active imports and structural braces through both public routes" in {

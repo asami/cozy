@@ -13,6 +13,22 @@ import org.scalatest.wordspec.AnyWordSpec
  */
 final class CompositeStateMachineActionProgramSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Composite StateMachine logical-action program generation" should {
+    "select Core membership only when explicitly requested" in {
+      Given("a definition with repeated actions")
+      val definitions = Vector(_definition(Some(_metadata)))
+      When("the compiler is generated with and without Core C3")
+      val legacy = _realm_string(CompositeStateMachineActionProgram.generate(definitions), _compiler_path)
+      val selected = _realm_string(CompositeStateMachineActionProgram.generate(definitions, true), _compiler_path)
+      Then("only the three String membership expressions and their dependencies change")
+      selected should include ("requestedOccurrenceIds.typeSafe.containsEq(occurrence.occurrenceId)")
+      selected should include ("acc.typeSafe.containsEq(occurrence.actionId)")
+      selected should include ("requestedOccurrenceIds.take(index).typeSafe.containsEq(occurrenceId)")
+      val restored = selected
+        .replace("import cats.free.Free\nimport org.goldenport.util.TypeSafeCollections.*", "import cats.free.Free")
+        .replace("object LogicalActionCompiler {\n  private given cats.Eq[String] = cats.Eq.fromUniversalEquals[String]", "object LogicalActionCompiler {")
+        .replace(".typeSafe.containsEq(", ".contains(")
+      restored shouldBe legacy
+    }
     "emit a deterministic, causally ordered producer descriptor" which {
       "retain repeated logical-action occurrences with typed metadata and provenance" in {
         Given("a normalized definition whose one logical action occurs at all constituent placements and a derived transition")
