@@ -19,6 +19,15 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  override def withFixture(test: NoArgTest): org.scalatest.Outcome = {
+    val outcome = super.withFixture(test)
+    outcome match {
+      case org.scalatest.Failed(error) => println(s"FAILED ${test.name}: ${Option(error.getMessage).getOrElse(error.toString).take(4000)}")
+      case _ => ()
+    }
+    outcome
+  }
+
   private val _base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
   private val _resources = _base.resolve("src/test/resources/modeler")
   private val _reader_projection_amendment =
@@ -110,7 +119,11 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         definitions shouldBe Vector.empty
         outputs.foreach { bytes =>
           bytes.keySet shouldBe files.keySet
-          bytes shouldBe files
+          bytes.foreach { case (path, actual) =>
+            val projected = if (_cozy_strict_path(path)) _without_strict_import(actual, path) else actual
+            if (projected != files(path)) println(s"Historical output mismatch: $path (actual ${projected.size} bytes, expected ${files(path).size} bytes)")
+            projected shouldBe files(path)
+          }
           bytes.keySet should not contain _json_path
           bytes.keySet should not contain _scala_path
         }
@@ -208,10 +221,10 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
 
         Then("only the selected five value blocks or four Component reader blocks change and all other source drift stays decisive")
         selected.size shouldBe (if (paths.contains(path)) 5 else 4)
-        amended shouldBe declared
-        amended shouldBe _current_conversion_delegates(path, raw)
+        amended shouldBe _value_reader_braces(path, declared)
+        amended shouldBe _value_reader_braces(path, _current_conversion_delegates(path, raw))
         unrelated shouldBe raw
-        drifted shouldBe declared + drift
+        drifted shouldBe _value_reader_braces(path, declared) + drift
         drifted should not be amended
 
         selected.foreach { replacement =>
@@ -289,7 +302,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
 """)
               }
             else readers
-            expected(path) shouldBe declared.getBytes(UTF_8).toVector
+            expected(path) shouldBe _value_reader_braces(path, declared).getBytes(UTF_8).toVector
           }
           if (componentchanged) {
             val component = new String(expected(componentpath).toArray, UTF_8)
@@ -525,7 +538,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
     val selected = if (paths.contains(path)) replacements
       else if (readerpaths.contains(path)) replacements.filterNot(replacement => (replacement \ "symbol").as[String] == "_to_external_value")
       else Vector.empty[JsObject]
-    selected.foldLeft(text) { (current, replacement) =>
+    val amended = selected.foldLeft(text) { (current, replacement) =>
       val before = (replacement \ "before").as[String]
       val after = (replacement \ "after").as[String]
       val symbol = (replacement \ "symbol").as[String]
@@ -533,6 +546,24 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       require(before.nonEmpty && index >= 0 && index == current.lastIndexOf(before),
         s"Expected exactly one historical reader/projection anchor for $path: $symbol")
       current.take(index) + after + current.drop(index + before.length)
+    }
+    _value_reader_braces(path, amended)
+  }
+  // SimpleModeler strict output adds braces to these two historical given bodies.
+  private def _value_reader_braces(path: String, text: String): String = {
+    val names = Map(
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/CountryCode.scala" -> "CountryCode",
+      "target/scala-3.3.8/src_managed/main/scala/domain/value/ReviewContext.scala" -> "ReviewContext")
+    val active = org.simplemodeling.cozy.BuildInfo.simpleModelerVersion == "1.1.27-SNAPSHOT"
+    names.get(path).filter(_ => active).fold(text) { name =>
+      val opening = s"  given org.goldenport.convert.ValueReader[$name] with\n"
+      val closing = "\n \n  private def _record_get_as_c[A]("
+      def once(source: String, before: String, after: String): String = {
+        val index = source.indexOf(before)
+        require(index >= 0 && index == source.lastIndexOf(before), s"Expected one ValueReader brace anchor in $path")
+        source.take(index) + after + source.drop(index + before.length)
+      }
+      once(once(text, opening, opening.stripSuffix("\n") + " {\n"), closing, "\n  }\n \n  private def _record_get_as_c[A](")
     }
   }
   private def _legacy_expected_bytes(path: String, text: String, source: Path): Vector[Byte] = {
@@ -770,4 +801,24 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       |  }
       |""".stripMargin + workflow + "}\n"
   }
+  // Only these historical products are owned by the newly strict Cozy emitters.
+  private def _cozy_strict_path(path: String): Boolean =
+    path.endsWith(".scala") && (path.contains("/domain/composite/statemachine/") ||
+      path.contains("/domain/statemachine/workflow/") || path.contains("/domain/statemachine/providedapi/"))
+
+  private def _without_strict_import(bytes: Vector[Byte], path: String): Vector[Byte] = {
+    val text = new String(bytes.toArray, UTF_8)
+    val line = "import scala.language.strictEquality\n\n"
+    val index = text.indexOf(line)
+    require(index >= 0 && index == text.lastIndexOf(line), "Expected exactly one strictEquality import")
+    val withoutImport = text.take(index) + text.drop(index + line.length)
+    val operation = "final case class Operation(service: String, name: String, inputType: Option[String])"
+    val expected = if (path.endsWith("/actionprogram/CompositeStateMachineActionProgramAbi.scala")) {
+      val derived = operation + " derives CanEqual"
+      require(withoutImport.indexOf(derived) >= 0 && withoutImport.indexOf(derived) == withoutImport.lastIndexOf(derived), "Expected one Operation CanEqual derivation")
+      withoutImport.replace(derived, operation)
+    } else withoutImport
+    expected.getBytes(UTF_8).toVector
+  }
+
 }

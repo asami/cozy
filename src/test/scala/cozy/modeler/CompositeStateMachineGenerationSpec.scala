@@ -108,6 +108,7 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         val valueactionprogramroot = valueout.resolve(actionprogramroot)
         val normalactionprogramabi = normalactionprogramroot.resolve("CompositeStateMachineActionProgramAbi.scala")
         val valueactionprogramabi = valueactionprogramroot.resolve("CompositeStateMachineActionProgramAbi.scala")
+        Files.readString(normalactionprogramabi) should include ("final case class Operation(service: String, name: String, inputType: Option[String]) derives CanEqual")
         val normalactionprogramcompiler = normalactionprogramroot.resolve("LogicalActionCompiler.scala")
         val valueactionprogramcompiler = valueactionprogramroot.resolve("LogicalActionCompiler.scala")
         val normalactionprogrambootstrap = normalactionprogramroot.resolve("CompositeStateMachineActionProgramBootstrap.scala")
@@ -150,6 +151,8 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalabi) shouldBe Files.readString(valueabi)
         val expectedbootstrap = """package domain.composite.statemachine
           |
+          |import scala.language.strictEquality
+          |
           |object CompositeStateMachineBootstrap {
           |  val bootstrapAbiVersion: String = "cozy.cml.composite-statemachine-bootstrap.v1"
           |  val definitions: Vector[CompositeStateMachineAbi.Definition] = Vector(OrderProgressCompositeStateMachine1.definition)
@@ -182,6 +185,8 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalproducerabi) should include ("final case class Idempotency(required: Boolean, keyRef: Option[String])")
         Files.readString(normalproducerabi) shouldBe Files.readString(valueproducerabi)
         val expectedproducerbootstrap = """package domain.composite.statemachine.actionproducer
+          |
+          |import scala.language.strictEquality
           |
           |object CompositeStateMachineActionProducerMetadataBootstrap {
           |  val schemaVersion: String = "cozy.cml.action-producer-metadata.v1"
@@ -217,6 +222,8 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalactionprogramcompiler) should include ("Free.pure[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit](())")
         Files.readString(normalactionprogramcompiler) shouldBe Files.readString(valueactionprogramcompiler)
         val expectedactionprogrambootstrap = """package domain.composite.statemachine.actionprogram
+          |
+          |import scala.language.strictEquality
           |
           |object CompositeStateMachineActionProgramBootstrap {
           |  val schemaVersion: String = "cozy.cml.logical-action-program.v1"
@@ -318,6 +325,8 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
           .getOrElse(fail("Missing regenerated Composite StateMachine bootstrap"))
         generatedabi should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         val expectedbootstrap = """package domain.composite.statemachine
+          |
+          |import scala.language.strictEquality
           |
           |object CompositeStateMachineBootstrap {
           |  val bootstrapAbiVersion: String = "cozy.cml.composite-statemachine-bootstrap.v1"

@@ -4,7 +4,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct.  3, 2026
+ *  version Oct.  3, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Lossless development ABI projection; runtime resolution belongs to CNCF. */
@@ -93,6 +94,8 @@ private[modeler] object FailureModelAbiGenerator {
   } + "\""
 
   private val _declarations = """package cozy.generated.failuremodel
+    |
+    |import scala.language.strictEquality
     |
     |object FailureModelMetadata {
     |  sealed trait FailureScope { def name: String }

@@ -15,7 +15,8 @@ import ValidationMetadataCml.Diagnostic
 
 /*
  * @since   Oct. 18, 2026
- * @version Oct. 18, 2026
+ *  version Oct. 18, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class ValidationMetadataScalaGeneratorSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -69,6 +70,8 @@ class ValidationMetadataScalaGeneratorSpec extends AnyWordSpec with Matchers wit
       Given("an explicitly empty properties declaration in the ordinary source fixture")
       val model = _model(_source("{}"))
       val expected = """package org.example.validation
+        |
+        |import scala.language.strictEquality
         |
         |import org.goldenport.cncf.validation.{ValidationCmlMappingV1, ValidationDeclarationProvider, ValidationMetadataV1}
         |import org.goldenport.cncf.workflow.WorkflowProtocolV1

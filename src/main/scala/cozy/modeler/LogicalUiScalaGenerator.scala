@@ -8,7 +8,8 @@ import LogicalUiCncfAbiProjection._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ *  version Oct.  4, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Renders only completely admitted static definitions into the public CNCF source ABI. */
@@ -42,6 +43,8 @@ private[modeler] object LogicalUiScalaGenerator {
     val definitions = component.definitions.map(_definition).mkString(",\n")
     s"""package $namespace
        |
+       |import scala.language.strictEquality
+       |
        |import org.goldenport.cncf.display.GeneratedLogicalUiAbi
        |
        |object ${stem}LogicalUiDefinitions {
@@ -54,6 +57,8 @@ private[modeler] object LogicalUiScalaGenerator {
 
   private def _provider_source(namespace: String, stem: String): String =
     s"""package $namespace
+       |
+       |import scala.language.strictEquality
        |
        |import org.goldenport.cncf.display.GeneratedLogicalUiAbi
        |

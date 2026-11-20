@@ -237,7 +237,7 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         Then("every product has its independent original UTF-8 SHA-256 and no new declarations or keys")
         products.head shouldBe products(1)
         productbytes.foreach { bytes =>
-          expected.foreach { case (path, hash) => _sha256(bytes(path)) shouldBe hash }
+          expected.foreach { case (path, hash) => _sha256(if (path.endsWith(".scala")) _without_strict_import(bytes(path)) else bytes(path)) shouldBe hash }
         }
         products.head(_abi_path) should not include "InvocationPolicy"
         products.head(_abi_path) should not include "InvocationTarget"
@@ -256,9 +256,9 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         val bootstrap = _realm_string(realm, _bootstrap_path)
 
         Then("empty input uses the original ABI bytes, JSON shape and bootstrap bytes")
-        _sha256(abi.getBytes(java.nio.charset.StandardCharsets.UTF_8)) shouldBe _expected_legacy_abi_sha256
+        _sha256(_without_strict_import(abi.getBytes(java.nio.charset.StandardCharsets.UTF_8))) shouldBe _expected_legacy_abi_sha256
         json shouldBe "{\"schemaVersion\":\"cozy.cml.statemachine-workflow-abi.v1\",\"workflows\":[]}"
-        bootstrap shouldBe "package domain.statemachine.workflow\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v1\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = Vector.empty\n}\n"
+        bootstrap shouldBe "package domain.statemachine.workflow\n\nimport scala.language.strictEquality\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v1\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = Vector.empty\n}\n"
         abi should not include "invocationPolicies"
         StateMachineWorkflowAbiGenerator.schemaVersion shouldBe "cozy.cml.statemachine-workflow-abi.v1"
         StateMachineWorkflowAbiGenerator.bootstrapSchemaVersion shouldBe "cozy.cml.statemachine-workflow-bootstrap.v1"
@@ -326,4 +326,13 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
 
   private def _sha256(bytes: Array[Byte]): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
+  // Preserve the archived bytes/hash while checking exactly one newly emitted import.
+  private def _without_strict_import(bytes: Array[Byte]): Array[Byte] = {
+    val text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+    val line = "import scala.language.strictEquality\n\n"
+    val index = text.indexOf(line)
+    require(index >= 0 && index == text.lastIndexOf(line), "Expected exactly one strictEquality import")
+    (text.take(index) + text.drop(index + line.length)).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+  }
+
 }

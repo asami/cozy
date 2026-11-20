@@ -109,7 +109,12 @@ final class WorkflowSemanticOutcomeAbiGenerationSpec extends AnyWordSpec with Ma
         }
 
         Then("all actual bytes equal the independent resources without regenerating expectations")
-        products.foreach(_ shouldBe expected)
+        products.foreach { product =>
+          product.foreach { case (path, bytes) =>
+            val projected = if (path.endsWith(".scala")) _without_strict_import(bytes.toArray).toVector else bytes
+            projected shouldBe expected(path)
+          }
+        }
         products.distinct.size shouldBe 1
       }
     }
@@ -600,7 +605,7 @@ final class WorkflowSemanticOutcomeAbiGenerationSpec extends AnyWordSpec with Ma
     encoded.flatMap(character => if (Character.isISOControl(character)) f"\\u${character.toInt}%04x" else character.toString)
   }
   private def _expected_bootstrap(objects: Vector[String]): String =
-    "package domain.statemachine.workflow\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = " + _literal(_bootstrap_schema) +
+    "package domain.statemachine.workflow\n\nimport scala.language.strictEquality\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = " + _literal(_bootstrap_schema) +
       "\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = " +
       objects.map(name => s"$name.componentFactoryMetadata").mkString("Vector(", ", ", ")") + "\n}\n"
 
@@ -705,4 +710,13 @@ final class WorkflowSemanticOutcomeAbiGenerationSpec extends AnyWordSpec with Ma
     |  }
     |}
     |""".stripMargin
+  // Preserve the archived bytes/hash while checking exactly one newly emitted import.
+  private def _without_strict_import(bytes: Array[Byte]): Array[Byte] = {
+    val text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+    val line = "import scala.language.strictEquality\n\n"
+    val index = text.indexOf(line)
+    require(index >= 0 && index == text.lastIndexOf(line), "Expected exactly one strictEquality import")
+    (text.take(index) + text.drop(index + line.length)).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+  }
+
 }

@@ -36,6 +36,8 @@ private[modeler] object StateMachineProvidedApiAbiGenerator {
   private def _abi_source: String =
     s"""package domain.statemachine.providedapi
        |
+       |import scala.language.strictEquality
+       |
        |object StateMachineProvidedApiAbi {
        |  val VERSION: String = ${_quote(schemaVersion)}
        |  val GENERATOR: String = ${_quote(generatorIdentity)}
@@ -50,6 +52,8 @@ private[modeler] object StateMachineProvidedApiAbiGenerator {
   private def _bootstrap_source(workflows: Vector[WorkflowDefinition]): String =
     s"""package domain.statemachine.providedapi
        |
+       |import scala.language.strictEquality
+       |
        |object StateMachineProvidedApiComponentFactoryBootstrap {
        |  val schemaVersion: String = ${_quote(bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[StateMachineProvidedApiAbi.ComponentFactoryMetadata] = ${_vector(workflows.zipWithIndex.map { case (workflow, index) => s"${_object_name(workflow, index)}.componentFactoryMetadata" })}
@@ -58,6 +62,8 @@ private[modeler] object StateMachineProvidedApiAbiGenerator {
 
   private def _workflow_source(workflow: WorkflowDefinition, index: Int): String =
     s"""package domain.statemachine.providedapi
+       |
+       |import scala.language.strictEquality
        |
        |object ${_object_name(workflow, index)} {
        |  val workflow: StateMachineProvidedApiAbi.WorkflowDescriptor = StateMachineProvidedApiAbi.WorkflowDescriptor(
