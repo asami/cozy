@@ -6,7 +6,7 @@
 
 ## LexiDox Phase 92/93 alignment — planned — 2026-11-18
 
-The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both Phase checklists to canonical LX-J01–LX-J08: one producer grammar/metadata lineage, identity resolution before display selection, independent concept/knowledge-form/display roles and shared source fixtures. Phase 92 supplies the semantic baseline; Phase 93 adds a compatible presentation extension. Both remain unstarted and existing priorities are unchanged.
+The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both Phase checklists to canonical LX-J01–LX-J08: one producer grammar/metadata lineage, identity resolution before display selection, independent concept/knowledge-form/display roles and shared source fixtures. Phase 92 supplies the semantic baseline; Phase 93 adds a compatible presentation extension. Phase 92 is in progress; Phase 93 remains unstarted and existing priorities are unchanged.
 
 ## Glossary labels and term/pattern presentation — planned — 2026-11-17
 
@@ -14,7 +14,7 @@ The [joint delivery plan](../notes/lexidox-phase92-93-integration.md) binds both
 
 ## LexiDox typed sections and Knowledge Space — planned — 2026-11-16
 
-[Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。全項目OPEN、実装未着手です。番号の割当は既存Phaseの優先順位を変更しません。
+[Phase 92](phase-92.md) / [checklist](phase-92-checklist.md), DEV-041: 型付き標準節と自由節、Knowledge Space/Context、Term/Concept識別をSmartDoxの正規出力からCozyのBoK連携へ渡します。[当初案](lexidox-typed-schema-proposal.md)を計画入力として保持し、producerの所有者・受渡しと未決の識別仕様を最初に確定します。P92-01〜03の変更は記録済みで、P92-04の統合検証と最終受入は未完了です。番号の割当は既存Phaseの優先順位を変更しません。
 
 ## Document and section structure patterns — 2026-11-15
 

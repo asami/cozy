@@ -29,11 +29,11 @@ Joint contract alignment precedes shared-boundary implementation. Phase 92 accep
 
 ## P92-01 investigation — 2026-11-20
 
-The [producer–consumer decision record](../design/lexidox-producer-consumer-boundary.md) and [handoff](../spec/lexidox-knowledge-space-handoff.md) adopt SmartDox contract revision `7207fa191cd32bd383684ca4b278ff402ddbc096`. The earlier investigation found the joint additions uncommitted; the contract separately pins the committed conceptual proposal and Cozy joint plan. The built producer and P93-01 presentation decisions remain outstanding. P92-01 records the cross-phase requirements and common baseline; workflow review remains pending. P93-01 retains its own presentation decisions and acceptance, and this design delivery does not change public outputs.
+The [producer–consumer decision record](../design/lexidox-producer-consumer-boundary.md) and [handoff](../spec/lexidox-knowledge-space-handoff.md) adopt SmartDox contract revision `7207fa191cd32bd383684ca4b278ff402ddbc096`. The earlier investigation found the joint additions uncommitted; the contract separately pins the committed conceptual proposal and Cozy joint plan. At that investigation stage the built producer and workflow review were outstanding. P92-01 was subsequently accepted in commit `7a1a9360`; P93-01 retains its separate presentation decisions. P93-01 retains its own presentation decisions and acceptance, and this design delivery does not change public outputs.
 
 ## P92-02 producer delivery — 2026-11-21
 
-SmartDox delivered source `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the locally published `org.smartdox:smartdox_2.12:2.4.19-lexidox-v1-SNAPSHOT` artifact. The [handoff](../spec/lexidox-knowledge-space-handoff.md) records the fixture evidence, external `dox` runtime selection and exact output paths. Cozy's metadata finalizer carries those outputs without reconstituting them; validation and subsequent projections remain pending.
+SmartDox delivered source `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the locally published `org.smartdox:smartdox_2.12:2.4.19-lexidox-v1-SNAPSHOT` artifact. The [handoff](../spec/lexidox-knowledge-space-handoff.md) records the fixture evidence, external `dox` runtime selection and exact output paths. Cozy's metadata finalizer carries those outputs without reconstituting them; P92-02 was subsequently validated and accepted in commit `1c9d693d`; P92-03 projections were accepted in `994c6e56`.
 
 ## Planned Steps
 
@@ -42,7 +42,7 @@ SmartDox delivered source `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the loc
 3. P92-03: 合意したSpace/Term/Conceptの識別と型情報を、既存BoK表示・索引・metadata/RDF連携へ反映する。
 4. P92-04: 既存形式と型付き形式の日英fixtureを正規経路で統合検証し、互換性・診断・利用手順と最終受入を確認する。
 
-P92-01の文書上の決定は記録済みです。後続Stepの実装・受入は未着手です。
+P92-01〜P92-03はそれぞれ受入済みです。P92-04の実経路検証は下記のとおり成功しました。現在の候補の独立レビュー、Phase全体の通常検証・独立レビューとclosureは未完了です。
 
 ## Acceptance boundaries
 
@@ -52,7 +52,7 @@ P92-01の文書上の決定は記録済みです。後続Stepの実装・受入�
 
 用語ページはSpaceごとに設け、横断検索では各ページにSpace名を表示します。本文中の用語参照は、参照に明示されたSpace、文書に宣言されたSpace、用語集全体の順で、最初に適用できる範囲を一つ選びます。その範囲で候補が一件ならリンクし、複数なら曖昧エラー、ゼロなら未定義エラーとします。他の範囲へ再検索しません。曖昧エラーには原稿位置・用語・候補ページとSpaceを表示します。横断検索で複数件を表示することは正常です。
 
-`concept_type` は概念の分類でBoK索引に使い、`knowledge_form` は知識の記述形式で標準節の検証に使います。たとえば `concept_type=process` と `knowledge_form=pattern` を独立に指定できます。旧 `term_type` は `concept_type` の入力として読み、記述形式を省略した原稿には従来の節規則を適用します。両項目は相互に推定しません。
+`concept_type` は概念の分類でBoK索引に使い、`knowledge_form` は知識の記述形式で標準節の検証に使います。たとえば `concept_type=process` と `knowledge_form=pattern` を独立に指定できます。v1 opt-in の `lexidox.term_type` は `concept_type` の alias として読み、記述形式を推定しません。v1 非採用の旧 `term_type=process` は旧 producer の正規化により `concept` となり、従来の DEFINITION/RELATIONS を保持します。両項目は相互に推定しません。
 
 Space別ページにはそのSpaceでの定義・用例・関連知識を掲載します。同じ語の異なる意味には別のConcept IRIを対応させ、複数Spaceで同じ意味を明示的に共有する場合は同じConcept IRIを参照できます。ページの分割だけでConcept IRIを新設しません。
 
@@ -63,3 +63,9 @@ Knowledge Spaceをpath/categoryへ暗黙対応させず、Term IRIとConcept IRI
 [BoK/SIE契約](../design/bok-sie-integration-contract.md)と既存SmartDox metadata/RDF出力を再利用します。Phase 90の作業領域、Phase 91の説明パターンとは別の機能であり、それらの完了を包括的な開始条件にしません。LexiDoxのPattern型とPhase 91の節の説明パターンも別の概念として扱います。
 
 チェックリスト、実際のproducer/consumer受渡し、focused/integration検証、独立レビュー、最終Cozy通常検証で完了を判断します。関連producerの検証はその所有者が担当し、Cozyの結果で代用しません。既存資料の一括書換え、新しい知識グラフ格納機構、文章の自動生成、スキーマ内容への実行権限付与、公開・配備は対象外です。既存Phaseの状態・優先順位を変更しません。
+
+## P92-04 integration evidence — 2026-11-21
+
+Native proof-04 passed all driver assertions using SmartDox `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the normal Cozy Dox/Antora route. Japanese and English pages, legacy behavior, Space identities, publisher metadata, KnowledgeSource and graph bytes were checked. Distinct pages and Concepts, and a shared Concept with direct finalization and matching copied bytes, passed. Ordered free headings `notes`, `Mixed Case`, `補足` and their link, document Space and explicit override, global unique/ambiguous/undefined references, missing SOLUTION, unknown uppercase heading and invalid IRI also passed. Earlier proof-03 stopped at the missing standalone `website.d`; that failure remains historical evidence.
+
+The native receipt records exit 0 and the [proof log](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-proof-04.log) names the generated `p92-04-proof-04` workspace and producer; the [receipt](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-runtime-native-04.json) records execution. The [handoff](../spec/lexidox-knowledge-space-handoff.md) pins the reproducible fixture and invocation. Cozy compile and five selected suites (47 tests) passed. SmartDox upstream passed 64 selected and 596 normal tests, was reviewed and published locally. Independent review of the current candidate, Phase full validation and review, and Phase closure remain pending. Phase 93 separately accepts presentation and rendering.
