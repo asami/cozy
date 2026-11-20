@@ -79,6 +79,10 @@ class CozyBokMetadataFinalizationSpec
         artifacts.foreach { case (suffix, content) =>
           _read(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe content
         }
+        val resources = _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json")))
+        resources should contain (("lexidox-knowledge", "metadata/lexidox/knowledge-v1.json"))
+        resources should contain (("lexidox-rdf-turtle", "metadata/lexidox/knowledge-v1.ttl"))
+        resources should contain (("lexidox-rdf-jsonld", "metadata/lexidox/knowledge-v1.jsonld"))
         val json = _parse_json(dir.resolve("website.d/metadata/lexidox/knowledge-v1.json"))
         json.hcursor.get[String]("schema") shouldBe Right("lexidox-knowledge/1")
         envelope should include("LEX_REFERENCE_UNDEFINED")
@@ -96,6 +100,7 @@ class CozyBokMetadataFinalizationSpec
         artifacts.foreach { case (suffix, _) =>
           Files.exists(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe false
         }
+        _resources(_parse_json(dir.resolve("website.d/metadata/cncf/knowledge-source.json"))).exists(_._1.startsWith("lexidox-")) shouldBe false
       }
     }
 

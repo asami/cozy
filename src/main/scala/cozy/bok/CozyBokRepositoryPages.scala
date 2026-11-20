@@ -649,12 +649,13 @@ private[cozy] trait CozyBokRepositoryPages {
   ): String = {
     val terms = _terms(config)
     val links = references.distinct.map { reference =>
-      terms.find(_term_reference_matches(reference, _)) match {
-        case Some(term) =>
-          val termhref = _relative_href(page, target.resolve(term.publicpath))
+      val candidates = _term_reference_candidates(reference, terms)
+      (if (candidates.forall(_.pageiri.isEmpty)) candidates.headOption.toVector else candidates) match {
+        case Vector(term) =>
+          val termhref = _term_href(page, target, term)
           val rdfhref = s"${_relative_href(page, target.resolve("rdf/index.html"))}?term=${_url_query_escape(term.id)}"
           s"""<span class="bok-repository-car-term"><a href="${_html_escape(termhref)}">${_html_escape(term.title)}</a><a class="bok-term-rdf-mini" href="${_html_escape(rdfhref)}">RDF</a></span>"""
-        case None => _html_escape(reference)
+        case _ => _html_escape(reference)
       }
     }
     if (links.isEmpty) "-" else links.mkString(", ")

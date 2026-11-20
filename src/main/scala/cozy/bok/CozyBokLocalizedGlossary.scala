@@ -45,13 +45,14 @@ private[cozy] trait CozyBokLocalizedGlossary {
   ): String = {
     val categorytitles = categories.map(x => x.slug -> x.title).toMap
     val terms = _localized_glossary_terms(lang, _terms(config).map { term =>
-      val categoryslug = term.categorySlug
+      val categoryslug = term.space.getOrElse(term.categorySlug)
       LocalizedGlossaryItem(
-        s"../../${term.publicpath}",
+        if (term.pageiri.contains(term.publicpath)) term.publicpath else s"../../${term.publicpath}",
         term.title,
         term.reading,
         categoryslug,
-        categorytitles.getOrElse(categoryslug, categoryslug)
+        term.space.getOrElse(categorytitles.getOrElse(categoryslug, categoryslug)),
+        term.aliases
       )
     })
     val uilang = config.defaultLocale
@@ -90,12 +91,22 @@ private[cozy] trait CozyBokLocalizedGlossary {
        |      <article class="doc">
        |        <h1 class="page">${_html_escape(title)}</h1>
        |        <p>${_html_escape(description)}</p>
+       |        <label for="bok-glossary-search">Search</label>
+       |        <input id="bok-glossary-search" type="search" autocomplete="off">
        |        <div class="sect1" id="index">
        |          <h2>${_html_escape(indexheading)}</h2>
        |          <div class="sectionbody">
        |            ${indexnav}
        |          </div>
        |        </div>
+       |        <script>
+       |        document.getElementById('bok-glossary-search').addEventListener('input', function () {
+       |          var query = this.value.trim().toLocaleLowerCase();
+       |          document.querySelectorAll('[data-bok-glossary-entry]').forEach(function (entry) {
+       |            entry.hidden = !(entry.textContent + ' ' + entry.dataset.aliases).toLocaleLowerCase().includes(query);
+       |          });
+       |        });
+       |        </script>
        |        <div class="sect1" id="terms">
        |          <h2>${_html_escape(termsheading)}</h2>
        |          <div class="sectionbody">
@@ -194,7 +205,7 @@ private[cozy] trait CozyBokLocalizedGlossary {
         }.map { term =>
           val category =
             s""" <span class="bok-index-term-category">[${_html_escape(term.categorytitle)}]</span>"""
-          s"""<li><a href="${_html_escape(term.href)}">${_html_escape(_localized_term_title(lang, term))}</a>${_localized_reading_label(lang, term)}${category}</li>"""
+          s"""<li data-bok-glossary-entry data-aliases="${_html_escape(term.aliases.mkString(" "))}"><a href="${_html_escape(term.href)}">${_html_escape(_localized_term_title(lang, term))}</a>${_localized_reading_label(lang, term)}${category}</li>"""
         }.mkString("<ul>\n", "\n", "\n</ul>")
         s"""<section class="bok-index-section" id="${_html_escape(_localized_index_anchor(key))}">
            |  <h3>${_html_escape(key)}</h3>

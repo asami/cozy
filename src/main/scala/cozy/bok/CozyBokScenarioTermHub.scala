@@ -147,7 +147,8 @@ private[cozy] trait CozyBokScenarioTermHub {
         val title = titles.getOrElse(category, category)
         val links = xs.sortBy(_.title).take(8).map { term =>
           val typelabel = if (term.termtype == "concept") "" else s""" <span class="badge bok-badge-info">${_html_escape(_term_type_label(term.termtype, locale))}</span>"""
-          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${_reading_label(term)}${typelabel} <a class="bok-term-rdf-mini" href="${_html_escape(term.rdfHrefFromGlossary)}">RDF</a></li>"""
+          val space = term.space.map(x => s""" <span class="bok-term-space">[${_html_escape(x)}]</span>""").getOrElse("")
+          s"""<li><a href="${_html_escape(term.glossaryHref)}">${_html_escape(term.title)}</a>${space}${_reading_label(term)}${typelabel} <a class="bok-term-rdf-mini" href="${_html_escape(term.rdfHrefFromGlossary)}">RDF</a></li>"""
         }.mkString("<ul>", "", "</ul>")
         val more = if (xs.size > 8) s"""<div class="bok-more">${_html_escape(_uif(locale, "dashboard.more", xs.size - 8))}</div>""" else ""
         s"""<div class="bok-term-group-card"><h3><a href="../${_html_escape(category)}/index.html">${_html_escape(title)}</a></h3>${links}${more}</div>"""
@@ -162,12 +163,12 @@ private[cozy] trait CozyBokScenarioTermHub {
     categories: Vector[CategoryContent],
     terms: Vector[TermEntry]
   ): Unit =
-    terms.foreach { term =>
+    terms.filter(_.pageiri.isEmpty).foreach { term =>
       val page = target.resolve(term.publicpath)
       if (!(term.sourcepath.startsWith("glossary/") && Files.isRegularFile(page))) {
-        val scenarios = _scenario_index(config).map(_.scenarios.filter(_.isRelatedTo(term))).getOrElse(Vector.empty)
-        val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term))).getOrElse(Vector.empty)
-        val repositorycars = _repository_car_index(config).entries.filter(_repository_car_related_to_term(_, term))
+        val scenarios = _scenario_index(config).map(_.scenarios.filter(_scenario_related_to_term(_, term, terms))).getOrElse(Vector.empty)
+        val bibliographies = _bibliography_index(config).map(_.entries.filter(_bibliography_related_to_term(_, term, terms))).getOrElse(Vector.empty)
+        val repositorycars = _repository_car_index(config).entries.filter(_repository_car_related_to_term(_, term, terms))
         _write_text(page, _term_hub_page(config, categories, locale, page, term, scenarios, bibliographies, repositorycars))
       }
     }
@@ -420,14 +421,41 @@ private[cozy] trait CozyBokScenarioTermHub {
         s"""<li class="list-group-item"><a href="${_html_escape(href)}">${_html_escape(entry.title)}</a><span>${_html_escape(entry.effectiveVersion.getOrElse("-"))}</span></li>"""
       }.mkString("""<ul class="list-group bok-map-list">""", "", "</ul>")
 
-  private def _repository_car_related_to_term(entry: RepositoryCarEntry, term: TermEntry): Boolean =
-    entry.terms.exists(_term_reference_matches(_, term))
+  private def _repository_car_related_to_term(entry: RepositoryCarEntry, term: TermEntry, terms: Vector[TermEntry]): Boolean =
+    entry.terms.exists(value => _term_reference_candidates(value, terms).contains(term))
+
+  private[bok] def _scenario_related_to_term(entry: ScenarioEntry, term: TermEntry, terms: Vector[TermEntry]): Boolean =
+    entry.terms.exists(value => _term_reference_candidates(value, terms).contains(term))
 
   private[bok] def _term_reference_matches(value: String, term: TermEntry): Boolean =
-    value == term.id || value == term.title || value == term.slug || term.aliases.contains(value)
+    if (term.pageiri.isDefined)
+      term.pageiri.contains(value) || term.conceptiri.contains(value)
+    else
+      value == term.id || value == term.title || value == term.slug || term.aliases.contains(value)
 
-  private def _bibliography_related_to_term(entry: BibliographyEntry, term: TermEntry): Boolean =
-    entry.terms.exists(_term_reference_matches(_, term))
+  private[bok] def _term_reference_candidates(value: String, terms: Vector[TermEntry]): Vector[TermEntry] = {
+    val pages = terms.filter(_.pageiri.contains(value))
+    val concepts = terms.filter(_.conceptiri.contains(value))
+    if (pages.nonEmpty) pages
+    else if (concepts.nonEmpty) concepts
+    else if (terms.exists(_.termiri.contains(value))) Vector.empty
+    else {
+      val candidates = terms.filter { term =>
+        if (term.pageiri.isDefined)
+          term.title == value || term.aliases.contains(value) || term.legacyrefs.contains(value)
+        else
+          _term_reference_matches(value, term)
+      }
+      if (candidates.size == 1 || candidates.forall(_.pageiri.isEmpty)) candidates else Vector.empty
+    }
+  }
+
+  private[bok] def _term_href(page: Path, target: Path, term: TermEntry): String =
+    if (term.pageiri.contains(term.publicpath)) term.publicpath
+    else _relative_href(page, target.resolve(term.publicpath))
+
+  private def _bibliography_related_to_term(entry: BibliographyEntry, term: TermEntry, terms: Vector[TermEntry]): Boolean =
+    entry.terms.exists(value => _term_reference_candidates(value, terms).contains(term))
 
   private def _term_actions_body(term: TermEntry, locale: String): String =
     Vector(

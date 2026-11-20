@@ -58,7 +58,7 @@ private[cozy] trait CozyBokRdfPages {
        |  <main class="article bok-rdf-main">
        |    <div class="content">
        |      <article class="doc bok-rdf-doc">
-       |        ${_rdf_workspace(locale)}
+       |        ${_rdf_workspace(config, locale)}
        |      </article>
        |    </div>
        |  </main>
@@ -118,7 +118,26 @@ private[cozy] trait CozyBokRdfPages {
        |${_rdf_node_detail_script(locale)}
        |</script>""".stripMargin
 
-  private def _rdf_workspace(locale: String): String =
+  private def _lexidox_rdf_section(config: BuildConfig): String = {
+    val terms = _terms(config).filter(_.pageiri.isDefined)
+    if (terms.isEmpty)
+      ""
+    else {
+      val rows = terms.map { term =>
+        val identities = Vector("Space" -> term.spaceiri, "Term" -> term.termiri,
+          "Concept" -> term.conceptiri, "Page" -> term.pageiri).flatMap { case (label, value) =>
+          value.map(iri => s"""<li>${_html_escape(label)}: <a href="${_html_escape(iri)}">${_html_escape(iri)}</a></li>""")
+        }.mkString
+        val href = if (term.pageiri.contains(term.publicpath)) term.publicpath else "../" + term.publicpath
+        s"""<li><a href="${_html_escape(href)}">${_html_escape(term.title)}</a> [${_html_escape(term.space.getOrElse(""))}]<ul>${identities}</ul></li>"""
+      }.mkString
+      s"""<section class="bok-lexidox-rdf"><h2>LexiDox knowledge graph</h2>
+         |<p><a href="../metadata/lexidox/knowledge-v1.ttl">Turtle</a> · <a href="../metadata/lexidox/knowledge-v1.jsonld">JSON-LD</a> · <a href="../metadata/lexidox/knowledge-v1.json">Knowledge metadata</a></p>
+         |<ul>${rows}</ul></section>""".stripMargin
+    }
+  }
+
+  private def _rdf_workspace(config: BuildConfig, locale: String): String =
     s"""<section class="bok-rdf-workspace" data-graph="../metadata/rdf/graph.json" data-terms="../metadata/glossary/terms.json" data-triples="site.ttl">
        |  <div class="bok-rdf-hero">
        |    <div>
@@ -133,6 +152,7 @@ private[cozy] trait CozyBokRdfPages {
        |      <a href="../metadata/rdf/graph.json">graph.json</a>
        |    </div>
        |  </div>
+       |  ${_lexidox_rdf_section(config)}
        |  <div class="bok-rdf-tabbar">
        |    <div class="bok-rdf-view-switch" role="tablist" aria-label="RDF views">
        |      <button class="is-active" type="button" role="tab" aria-selected="true" aria-controls="bok-rdf-panel-graph" data-rdf-view="graph">${_html_escape(_ui(locale, "rdf.graph.view.graph"))}</button>
