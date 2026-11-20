@@ -8,7 +8,7 @@ Owner: Cozy development; SmartDox owns its producer delivery
 
 ## Stage Status
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy development
 - Update rule: Record actual delivery and verification for each criterion.
 - Closure basis: All P92-01–P92-04 items. Number allocation and plan registration are not implementation or acceptance.
@@ -49,7 +49,9 @@ P92-03 was validated and accepted in commit `994c6e56`.
 
 ## P92-04: Integrated acceptance and closure
 
-Native proof-04 passed the normal Cozy Dox/Antora build and all integration assertions with SmartDox `f8a3847c8717ebe5fe479d79553e741c5e6604cc`: JA/EN and legacy, Space identities and publisher metadata, distinct and shared Concepts, direct finalization and copied bytes, ordered free sections and link, document scope and explicit override, global unique/ambiguous/undefined references, missing SOLUTION, unknown heading and invalid IRI. Proof-03 previously stopped at a missing standalone `website.d`; its failure remains historical. [Proof log](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-proof-04.log) identifies the output workspace and producer; [native receipt](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-runtime-native-04.json) records exit 0. Cozy compile and five suites (47 tests) passed; SmartDox upstream passed 64 selected and 596 normal tests, was reviewed and published locally. The [handoff](../spec/lexidox-knowledge-space-handoff.md) pins the fixture and reproduction. Current-candidate independent review, Phase full validation and independent review, and closure remain pending; Phase 93 separately accepts presentation.
+Native proof-04 passed the normal Cozy Dox/Antora build and all integration assertions with SmartDox `f8a3847c8717ebe5fe479d79553e741c5e6604cc`: JA/EN and legacy, Space identities and publisher metadata, distinct and shared Concepts, direct finalization and copied bytes, ordered free sections and link, document scope and explicit override, global unique/ambiguous/undefined references, missing SOLUTION, unknown heading and invalid IRI. Proof-03 previously stopped at a missing standalone `website.d`; its failure remains historical. [Proof log](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-proof-04.log) identifies the output workspace and producer; [native receipt](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-runtime-native-04.json) records exit 0. Cozy compile and five suites (47 tests) passed; SmartDox upstream passed 64 selected and 596 normal tests, was reviewed and published locally. The [handoff](../spec/lexidox-knowledge-space-handoff.md) pins the fixture and reproduction.
+
+P92-04 was accepted in `648cdafd`, following P92-01–03. Phase full validation of candidate tree `22a4e458cc1269fbca7d28353a91ec45b847e38a` returned exit 0 for compile and normal test: 278 suites, 4,088 succeeded, 0 failed, 23 canceled and 0 aborted. Of the canceled tests, 18 are explicitly opt-in warehouse fixtures and 5 are Phase 51 scenario axes intentionally delegated. The preserved [raw stream](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-phase-full-test-sbt-stream.log), actual receipt and terminal native Step closure stderr/response under the task are authoritative; an optional secondary log store was indeterminate. The evidence snapshot profile records the candidate. Phase independent technical review found only closure-record discrepancies; independent review of this document repair and native local closure remain pending at this record. Execution release status is governed by the retained sm-workflow result. Phase 93 separately accepts its presentation extension.
 
 - [x] 既存形式と型付き形式、日英、Patternと他の採用型、自由節を持つfixtureを正規のSmartDox→Cozy→BoK経路で検証する。
 - [x] 必須節欠落、未知の大文字節、旧表記、リンク、自由節のround-trip、型別profileとIRIの正常・拒否ケースを検証する。
@@ -57,7 +59,7 @@ Native proof-04 passed the normal Cozy Dox/Antora build and all integration asse
 - [x] 文書Space内の一意参照、参照側のSpace指定による上書き、Space指定なしの全体一意参照を検証する。複数候補では原稿位置・語・候補ページ・Spaceを含む曖昧エラー、ゼロ件では未定義エラーとし、別Spaceへの誤リンクがないことを確認する。
 - [x] `concept_type=process` と `knowledge_form=pattern` の原稿がProcess索引に載り、SOLUTION欠落ではPatternの検証が失敗する。旧 `term_type=process` だけの原稿は従来の分類・節規則で扱う。
 - [x] 例の節見出し後に空行を保ち、既存語彙の一括書換えなしに利用できることを確認する。
-- [ ] producer側の検証・受渡しとCozyのfocused/integration検証、独立レビュー、最終Cozy通常検証を実際の結果で確認する。
+- [x] producer側の検証・受渡しとCozyのfocused/integration検証、独立レビュー、最終Cozy通常検証を実際の結果で確認する。
 - [x] スキーマ内容やExecutable Knowledgeへ新しい実行権限を与えていない。
 - [x] Phase 93へ引き渡す共通の実LexiDox fixture群と、採用済みの文法／metadata基線・互換拡張境界を特定し、基線の知識受入と将来の表示受入を区別する。
-- [ ] 仕様・移行手順・Phase/checklist/Strategyを更新し、所定の完了手順と残課題の分離を行う。
+- [x] 仕様・移行手順・Phase/checklist/Strategyを更新し、所定の完了手順と残課題の分離を行う。

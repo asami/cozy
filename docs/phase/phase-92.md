@@ -42,7 +42,7 @@ SmartDox delivered source `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the loc
 3. P92-03: 合意したSpace/Term/Conceptの識別と型情報を、既存BoK表示・索引・metadata/RDF連携へ反映する。
 4. P92-04: 既存形式と型付き形式の日英fixtureを正規経路で統合検証し、互換性・診断・利用手順と最終受入を確認する。
 
-P92-01〜P92-03はそれぞれ受入済みです。P92-04の実経路検証は下記のとおり成功しました。現在の候補の独立レビュー、Phase全体の通常検証・独立レビューとclosureは未完了です。
+P92-01〜P92-04はそれぞれ `7a1a9360`、`1c9d693d`、`994c6e56`、`648cdafd` で受入済みです。Phase全体の通常検証も成功し、独立技術レビューはclosure記録の不整合のみを指摘しました。文書修復の独立レビューとnative local closureはこの記録時点では未了です。実行上のrelease状態は保持されたsm-workflow結果に従います。
 
 ## Acceptance boundaries
 
@@ -68,4 +68,17 @@ Knowledge Spaceをpath/categoryへ暗黙対応させず、Term IRIとConcept IRI
 
 Native proof-04 passed all driver assertions using SmartDox `f8a3847c8717ebe5fe479d79553e741c5e6604cc` and the normal Cozy Dox/Antora route. Japanese and English pages, legacy behavior, Space identities, publisher metadata, KnowledgeSource and graph bytes were checked. Distinct pages and Concepts, and a shared Concept with direct finalization and matching copied bytes, passed. Ordered free headings `notes`, `Mixed Case`, `補足` and their link, document Space and explicit override, global unique/ambiguous/undefined references, missing SOLUTION, unknown uppercase heading and invalid IRI also passed. Earlier proof-03 stopped at the missing standalone `website.d`; that failure remains historical evidence.
 
-The native receipt records exit 0 and the [proof log](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-proof-04.log) names the generated `p92-04-proof-04` workspace and producer; the [receipt](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-runtime-native-04.json) records execution. The [handoff](../spec/lexidox-knowledge-space-handoff.md) pins the reproducible fixture and invocation. Cozy compile and five selected suites (47 tests) passed. SmartDox upstream passed 64 selected and 596 normal tests, was reviewed and published locally. Independent review of the current candidate, Phase full validation and review, and Phase closure remain pending. Phase 93 separately accepts presentation and rendering.
+The native receipt records exit 0 and the [proof log](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-proof-04.log) names the generated `p92-04-proof-04` workspace and producer; the [receipt](../../target/sm-workflow/tasks/cozy-phase92-20261120/p92-04-runtime-native-04.json) records execution. The [handoff](../spec/lexidox-knowledge-space-handoff.md) pins the reproducible fixture and invocation. Cozy compile and five selected suites (47 tests) passed. SmartDox upstream passed 64 selected and 596 normal tests, was reviewed and published locally. The [checklist](phase-92-checklist.md) records the full validation, independent technical review and remaining native local closure. Phase 93 separately accepts presentation and rendering.
+
+<!-- sm-workflow completion ca93139a775f8cd96098b37aa2d6e871 phase phase-92 -->
+Accepted phase phase-92.
+Evidence: ca93139a775f8cd96098b37aa2d6e871:ordered-validation:373:validation
+Evidence: file:///Users/asami/src/dev2025/cozy/target/sm-workflow/tasks/cozy-phase92-20261120/p92-phase-final-review-worker-result.json
+Phase source accepted; normal local record/commit closure follows. No later synchronization outcome is inferred.
+Source revision: 648cdafdee89bfa84243cb9697600ccdff0ca495/921b47a0b837b8ac4a6b593c38c67c392402af85. Source physical lines: start=7165; end=7826; net=661. Cohort cozy-phase92-20261120:unclassified (Step, class=unclassified, source=921b47a0b837b8ac4a6b593c38c67c392402af85, window=2026-11-20T00:16:02.317165Z..2026-11-20T23:57:22.961824Z): eventual=4/4 (1); first-pass=0/4 (unavailable); unknown first-pass=1; pending=0; outcomes=(accepted,4); profiles=standard@1/standard-2026-11-01; mixed=. P92-01 completion-ms=unavailable elapsed-ms=unavailable; P92-02 completion-ms=unavailable elapsed-ms=unavailable; P92-03 completion-ms=unavailable elapsed-ms=unavailable; P92-04 completion-ms=unavailable elapsed-ms=unavailable. codex tokens=unavailable unavailable; local tokens=unavailable unavailable. Ordinary-work observations do not establish model causality; missing resources are unavailable; First-pass history is incomplete; rate unavailable Issued profiles=standard@1. codex tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable. local tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,ordinary,Vector(ordinary, difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,difficult,Vector(difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+
+No benchmark or model-causality claim. Missing original endpoints, usage, timestamps and launch observations remain unavailable.
+
+Local record/commit closure is runtime-owned; later publication, return and synchronization outcomes are recorded separately.
