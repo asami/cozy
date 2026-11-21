@@ -47,7 +47,7 @@ Joint contract alignment precedes shared-boundary implementation. Phase 92 accep
 3. P93-03: Connect semantic styles and output-time profile selection to native HTML and LaTeX/PDF generation, including an HTML reader switch.
 4. P93-04: Accept portable DDD-derived fixtures for all profiles, PDF generation choices, HTML defaults and reader switching; record producer and Cozy versions, usage and downstream adoption evidence.
 
-P93-01 design work is recorded in the checklist; Step acceptance and later implementation remain open.
+All four Steps were accepted and locally committed: P93-01 `6fa22ce33be415dbba3ca34cc21cfa422019c598`, P93-02 `ceb0615ed603a78f730af8883309d92c237ca3e2`, P93-03 `b549b6a3893bc7cd95a3389258c072f52ca98d95`, and P93-04 `c4b045ce54f2391fbe58b6fc21d1d24353401ef4`. The [evidence ledger](../journal/2026/11/2026-11-21-phase-93-native-renderer-acceptance.md) records actual output and validation. Independent review of the documentation repair and native release closure remain pending.
 
 ## Dependencies and boundaries
 
@@ -59,7 +59,7 @@ Specific colors/fonts remain configuration; accepted metadata fields and missing
 
 Closure requires all checklist outcomes, actual HTML and LaTeX PDF evidence, relevant producer delivery, Cozy focused/integration validation, independent review and final ordinary Cozy validation. Record the accepted versions and configuration needed by the documentation consumer.
 
-The DDD guide adopts this feature only after Phase 93 completion and usable delivery. Live Core, localized Documents, SmartDox and generated DDD outputs are not changed by registration or by the isolated acceptance fixture. Preserve existing Phase priorities and work. No implementation, commit, publication or deployment is selected by this plan registration.
+The DDD guide adopts this feature only after Phase 93 completion and usable delivery. Live Core, localized Documents, SmartDox and generated DDD outputs are not changed by registration or by the isolated acceptance fixture. Preserve existing Phase priorities and work. The original plan registration selected no implementation, commit, publication or deployment.
 
 ## Historical P93-01 proposal and dependency evidence — 2026-11-21
 
@@ -68,4 +68,17 @@ Before owner delivery, the presentation contract was a proposal for precedence, 
 
 ## P93-01 design adoption — 2026-11-21
 
-The [presentation contract](../spec/term-pattern-presentation.md) and [joint boundary decision](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) adopt the SmartDox producer design/spec at `bed732ff8e7df0339b74d96e2452fa2b103fbae6` and SimpleModeling.org glossary and public-writing rules at `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. They specified the compatible selector extension and a draft Cozy Core contract while preserving Phase 92 identities. The P93-02 contract supersedes the historical minimal-Core successor draft with the existing recursive `cozy.content-core.logic-tree.v2` envelope; see the presentation contract. Japanese public output defaults to `japanese`; editor-enabled HTML alternatives and explicitly identified alternative PDF editions follow output acceptance. The producer extension, Core v2, renderer integration, validation, review and closure remain future work.
+The [presentation contract](../spec/term-pattern-presentation.md) and [joint boundary decision](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) adopt the SmartDox producer design/spec at `bed732ff8e7df0339b74d96e2452fa2b103fbae6` and SimpleModeling.org glossary and public-writing rules at `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. They specified the compatible selector extension and a draft Cozy Core contract while preserving Phase 92 identities. The P93-02 contract supersedes the historical minimal-Core successor draft with the existing recursive `cozy.content-core.logic-tree.v2` envelope; see the presentation contract. Japanese public output defaults to `japanese`; editor-enabled HTML alternatives and explicitly identified alternative PDF editions follow output acceptance. At that design-adoption checkpoint the producer extension, Core v2, renderer integration, validation, review and closure remained future work; the later Step and evidence records above report their actual progress.
+
+<!-- sm-workflow completion c10fe01c4a142bcfda500dc959cdfd70 phase phase-93 -->
+Accepted phase phase-93.
+Evidence: c10fe01c4a142bcfda500dc959cdfd70:ordered-validation:648:validation
+Evidence: file:///Users/asami/src/dev2025/cozy/target/sm-workflow/tasks/cozy-phase93-20261121/p93-release-final-review-worker-result.json
+Phase source accepted; normal local record/commit closure follows. No later synchronization outcome is inferred.
+Source revision: c4b045ce54f2391fbe58b6fc21d1d24353401ef4/8986d5030db7ee2a924ecb24ec858152f587b1ad. Source physical lines: start=7827; end=8494; net=667. Cohort cozy-phase93-20261121:unclassified (Step, class=unclassified, source=8986d5030db7ee2a924ecb24ec858152f587b1ad, window=2026-11-21T01:21:39.716539Z..2026-11-21T09:30:03.259550Z): eventual=4/4 (1); first-pass=0/4 (unavailable); unknown first-pass=1; pending=0; outcomes=(accepted,4); profiles=standard@1/standard-2026-11-01; mixed=. P93-01 completion-ms=unavailable elapsed-ms=unavailable; P93-02 completion-ms=unavailable elapsed-ms=unavailable; P93-03 completion-ms=unavailable elapsed-ms=unavailable; P93-04 completion-ms=unavailable elapsed-ms=unavailable. codex tokens=unavailable unavailable; local tokens=unavailable unavailable. Ordinary-work observations do not establish model causality; missing resources are unavailable; First-pass history is incomplete; rate unavailable Issued profiles=standard@1. codex tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable. local tokens=N/A (unavailable); tokens/net source line=N/A; N/A: attributable input/output usage is unavailable
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,ordinary,Vector(ordinary, difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+Profile standard@1; mapping=caller-standard@standard-2026-11-01; logical dispatch=Capture(standard-2026-11-01,difficult,Vector(difficult, hardest),DELEGATED,None,HashMap(sol-medium -> difficult, ordinary -> difficult, small -> sol-medium, difficult -> hardest, mechanical -> small)); configured=unknown; selected=caller-retained or unknown; provider observations are retained separately per execution
+
+No benchmark or model-causality claim. Missing original endpoints, usage, timestamps and launch observations remain unavailable.
+
+Local record/commit closure is runtime-owned; later publication, return and synchronization outcomes are recorded separately.
