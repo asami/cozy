@@ -7,7 +7,7 @@ This is the normative P600 specification for the implemented Document Project lo
 The public grammar is exactly:
 
 ```text
-cozy document-project build <project> [--target <target-id>] [--force]
+cozy document-project build <project> [--target <target-id>] [--force] [--lexidox-root <producer-site-output>]
 ```
 
 `<project>` MUST name an existing direct, non-symlink `.dox` package. This operation MUST admit that package without a descriptor: it MUST NOT load or require `document-project.yaml`.
@@ -85,6 +85,12 @@ configuration fields: the exact three target declarations and their authored
 source inputs remain unchanged.
 
 Core remains authoritative for logical meaning, the localized Document Description for document organization and prose, and `index.dox` for the SmartDox-targeted article. A Document-only change MUST NOT make a current article output stale when `index.dox` and the article's actual inputs are current. Local Document rendering MUST NOT claim reflection into `index.dox`.
+
+## LexiDox term admission
+
+The two Document targets accept `--lexidox-root` as an existing direct producer site output directory. The usual BoK admission requires the named JSON, Turtle and JSON-LD handoff together. The optional document fragment index supplies the existing safe local page route; otherwise the page IRI remains the link. The present handoff files and fragment index participate in input freshness. Plain Documents do not need a catalog. A Document with typed term occurrences requires the root and fails admission when the exact Space, Term, Concept and page are absent, ambiguous, inconsistent or conflict with the declared role.
+
+The admitted Document retains occurrences in document order, with the original binding and visible wording, resolved page and link, default selection, and selections for all three profiles. This is an input and model handoff; rendering and reader switching are specified separately. No labels are inferred from prose or a broader Space.
 
 ## Prerequisites, reuse, and failures
 

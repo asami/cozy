@@ -76,6 +76,7 @@ private[cozy] object CozyDocumentLogicTree {
   sealed trait CoreStructure {
     def core: Core
     def depthFirstSteps: Vector[Step]
+    def terminology: Vector[CozyDocumentPatternCodec.TermBinding] = Vector.empty
     lazy val stepsById: Map[String, Step] = depthFirstSteps.map(value => value.id -> value).toMap
     lazy val claimsById: Map[String, Claim] = depthFirstSteps.flatMap(_.claims).map(value => value.id -> value).toMap
     lazy val nodesById: Map[String, Node] = depthFirstSteps.flatMap(_.structure.nodes).map(value => value.id -> value).toMap
@@ -85,10 +86,11 @@ private[cozy] object CozyDocumentLogicTree {
 
   final case class ValidatedCore(
     core: Core,
-    depthFirstSteps: Vector[Step]
+    depthFirstSteps: Vector[Step],
+    override val terminology: Vector[CozyDocumentPatternCodec.TermBinding] = Vector.empty
   ) extends CoreStructure
 
-  final case class SourceCore(core: Core, depthFirstSteps: Vector[Step]) extends CoreStructure
+  final case class SourceCore(core: Core, depthFirstSteps: Vector[Step], override val terminology: Vector[CozyDocumentPatternCodec.TermBinding] = Vector.empty) extends CoreStructure
 
   final case class LogicTreeFault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")

@@ -203,7 +203,8 @@ private[cozy] object CozyBokModel {
     pageiri: Option[String] = None,
     sourcedocumentiri: Option[String] = None,
     knowledgeform: Option[String] = None,
-    legacyrefs: Vector[String] = Vector.empty
+    legacyrefs: Vector[String] = Vector.empty,
+    lexidoxPage: Option[cozy.document.CozyGlossaryPresentation.Page] = None
   ) {
     def categorySlug: String = category.getOrElse("glossary")
     def glossaryHref: String = if (pageiri.contains(publicpath)) publicpath else if (pageiri.isDefined) "../" + publicpath else publicpath.stripPrefix("glossary/")

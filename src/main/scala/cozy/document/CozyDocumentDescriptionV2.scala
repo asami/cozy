@@ -31,9 +31,12 @@ private[cozy] object CozyDocumentDescriptionV2 {
   final case class StepLabel(stepRef: String, text: String)
   final case class NodeLabel(nodeRef: String, text: String)
   final case class Labels(steps: Vector[StepLabel], nodes: Vector[NodeLabel])
-  final case class ListItem(id: String, text: String, coreRefs: References)
+  sealed trait Inline
+  final case class InlineText(text: String) extends Inline
+  final case class InlineTerm(binding: CozyDocumentPatternCodec.TermBinding, visibleText: String) extends Inline
+  final case class ListItem(id: String, text: String, coreRefs: References, inline: Vector[Inline] = Vector.empty)
   sealed trait Block { def id: String }
-  final case class Paragraph(id: String, text: String, coreRefs: References) extends Block
+  final case class Paragraph(id: String, text: String, coreRefs: References, inline: Vector[Inline] = Vector.empty) extends Block
   final case class ListBlock(id: String, items: Vector[ListItem], coreRefs: References) extends Block
   final case class Example(id: String, title: String, text: String, coreRefs: References) extends Block
   final case class Note(id: String, title: String, text: String, coreRefs: References) extends Block
@@ -95,10 +98,15 @@ private[cozy] object CozyDocumentDescriptionV2 {
     def ++(rhs: DocumentTargets): DocumentTargets =
       DocumentTargets(sectionIds ++ rhs.sectionIds, blockIds ++ rhs.blockIds, listItemIds ++ rhs.listItemIds)
   }
+  final case class ResolvedTerm(blockId: String, itemId: Option[String], inlineIndex: Int,
+    binding: CozyDocumentPatternCodec.TermBinding, visibleText: String,
+    defaultSelection: CozyGlossaryPresentation.ResolvedSelection,
+    profiles: Vector[(String, CozyGlossaryPresentation.ResolvedSelection)])
   final case class ValidatedDocument(
     core: CozyDocumentLogicTree.ValidatedCore,
     description: DocumentDescription,
-    documentTargets: DocumentTargets
+    documentTargets: DocumentTargets,
+    resolvedTerms: Vector[ResolvedTerm] = Vector.empty
   )
   final case class ValidatedSummary(
     document: ValidatedDocument,
@@ -181,7 +189,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   def loadSourceDocument(corePath: Path, documentPath: Path): SourceDocument = {
     val corepath = _admit_core_path(corePath)
     val admitted = CozyDocumentLogicTree.loadDocumentCore(corepath)
-    val core = CozyDocumentLogicTree.SourceCore(admitted.core, admitted.depthFirstSteps)
+    val core = CozyDocumentLogicTree.SourceCore(admitted.core, admitted.depthFirstSteps, admitted.terminology)
     val documentpath = _admit_localized(documentPath, "document", "document.yaml")
     _validate_source_document_path(corepath, documentpath)
     val content = _document_content(_load_document(documentpath, _read_bytes(documentpath, "document"), "document"), core, _binding_id)
@@ -339,9 +347,10 @@ private[cozy] object CozyDocumentDescriptionV2 {
     _add_id(ids, id, s"$path.id")
     _string(fields, "kind", path) match {
       case "paragraph" =>
-        _exact_fields(fields, Set("id", "kind", "text", "coreRefs"), path)
+        _exact_fields(fields, Set("id", "kind", if (fields.contains("inline")) "inline" else "text", "coreRefs"), path)
         val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", core, required = true)
-        ParsedBlock(Paragraph(id, _text(_string(fields, "text", path), s"$path.text"), refs), _coverage(refs), DocumentTargets(Set.empty, Set(id), Set.empty))
+        val content = _inline_content(fields, path, core, refs)
+        ParsedBlock(Paragraph(id, content._1, refs, content._2), _coverage(refs), DocumentTargets(Set.empty, Set(id), Set.empty))
       case "list" =>
         _exact_fields(fields, Set("id", "kind", "items", "coreRefs"), path)
         val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", core, required = true)
@@ -412,11 +421,40 @@ private[cozy] object CozyDocumentDescriptionV2 {
     ids: mutable.Set[String]
   ): ParsedListItem = {
     val fields = _object(value, path)
-    _exact_fields(fields, Set("id", "text", "coreRefs"), path)
+    _exact_fields(fields, Set("id", if (fields.contains("inline")) "inline" else "text", "coreRefs"), path)
     val id = _id(_string(fields, "id", path), s"$path.id")
     _add_id(ids, id, s"$path.id")
     val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", core, required = true)
-    ParsedListItem(ListItem(id, _text(_string(fields, "text", path), s"$path.text"), refs), _coverage(refs), DocumentTargets(Set.empty, Set.empty, Set(id)))
+    val content = _inline_content(fields, path, core, refs)
+    ParsedListItem(ListItem(id, content._1, refs, content._2), _coverage(refs), DocumentTargets(Set.empty, Set.empty, Set(id)))
+  }
+
+  private def _inline_content(fields: JsonObject, path: String, core: CozyDocumentLogicTree.CoreStructure, refs: References): (String, Vector[Inline]) = {
+    fields("inline") match {
+      case None => (_text(_string(fields, "text", path), s"$path.text"), Vector.empty)
+      case Some(value) =>
+        if (core.terminology.isEmpty)
+          _fail("DESCRIPTION_V2_REFERENCE", s"$path.inline", "inline content requires Core terminology bindings")
+        val bindings = core.terminology.map(x => x.id -> x).toMap
+        val values = _array(value, s"$path.inline").zipWithIndex.map { case (item, index) =>
+          val itempath = s"$path.inline[$index]"
+          val obj = _object(item, itempath)
+          if (obj.keys.toSet == Set("text")) {
+            val text = _string(obj, "text", itempath)
+            if (text.isEmpty) _fail("DESCRIPTION_V2_WORDING", s"$itempath.text", "must be nonempty")
+            InlineText(text): Inline
+          } else {
+            _exact_fields(obj, Set("termRef", "visibleText"), itempath)
+            val id = _id(_string(obj, "termRef", itempath), s"$itempath.termRef")
+            val binding = bindings.getOrElse(id, _fail("DESCRIPTION_V2_REFERENCE", s"$itempath.termRef", "unknown terminology binding"))
+            if (!refs.claims.contains(binding.claimRef)) _fail("DESCRIPTION_V2_REFERENCE", s"$itempath.termRef", "binding claim must be in this content's Core references")
+            InlineTerm(binding, _text(_string(obj, "visibleText", itempath), s"$itempath.visibleText")): Inline
+          }
+        }
+        if (values.isEmpty) _fail("DESCRIPTION_V2_WORDING", s"$path.inline", "must contain at least one inline item")
+        val text = values.map { case InlineText(value) => value; case InlineTerm(_, visible) => visible }.mkString
+        (_text(text, s"$path.inline"), values)
+    }
   }
 
   private def _summary_unit(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure, targets: DocumentTargets): SummaryUnit = {

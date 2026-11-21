@@ -13,6 +13,7 @@ private[cozy] object CozyDocumentPatternCodec {
   final case class SectionRole(id: String, role: String, target: Target)
   final case class InheritedContext(ancestor: String, role: String, target: String)
   final case class Section(step: String, pattern: String, question: String, answer: String, roles: Vector[SectionRole], inheritedContext: Vector[InheritedContext])
+  final case class TermBinding(id: String, claimRef: String, space: String, term: String, concept: String, page: String, role: String, emphasis: Option[String], styleRole: Option[String])
   final case class Envelope(source: ValidatedCore, documentPattern: String, documentRoles: Vector[DocumentRole], sections: Vector[Section]) {
     def core: Core = source.core
   }
@@ -65,13 +66,44 @@ private[cozy] object CozyDocumentPatternCodec {
     }
   }
   def decode(value: Json): Envelope = {
-    val obj = _object(value, "$", Set("schema", "core", "catalog", "documentPattern", "sections"))
+    val keys = Set("schema", "core", "catalog", "documentPattern", "sections")
+    val obj = _object(value, "$", if (value.hcursor.downField("terminology").succeeded) keys + "terminology" else keys)
     if (_string(obj, "schema", "$") != "cozy.content-core.logic-tree.v2") _fail("PATTERN_SCHEMA", "$.schema", "expected v2 Core envelope")
     val cat = _object(_field(obj, "catalog"), "$.catalog", Set("id", "version"))
     if (_string(cat, "id", "$.catalog") != CozyDocumentPatternCatalog.id || _field(cat, "version").asNumber.flatMap(_.toInt) != Some(CozyDocumentPatternCatalog.version))
       _fail("PATTERN_CATALOG", "$.catalog", "unknown catalog identity or version")
     val corejson = _field(obj, "core")
     val core = CozyDocumentLogicTree.validateCore(corejson.noSpaces.getBytes(StandardCharsets.UTF_8), corejson)
+    val bindings = obj("terminology").toVector.flatMap { value =>
+      val block = _object(value, "$.terminology", Set("version", "bindings"))
+      if (_field(block, "version").asNumber.flatMap(_.toInt) != Some(1))
+        _fail("PATTERN_TERMINOLOGY", "$.terminology.version", "expected version 1")
+      _array(block, "bindings", "$.terminology").zipWithIndex.map { case (item, index) =>
+        val path = s"$$.terminology.bindings[$index]"
+        val fields = item.asObject.getOrElse(_fail("PATTERN_SHAPE", path, "expected object"))
+        val required = Set("id", "claimRef", "space", "term", "concept", "page", "role")
+        if (!required.subsetOf(fields.keys.toSet) || !(fields.keys.toSet -- required).subsetOf(Set("emphasis", "styleRole")))
+          _fail("PATTERN_FIELDS", path, "invalid terminology binding fields")
+        val id = _id(fields, "id", path)
+        val claim = _id(fields, "claimRef", path)
+        if (!core.claimsById.contains(claim)) _fail("PATTERN_REFERENCE", s"$path.claimRef", "unknown Core claim")
+        val space = _string(fields, "space", path)
+        if (!space.matches("[a-z0-9]+(?:-[a-z0-9]+)*")) _fail("PATTERN_TERMINOLOGY", s"$path.space", "invalid Space ID")
+        def _iri_(key: String): String = {
+          val text = _string(fields, key, path)
+          val valid = try { val uri = new java.net.URI(text); uri.isAbsolute && Set("http", "https").contains(uri.getScheme) && uri.getHost != null } catch { case _: java.net.URISyntaxException => false }
+          if (!valid) _fail("PATTERN_TERMINOLOGY", s"$path.$key", "expected absolute HTTP(S) IRI")
+          text
+        }
+        val role = _string(fields, "role", path)
+        if (!Set("ordinary-term", "named-pattern").contains(role)) _fail("PATTERN_TERMINOLOGY", s"$path.role", "unknown role")
+        val emphasis = fields("emphasis").map(_ => _string(fields, "emphasis", path))
+        if (emphasis.exists(_ != "bold")) _fail("PATTERN_TERMINOLOGY", s"$path.emphasis", "expected bold")
+        val style = fields("styleRole").map(_ => _id(fields, "styleRole", path))
+        TermBinding(id, claim, space, _iri_("term"), _iri_("concept"), _iri_("page"), role, emphasis, style)
+      }
+    }
+    _unique(bindings.map(_.id), "$.terminology.bindings")
     val doc = _object(_field(obj, "documentPattern"), "$.documentPattern", Set("pattern", "roles"))
     val docpattern = _id(doc, "pattern", "$.documentPattern")
     _pattern(docpattern, CozyDocumentPatternCatalog.documents, "$.documentPattern.pattern")
@@ -153,7 +185,7 @@ private[cozy] object CozyDocumentPatternCodec {
         }
       }
     }
-    Envelope(core, docpattern, docroles, sections)
+    Envelope(core.copy(terminology = bindings), docpattern, docroles, sections)
   }
   def decodeFormat(value: Json, envelope: Envelope): LocalizedFormat = {
     val obj = _object(value, "$", Set("schema", "coreId", "locale", "base", "questionBindings"))

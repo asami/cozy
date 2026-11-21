@@ -231,6 +231,48 @@ class CozyBokTermTypeSpec
 package bok {
   class CozyBokLexidoxProjectionSpec extends AnyWordSpec with GivenWhenThen with CozySpecVocabulary {
     "LexiDox term projection" should {
+      "consume the delivered producer presentation through the normal catalog" in {
+        val dir = Files.createTempDirectory("cozy-lexidox-producer")
+        try {
+          Given("the unchanged SmartDox producer JSON and the required handoff files")
+          val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))
+          val handoff = config.doxsitePath.resolve("metadata/lexidox")
+          Files.createDirectories(handoff)
+          val input = getClass.getResourceAsStream("/lexidox/phase93-producer-knowledge-v1.json")
+          try Files.copy(input, handoff.resolve("knowledge-v1.json")) finally input.close()
+          Files.write(handoff.resolve("knowledge-v1.ttl"), "# staging only".getBytes(StandardCharsets.UTF_8))
+          Files.write(handoff.resolve("knowledge-v1.jsonld"), "{}".getBytes(StandardCharsets.UTF_8))
+          val fragments = config.doxsitePath.resolve("metadata/documents/fragments.json")
+          Files.createDirectories(fragments.getParent)
+          Files.write(fragments, s"""{"fragments":[{"source_path":"presentation/retry.dox","public_path":"presentation/retry.html","locale":"${config.defaultLocale}","body_html":""}]}""".getBytes(StandardCharsets.UTF_8))
+
+          When("the catalog resolves the producer page before selecting labels")
+          val catalog = CozyBokImplementation._presentation_catalog(config).get
+          val binding = cozy.document.CozyDocumentPatternCodec.TermBinding("retry", "claim", "software-architecture",
+            "https://example.org/term/retry", "https://example.org/concept/retry", "https://example.org/page/retry", "named-pattern", Some("bold"), None)
+          val occurrence = cozy.document.CozyDocumentDescriptionV2.InlineTerm(binding, "the retry pattern")
+          val resolved = Vector("original", "established-japanese", "japanese").map(profile =>
+            cozy.document.CozyGlossaryPresentation.resolve(occurrence, catalog, "ja", Some(profile)).toOption.get)
+
+          Then("all profiles preserve the producer identity and projected link")
+          resolved.map(_.selection.get.label) shouldBe Vector("Retry", "リトライ", "再試行")
+          resolved.map(_.identity).distinct shouldBe Vector(cozy.document.CozyGlossaryPresentation.PageIdentity(
+            "software-architecture", "https://example.org/term/retry", "https://example.org/concept/retry", "https://example.org/page/retry"))
+          resolved.map(_.link).distinct shouldBe Vector("presentation/retry.html")
+          catalog.references.head.visibleText shouldBe Some("the retry pattern")
+          catalog.references.head.issue shouldBe None
+          catalog.diagnostics shouldBe empty
+          catalog.presentationDiagnostics.map(_.code) shouldBe Vector("LEX_PRESENTATION_DUPLICATE")
+          catalog.presentationDiagnostics.head.related should have size 1
+          catalog.pages.find(_.identity.page == "https://example.org/page/backoff").get.presentation shouldBe None
+          catalog.references(1).visibleText shouldBe None
+        } finally {
+          val stream = Files.walk(dir)
+          try stream.iterator.asScala.toVector.reverse.foreach(Files.deleteIfExists)
+          finally stream.close()
+        }
+      }
+
       "retain pages with a shared Term IRI and classify independently of knowledge form" in {
         val dir = Files.createTempDirectory("cozy-lexidox-projection")
         try {
@@ -242,12 +284,19 @@ package bok {
           }
           def _page_(space: String, term: String, concept: String, title: String, extra: String): String =
             s"""{"space":"$space","space_iri":"https://example.org/space/$space","term_iri":"https://example.org/term/$term","concept_iri":"https://example.org/concept/$concept","page_iri":"https://example.org/page/$space/$term","source_document_iri":"https://example.org/source/$space","titles":[{"text":"$title"}],"aliases":[],"sections":[{"name":"DEFINITION","content":{"text":"Definition"},"span":{"source":"spaces/$space.dox"}}]$extra}"""
+          val span = """{"source":"spaces/retry.dox","start":{"line":2,"column":1},"end":{"line":2,"column":8}}"""
+          val original = s"""{"collection":"titles","language":"en","text":"Retry","span":$span}"""
+          val canonical = s"""{"collection":"titles","language":"ja","text":"再試行","span":$span}"""
+          val established = s"""{"collection":"aliases","language":"ja","text":"リトライ","span":$span}"""
+          val extension = s""", "presentation":{"version":1,"role":"named-pattern","original":$original,"canonical":[$canonical],"established_japanese":$established,"span":$span}"""
           val pages = Vector(
             _page_("sales", "work", "sales-work", "作品", ""),
             _page_("history", "work", "literary-work", "作品", ""),
-            _page_("retry", "retry", "retry", "Retry", ",\"concept_type\":\"process\",\"knowledge_form\":\"pattern\"")
+            _page_("retry", "retry", "retry", "Retry", ",\"concept_type\":\"process\",\"knowledge_form\":\"pattern\"" + extension)
+              .replace("""{"text":"Retry"}""", """{"text":"Retry","language":"en"},{"text":"再試行","language":"ja"}""")
+              .replace(""""aliases":[]""", """"aliases":[{"text":"リトライ","language":"ja"}]""")
           )
-          val envelope = s"""{"schema":"lexidox-knowledge/1","pages":[${pages.mkString(",")}],"references":[{"label":"作品","span":{"source":"spaces/retry.dox"},"resolution":{"status":"resolved","page_iri":"https://example.org/page/history/work"}}]}"""
+          val envelope = s"""{"schema":"lexidox-knowledge/1","pages":[${pages.mkString(",")}],"references":[{"label":"作品","span":{"source":"spaces/retry.dox"},"resolution":{"status":"resolved","page_iri":"https://example.org/page/history/work"}},{"label":"lookup key","visible_text":"Retry visible","span":{"source":"spaces/sales.dox"},"resolution":{"status":"resolved","space":"retry","term_iri":"https://example.org/term/retry","concept_iri":"https://example.org/concept/retry","page_iri":"https://example.org/page/retry/retry"}},{"label":"missing","span":$span,"resolution":{"status":"failed","diagnostic_indexes":[0]}}],"diagnostics":[{"code":"LEX_UNDEFINED","severity":"error","message":"undefined","span":$span,"related":[],"candidates":[]}],"presentation_diagnostics":[{"code":"LEX_PRESENTATION_LABEL","severity":"error","message":"invalid","span":$span,"related":[],"candidates":[]}]}"""
           val handoff = config.doxsitePath.resolve("metadata/lexidox")
           _write_(handoff.resolve("knowledge-v1.json"), envelope)
           _write_(handoff.resolve("knowledge-v1.ttl"), "# producer graph")
@@ -306,6 +355,25 @@ package bok {
           retry.termtype shouldBe "process"
           retry.knowledgeform shouldBe Some("pattern")
           retry.termrefs.map(_.path) shouldBe Vector("spaces/history.html")
+          And("the normal reader admits presentation without changing the producer identities or page route")
+          val catalog = CozyBokImplementation._presentation_catalog(config).get
+          catalog.references(1).visibleText shouldBe Some("Retry visible")
+          catalog.references(2).raw.hcursor.downField("resolution").get[Vector[Int]]("diagnostic_indexes").toOption shouldBe Some(Vector(0))
+          catalog.diagnostics.map(_.code) shouldBe Vector("LEX_UNDEFINED")
+          catalog.presentationDiagnostics.map(_.code) shouldBe Vector("LEX_PRESENTATION_LABEL")
+          sales.termrefs.find(_.path == "spaces/retry.html").map(_.title) shouldBe Some("Retry visible")
+          val binding = cozy.document.CozyDocumentPatternCodec.TermBinding("retry", "claim", "retry",
+            "https://example.org/term/retry", "https://example.org/concept/retry", "https://example.org/page/retry/retry", "named-pattern", Some("bold"), None)
+          val occurrence = cozy.document.CozyDocumentDescriptionV2.InlineTerm(binding, "Retry")
+          val resolved = Vector("original", "established-japanese", "japanese").map(profile =>
+            cozy.document.CozyGlossaryPresentation.resolve(occurrence, catalog, "ja", Some(profile)).toOption.get)
+          resolved.map(_.selection.get.label) shouldBe Vector("Retry", "リトライ", "再試行")
+          resolved.map(_.identity).distinct should have size 1
+          resolved.map(_.link).distinct shouldBe Vector("spaces/retry.html")
+          resolved.head.page.presentation.get.original.span.get.source shouldBe "spaces/retry.dox"
+          cozy.document.CozyGlossaryPresentation.resolve(occurrence.copy(binding = binding.copy(concept = "https://example.org/concept/other")), catalog, "ja", Some("original")).left.toOption.get.code shouldBe "LEX_PRESENTATION_IDENTITY_MISMATCH"
+          cozy.document.CozyGlossaryPresentation.resolve(occurrence, catalog.copy(pages = catalog.pages ++ catalog.pages.filter(_.identity.page == binding.page)), "ja", Some("original")).left.toOption.get.code shouldBe "LEX_PRESENTATION_AMBIGUOUS"
+
           CozyBokImplementation._term_reference_matches("作品", terms.head) shouldBe false
           CozyBokImplementation._term_reference_matches("https://example.org/concept/sales-work", terms.head) shouldBe true
           val index = CozyBokImplementation._localized_glossary_index_page(config, Vector.empty, "ja")

@@ -1,6 +1,6 @@
 # Term and pattern presentation contract
 
-Status: P93-01 design contract, 2026-11-21. SmartDox's [producer specification](https://github.com/asami/smartdox/blob/bed732ff8e7df0339b74d96e2452fa2b103fbae6/docs/spec/lexidox-knowledge-space.md#presentation-extension-version-1) and [decision record](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) define the accepted producer boundary. This is a design, not evidence that the producer extension, Core v2 or renderers are implemented.
+Status: P93-01 design contract, 2026-11-21. SmartDox's [producer specification](https://github.com/asami/smartdox/blob/bed732ff8e7df0339b74d96e2452fa2b103fbae6/docs/spec/lexidox-knowledge-space.md#presentation-extension-version-1) and [decision record](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) define the accepted producer boundary. Cozy has local Core, Document and metadata wiring and a regression input from actual producer output; runtime qualification and renderer output remain pending.
 
 ## Resolution and selection
 
@@ -24,36 +24,16 @@ The accepted optional `HEAD.lexidox.presentation` version 1 uses the existing em
 
 Producer errors are `LEX_PRESENTATION_VERSION`, `LEX_PRESENTATION_METADATA`, `LEX_PRESENTATION_LABEL`, `LEX_PRESENTATION_DUPLICATE`, and `LEX_PRESENTATION_PREFERENCE`, each with producer-defined value, span and related span. Duplicate later source keys point to the first; missing members point to the block. Source-invalid presentation is omitted from the baseline Page, whose resolved links remain. Duplicate JSON object names are structural rejection before typed construction, without fabricated Dox spans. Unsupported extension versions are reported while preserving baseline and opaque extension. Baseline v1 readers may ignore optional fields; producer round trips retain unknown optional wire fields, including nested ones. Baseline major rejection remains. The extension adds no RDF triples; compare the graph with the baseline projection of the same authored revision, allowing location shifts between revisions.
 
-## Cozy Core v2 and localized Document contract
+## Cozy recursive Core and localized Document contract
 
-`cozy.content-core.v2` is the specified successor to the closed `cozy.content-core.v1`; this is a versioned input contract for P93-02 to implement, not a claim that current loaders support it. V1 inputs and their existing accepted `id`/`text` entries continue through the unchanged v1 path. V2 retains top-level `schema`, `id`, `language`, and ordered `accepted`; each accepted entry has its existing unique `id` and exactly one of nonempty `text` or nonempty ordered `inline`. An inline sequence contains objects of exactly one of these forms:
+The P93-01 draft proposed a `cozy.content-core.v2` successor to the historical minimal Core. That draft is superseded: the existing recursive `cozy.content-core.logic-tree.v2` pattern envelope is the authority, as required by the original presentation requirements. V1 and existing V2 envelopes retain their existing admission behavior.
 
-```yaml
-schema: cozy.content-core.v2
-id: example
-language: en
-accepted:
-  - id: retry-explanation
-    inline:
-      - text: "Use "
-      - term:
-          space: software-architecture
-          term: https://example.org/term/retry
-          concept: https://example.org/concept/retry
-          page: https://example.org/page/retry
-          visibleText: Retry
-          role: named-pattern
-          emphasis: bold
-          styleRole: pattern
-      - text: " for transient failure."
-```
+The V2 envelope may contain a closed `terminology` object with `version: 1` and ordered `bindings`. Each binding has a unique stable `id`, a `claimRef` resolving to an existing Core claim, explicit `space`, `term`, `concept`, and `page` identities, and `role` (`ordinary-term` or `named-pattern`). Optional `emphasis: bold` and symbolic `styleRole` express presentation intent. Identities must agree with a normally admitted producer page. Core does not own localized wording.
 
-A term object requires nonempty explicit Space ID, absolute Term, Concept and page IRIs and authored visible text, and role `ordinary-term` or `named-pattern`. It optionally supplies `emphasis: bold` and a nonempty symbolic `styleRole`; omitted emphasis/style uses configured role defaults. These are Cozy-authored binding and presentation intents, not producer HOCON or replacement producer metadata. All four identities must agree with one normally admitted resolved producer page; mismatch, ambiguity or absence is a diagnostic and must not cause text lookup or broader-Space retry. A term's identity is never derived from its visible text. V2 validation rejects unknown fields, invalid or empty values, both/neither `text` and `inline`, and unknown schema versions; repeated occurrences remain ordered. V2 text-only entries preserve v1 text meaning. Existing v1 localized Documents remain readable and render as before; v2 projections must retain inline ordering and cannot flatten references to prose. Existing acceptance/update machinery must preserve v2 structure rather than rewrite it as v1 text. No automatic conversion of legacy prose to term references is implied.
-
-After normal metadata admission, the localized Document's typed term projection carries the resolved Space, Term, Concept, page and link target; authored visible text; producer titles/aliases, original, canonical, established and preference selectors with provenance; configured document language and effective/default profile; and Core role, emphasis and symbolic style intent. A producer role conflicting with an authored Core role is a diagnostic, not an order-dependent override. An English original name can thus pass as a label, with bold and symbolic pattern style, without manuscript-specific renderer markup. Code identifiers are separate literal content and are not term selections. Phase 91 explanation patterns and Phase 92 knowledge forms are not display roles.
+A localized V2 paragraph or list item may use an ordered nonempty `inline` array instead of `text` only when its Core declares at least one terminology binding. An item is either `{text: ...}` or `{termRef: ..., visibleText: ...}`. The reference resolves only by binding ID, and the content's own `coreRefs.claims` must include the binding's claim. The typed ordered sequence retains the binding and authored visible text; plain text is a compatibility fallback, never an identity. Existing plain text is unchanged. The local selection seam resolves metadata/page identity and reports role conflicts before selecting a term. Qualification against actual producer output and renderer integration remain pending.
 
 ## Output and delivery
 
 Shared configuration maps ordinary term, named pattern and code roles to restrained distinguishable typography and optional colors; concrete values and fonts remain configuration. HTML emits escaped labels and language information with semantic CSS classes and the existing resolved link. When editor-enabled, its control switches the three supplied labels repeatedly while preserving target, role and surrounding prose. LaTeX emits escaped labels, language-aware font configuration, links and equivalent configured commands; PDF fixes the selected profile at output time. Unconfigured legacy output keeps its appearance. SmartDox currently provides term-reference/definition HTML through `Dox2DomHtmlTransformer`; Cozy's native PDF path passes locale and `--latex-format` but currently has no term-profile argument. Existing CSS, accessibility, Japanese/English glyphs and actual output require later verification.
 
-SmartDox owns grammar, parser, source validation, serialized metadata, diagnostics and producer tests; its accepted design is not a built extension. Cozy owns admission, Core/Document projection, configuration and integrated output. SimpleModeling.org owns glossary meaning and public policy at revision `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. Later Steps must consume attributable actual producer output, exercise authored Phase 92 fixtures and real HTML and LaTeX/PDF, and verify identities and canonical graph. Live DDD adoption and regeneration follow Phase 93 completion; none is claimed here.
+SmartDox owns grammar, parser, source validation, serialized metadata, diagnostics and producer tests. Its delivered implementation and the unchanged producer JSON regression fixture are identified in the [handoff](lexidox-knowledge-space-handoff.md#phase-93-presentation-handoff). Cozy owns admission, Core/Document projection, configuration and integrated output. SimpleModeling.org owns glossary meaning and public policy at revision `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. Later Steps must exercise authored Phase 92 fixtures and real HTML and LaTeX/PDF, and verify identities and canonical graph. Live DDD adoption and regeneration follow Phase 93 completion; none is claimed here.

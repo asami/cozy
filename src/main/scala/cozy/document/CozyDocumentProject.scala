@@ -45,7 +45,7 @@ private[cozy] object CozyDocumentProject {
     reviewrun: Option[String] = None
   )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
-  private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean, workroot: Option[String], syncroots: Vector[String], locale: Option[String])
+  private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean, workroot: Option[String], syncroots: Vector[String], locale: Option[String], lexidoxroot: Option[String])
   private final case class PackageRefreshRequest(root: String, selections: Vector[CozyDocumentProjectPackage.Selection], workroot: Option[String], syncroots: Vector[String])
   private final case class PackageRecoverRequest(root: String, run: String, workroot: Option[String])
   private final case class PackagePlaceRequest(project: String, save: String, declaration: String, workroot: Option[String], syncroots: Vector[String])
@@ -70,7 +70,7 @@ private[cozy] object CozyDocumentProject {
           }
           println(output)
           true
-        case BuildRequest(projectvalue, targetid, force, workroot, syncroots, locale) =>
+        case BuildRequest(projectvalue, targetid, force, workroot, syncroots, locale, lexidoxroot) =>
           val project = _admit_project(projectvalue)
           val mediatarget = targetid.filter(value => value == "infographic" || value == "article-pdf" || value == "summary-slides" || value.startsWith("infographic-") || value.startsWith("article-pdf-") || value.startsWith("summary-slides-") || value == "audio" || value == "video" || value.startsWith("audio-") || value.startsWith("video-"))
           val selectedroot = workroot.map(value => Paths.get(value)).orElse {
@@ -79,6 +79,7 @@ private[cozy] object CozyDocumentProject {
           val run = selectedroot.map(value => CozyDocumentProjectWorkRoot.allocate(value, project, None, syncroots.map(value => Paths.get(value))))
           mediatarget match {
             case Some(target) =>
+              if (lexidoxroot.nonEmpty) _failure("DP-CLI-001", "--lexidox-root is supported for document targets")
               val workspace = run.getOrElse(_failure("DP-CLI-002", "media build requires --work-root"))
               val language = locale.getOrElse(_failure("DP-CLI-002", "media build requires --locale ja|en"))
               val product = if (target == "audio" || target == s"audio-$language") Some("audio")
@@ -90,7 +91,7 @@ private[cozy] object CozyDocumentProject {
                 .getOrElse(CozyDocumentProjectMediaWorkspace.build(project, workspace, target, language)))
             case None =>
               if (locale.nonEmpty) _failure("DP-CLI-001", "--locale is supported for media build targets")
-              println(CozyDocumentProjectLocalBuildCommand.execute(project, targetid, force, run.map(_.root)).report)
+              println(CozyDocumentProjectLocalBuildCommand.execute(project, targetid, force, run.map(_.root), lexidoxRoot = lexidoxroot.map(Paths.get(_))).report)
           }
           true
         case ProjectRequest(command, projectvalue, operation, dryrun, kind, save, verificationpolicy, workproduct, workroot, syncroots, reviewrun) =>
@@ -274,7 +275,7 @@ private[cozy] object CozyDocumentProject {
       case Nil => (retained.reverse, roots)
     }
     val (remaining, syncroots) = _sync_roots_(args, Nil, Vector.empty)
-    val parsed = _parse_options(remaining, Set("target", "work-root", "locale"), Set("force"))
+    val parsed = _parse_options(remaining, Set("target", "work-root", "locale", "lexidox-root"), Set("force"))
     if (parsed.positionals.size != 1)
       _failure("DP-CLI-001", "invalid build command grammar")
     if ((parsed.values.get("work-root").toVector ++ syncroots).exists(value => value.isEmpty || value != value.trim))
@@ -285,7 +286,7 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-CLI-001", "--sync-root requires an external-workspace build")
     if (syncroots.distinct.size != syncroots.size)
       _failure("DP-CLI-001", "duplicate --sync-root")
-    BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"), parsed.values.get("work-root"), syncroots, parsed.values.get("locale"))
+    BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"), parsed.values.get("work-root"), syncroots, parsed.values.get("locale"), parsed.values.get("lexidox-root"))
   }
 
   private def _package_refresh_request(args: List[String]): PackageRefreshRequest = {
