@@ -1,0 +1,59 @@
+# Term and pattern presentation contract
+
+Status: P93-01 design contract, 2026-11-21. SmartDox's [producer specification](https://github.com/asami/smartdox/blob/bed732ff8e7df0339b74d96e2452fa2b103fbae6/docs/spec/lexidox-knowledge-space.md#presentation-extension-version-1) and [decision record](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) define the accepted producer boundary. This is a design, not evidence that the producer extension, Core v2 or renderers are implemented.
+
+## Resolution and selection
+
+Resolve the Phase 92 Space and Term/Concept/page first. Undefined and ambiguous references keep their existing diagnostics, have no selected label or link, and never retry a broader Space. Selection uses only labels of that resolved page, retaining its identity, target, definition, classification, knowledge form, relations, provenance and RDF. Schema profile `simplemodeling-v1` controls source validation; the following presentation profile IDs select display labels and do not select a schema.
+
+| Presentation profile | First usable candidate to last |
+| --- | --- |
+| `original` | original; preference for document language; canonical for document language |
+| `established-japanese` | explicitly designated established Japanese; original; preference for document language; canonical for document language |
+| `japanese` | canonical for exact `ja`; preference for document language; original; canonical for document language |
+
+A candidate is usable when its producer selector binds uniquely. Complete BCP 47 language tags match case-insensitively, with no implicit regional fallback. An explicit or policy-supplied effective profile wins over a named-pattern default; earlier candidates win over preferences. Without an effective profile, a valid `named-pattern` uses the `original` chain and `ordinary-term` retains prior output; absent extension retains legacy behavior. A valid extension requires an original selector. If a configured selection nevertheless has no usable candidate, preserve parsed `Reference.visible_text` and warn `LEX_PRESENTATION_LABEL_MISSING`; do not treat lexical `Reference.label` as visible text. Invalid metadata is an error, not a missing-label warning. No language or established translation is inferred from spelling or label presence.
+
+For original `Retry`, established `リトライ` and canonical neutral Japanese `再試行`, the three selections yield those respective labels. If the established selector is absent, the second yields `Retry`. With no neutral Japanese canonical selector, a `ja-JP` document preference may select a Japanese alias before original; it does not apply to `ja`. SimpleModeling.org requires canonical labels for default public editions and `japanese` as the Japanese edition's effective default; English edition references retain canonical English outside switching. Editors may enable Japanese HTML switching, and may explicitly identify an alternative PDF edition. A glossary Public Usage designation of an official pattern name permits an explicitly authored proper-name occurrence in the default Japanese edition; it does not change candidates for glossary-bound selectable references.
+
+## Producer data and diagnostics
+
+The accepted optional `HEAD.lexidox.presentation` version 1 uses the existing emitted titles and aliases, not a new label store. `original` and `role` are required; ordered `canonical` and `preferences`, and `established_japanese`, are optional. Each selector is `{ collection, language, text }`, where collection is `titles` or `aliases`, and must bind exactly one tagged label by complete case-insensitive language and exact text. A preference is `{ document_language, label = { collection, language, text } }`; its target language may differ from document language. At most one canonical selector per complete language and one preference per complete document language are permitted; established Japanese must have primary subtag `ja`. Roles are `ordinary-term` and `named-pattern`, independent of `concept_type` and `knowledge_form`. Unknown or duplicate source keys, including nested ones, and explicit null are invalid. The producer specification contains complete valid source, configuration, negative fixture requirements, and exact wire shapes.
+
+`Page.presentation` carries version, selectors, role and source spans; each selector and preference carries its own declaration span. Existing SOURCE, REFERENCES and baseline source provenance supply editorial evidence; a declaration span is not evidence of established usage or original definition. Original name language may differ from the separately documented original definition source/language. `Reference.visible_text` is present for resolved references with valid presentation, and separate `presentation_diagnostics` leave baseline diagnostic indexes unchanged. Ordered arrays remain ordered; omitted optional fields are absent, not null.
+
+Producer errors are `LEX_PRESENTATION_VERSION`, `LEX_PRESENTATION_METADATA`, `LEX_PRESENTATION_LABEL`, `LEX_PRESENTATION_DUPLICATE`, and `LEX_PRESENTATION_PREFERENCE`, each with producer-defined value, span and related span. Duplicate later source keys point to the first; missing members point to the block. Source-invalid presentation is omitted from the baseline Page, whose resolved links remain. Duplicate JSON object names are structural rejection before typed construction, without fabricated Dox spans. Unsupported extension versions are reported while preserving baseline and opaque extension. Baseline v1 readers may ignore optional fields; producer round trips retain unknown optional wire fields, including nested ones. Baseline major rejection remains. The extension adds no RDF triples; compare the graph with the baseline projection of the same authored revision, allowing location shifts between revisions.
+
+## Cozy Core v2 and localized Document contract
+
+`cozy.content-core.v2` is the specified successor to the closed `cozy.content-core.v1`; this is a versioned input contract for P93-02 to implement, not a claim that current loaders support it. V1 inputs and their existing accepted `id`/`text` entries continue through the unchanged v1 path. V2 retains top-level `schema`, `id`, `language`, and ordered `accepted`; each accepted entry has its existing unique `id` and exactly one of nonempty `text` or nonempty ordered `inline`. An inline sequence contains objects of exactly one of these forms:
+
+```yaml
+schema: cozy.content-core.v2
+id: example
+language: en
+accepted:
+  - id: retry-explanation
+    inline:
+      - text: "Use "
+      - term:
+          space: software-architecture
+          term: https://example.org/term/retry
+          concept: https://example.org/concept/retry
+          page: https://example.org/page/retry
+          visibleText: Retry
+          role: named-pattern
+          emphasis: bold
+          styleRole: pattern
+      - text: " for transient failure."
+```
+
+A term object requires nonempty explicit Space ID, absolute Term, Concept and page IRIs and authored visible text, and role `ordinary-term` or `named-pattern`. It optionally supplies `emphasis: bold` and a nonempty symbolic `styleRole`; omitted emphasis/style uses configured role defaults. These are Cozy-authored binding and presentation intents, not producer HOCON or replacement producer metadata. All four identities must agree with one normally admitted resolved producer page; mismatch, ambiguity or absence is a diagnostic and must not cause text lookup or broader-Space retry. A term's identity is never derived from its visible text. V2 validation rejects unknown fields, invalid or empty values, both/neither `text` and `inline`, and unknown schema versions; repeated occurrences remain ordered. V2 text-only entries preserve v1 text meaning. Existing v1 localized Documents remain readable and render as before; v2 projections must retain inline ordering and cannot flatten references to prose. Existing acceptance/update machinery must preserve v2 structure rather than rewrite it as v1 text. No automatic conversion of legacy prose to term references is implied.
+
+After normal metadata admission, the localized Document's typed term projection carries the resolved Space, Term, Concept, page and link target; authored visible text; producer titles/aliases, original, canonical, established and preference selectors with provenance; configured document language and effective/default profile; and Core role, emphasis and symbolic style intent. A producer role conflicting with an authored Core role is a diagnostic, not an order-dependent override. An English original name can thus pass as a label, with bold and symbolic pattern style, without manuscript-specific renderer markup. Code identifiers are separate literal content and are not term selections. Phase 91 explanation patterns and Phase 92 knowledge forms are not display roles.
+
+## Output and delivery
+
+Shared configuration maps ordinary term, named pattern and code roles to restrained distinguishable typography and optional colors; concrete values and fonts remain configuration. HTML emits escaped labels and language information with semantic CSS classes and the existing resolved link. When editor-enabled, its control switches the three supplied labels repeatedly while preserving target, role and surrounding prose. LaTeX emits escaped labels, language-aware font configuration, links and equivalent configured commands; PDF fixes the selected profile at output time. Unconfigured legacy output keeps its appearance. SmartDox currently provides term-reference/definition HTML through `Dox2DomHtmlTransformer`; Cozy's native PDF path passes locale and `--latex-format` but currently has no term-profile argument. Existing CSS, accessibility, Japanese/English glyphs and actual output require later verification.
+
+SmartDox owns grammar, parser, source validation, serialized metadata, diagnostics and producer tests; its accepted design is not a built extension. Cozy owns admission, Core/Document projection, configuration and integrated output. SimpleModeling.org owns glossary meaning and public policy at revision `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. Later Steps must consume attributable actual producer output, exercise authored Phase 92 fixtures and real HTML and LaTeX/PDF, and verify identities and canonical graph. Live DDD adoption and regeneration follow Phase 93 completion; none is claimed here.

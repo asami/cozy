@@ -1,7 +1,7 @@
 # Phase 93 checklist — Glossary Preferred Labels and Term/Pattern Presentation
 
-status=planned
-execution_started=false
+status=in-progress
+execution_started=true
 Plan: [Phase 93](phase-93.md)
 Development item: DEV-043
 Owner: Cozy development; glossary and producer delivery remain owner-specific
@@ -15,21 +15,24 @@ Owner: Cozy development; glossary and producer delivery remain owner-specific
 
 ## P93-01: Contracts, requirements and owners
 
-- [ ] Current glossary labels/public-writing rules, HTML term styles and native LaTeX/PDF paths are identified with their owners and adopted revisions.
-- [ ] Design/spec defines document-language display preferences, original definition language/name, precedence among selected profile, entry preferences and pattern defaults, and compatibility for existing entries.
-- [ ] The three profiles are specified: original-language preference, established-Japanese-translation preference and Japanese preference; established translations are explicitly identified in glossary metadata rather than inferred from label presence.
-- [ ] Missing labels/language and conflicting preferences have explicit resolution or diagnostic rules; no language is guessed from spelling.
-- [ ] Canonical glossary/policy changes and SmartDox producer schema, semantic roles, handoff version and implementation ownership are agreed for consumption.
-- [ ] Ordinary term, named design pattern and code roles, style configuration and HTML/LaTeX mappings are defined; Phase 91 explanation patterns and Phase 92 knowledge forms remain distinct.
+- [x] Current glossary labels/public-writing rules, HTML term styles and native LaTeX/PDF paths are identified with their owners and adopted revisions.
+- [x] Design/spec defines document-language display preferences, original definition language/name, precedence among selected profile, entry preferences and pattern defaults, and compatibility for existing entries.
+- [x] The three profiles are specified: original-language preference, established-Japanese-translation preference and Japanese preference; established translations are explicitly identified in glossary metadata rather than inferred from label presence.
+- [x] Missing labels/language and conflicting preferences have explicit resolution or diagnostic rules; no language is guessed from spelling.
+- [x] Canonical glossary/policy changes and SmartDox producer schema, semantic roles, handoff version and implementation ownership are agreed for consumption.
+- [x] Ordinary term, named design pattern and code roles, style configuration and HTML/LaTeX mappings are defined; Phase 91 explanation patterns and Phase 92 knowledge forms remain distinct.
 
-- [ ] A supported versioned Core extension/successor defines typed glossary term/concept bindings, term/pattern roles and label/presentation intent, with compatibility for current Core and localized Documents.
-- [ ] Core-originating English pattern names, bold emphasis and optional color/style roles have an explicit Document/renderer handoff; concrete fonts/colors remain configuration.
+- [x] A supported versioned Core extension/successor defines typed glossary term/concept bindings, term/pattern roles and label/presentation intent, with compatibility for current Core and localized Documents.
+- [x] Core-originating English pattern names, bold emphasis and optional color/style roles have an explicit Document/renderer handoff; concrete fonts/colors remain configuration.
 
-- [ ] The LexiDox grammar/schema explicitly defines source syntax for original-language names, localized labels, preferences, established translations and ordinary-term/pattern semantics, reusing existing fields where applicable.
-- [ ] Grammar documentation, valid/invalid source examples, parser/validator behavior, diagnostics and serialization/metadata contracts have named producer ownership and accepted revisions, coordinated with Phase 92.
+- [x] The LexiDox grammar/schema explicitly defines source syntax for original-language names, localized labels, preferences, established translations and ordinary-term/pattern semantics, reusing existing fields where applicable.
+- [x] Grammar documentation, valid/invalid source examples, parser/validator behavior, diagnostics and serialization/metadata contracts have named producer ownership and accepted revisions, coordinated with Phase 92.
 
-- [ ] The [joint plan](../notes/lexidox-phase92-93-integration.md) and canonical LX-J01–LX-J08 are reconciled with P92-01 in one producer design/spec decision record, with shared grammar/metadata baseline, compatible extension, ownership and revisions.
-- [ ] Exact label/provenance fields and display-role mapping preserve Phase 92 concept/knowledge-form semantics; schema profiles and presentation profiles have distinct documented meanings.
+- [x] The [joint plan](../notes/lexidox-phase92-93-integration.md) and canonical LX-J01–LX-J08 are reconciled with P92-01 in one producer design/spec decision record, with shared grammar/metadata baseline, compatible extension, ownership and revisions.
+- [x] Exact label/provenance fields and display-role mapping preserve Phase 92 concept/knowledge-form semantics; schema profiles and presentation profiles have distinct documented meanings.
+
+
+P93-01 design evidence: [presentation contract](../spec/term-pattern-presentation.md), [producer boundary decision](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21), and [handoff](../spec/lexidox-knowledge-space-handoff.md). Marks record design and owner-contract evidence only; validation, independent review, Step acceptance and later implementation are not claimed.
 
 ## P93-02: Metadata and label resolution
 

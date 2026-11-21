@@ -1,7 +1,7 @@
 # Phase 93 — Glossary Preferred Labels and Term/Pattern Presentation
 
-status=planned
-execution_started=false
+status=in-progress
+execution_started=true
 
 Planned: 2026-11-17
 Development item: DEV-043
@@ -47,16 +47,25 @@ Joint contract alignment precedes shared-boundary implementation. Phase 92 accep
 3. P93-03: Connect semantic styles and output-time profile selection to native HTML and LaTeX/PDF generation, including an HTML reader switch.
 4. P93-04: Accept portable DDD-derived fixtures for all profiles, PDF generation choices, HTML defaults and reader switching; record producer and Cozy versions, usage and downstream adoption evidence.
 
-All checklist items are OPEN. Implementation has not started.
+P93-01 design work is recorded in the checklist; Step acceptance and later implementation remain open.
 
 ## Dependencies and boundaries
 
 Coordinate the required glossary format and public-writing policy changes with SimpleModeling.org and consume actual SmartDox producer delivery. Reuse Phase 92 contracts when relevant; do not make unrelated Phase 92 work a blanket dependency. Named design patterns are distinct from Phase 91 explanation patterns.
 
-Specific colors/fonts, public metadata field names and missing-input behavior remain P93-01 decisions. Existing entries and document-language behavior require an explicit compatibility contract. Color and font choices are renderer projections of semantic roles, not embedded per-occurrence formatting in the manuscript.
+Specific colors/fonts remain configuration; accepted metadata fields and missing-input behavior are specified by P93-01. Existing entries and document-language behavior require an explicit compatibility contract. Color and font choices are renderer projections of semantic roles, not embedded per-occurrence formatting in the manuscript.
 
 ## Completion and DDD adoption
 
 Closure requires all checklist outcomes, actual HTML and LaTeX PDF evidence, relevant producer delivery, Cozy focused/integration validation, independent review and final ordinary Cozy validation. Record the accepted versions and configuration needed by the documentation consumer.
 
 The DDD guide adopts this feature only after Phase 93 completion and usable delivery. Live Core, localized Documents, SmartDox and generated DDD outputs are not changed by registration or by the isolated acceptance fixture. Preserve existing Phase priorities and work. No implementation, commit, publication or deployment is selected by this plan registration.
+
+## Historical P93-01 proposal and dependency evidence — 2026-11-21
+
+Before owner delivery, the presentation contract was a proposal for precedence, diagnostics and producer and Core/Document contracts. The [historical boundary record](../design/lexidox-producer-consumer-boundary.md#historical-p93-01-proposal-and-outstanding-owner-decisions--2026-11-21) recorded the accepted Phase 92 baseline and outstanding SmartDox and SimpleModeling.org decisions. The [current presentation contract](../spec/term-pattern-presentation.md) incorporates the subsequently adopted decisions described below.
+
+
+## P93-01 design adoption — 2026-11-21
+
+The [presentation contract](../spec/term-pattern-presentation.md) and [joint boundary decision](../design/lexidox-producer-consumer-boundary.md#p93-01-adopted-compatible-extension--2026-11-21) adopt the SmartDox producer design/spec at `bed732ff8e7df0339b74d96e2452fa2b103fbae6` and SimpleModeling.org glossary and public-writing rules at `8cc123c887b73393f8ae40db793a0c4d8d0a1e49`. They specify the compatible selector extension and Cozy Core v2 contract while preserving Phase 92 identities. Japanese public output defaults to `japanese`; editor-enabled HTML alternatives and explicitly identified alternative PDF editions follow output acceptance. The producer extension, Core v2, renderer integration, validation, review and closure remain future work.
