@@ -1,0 +1,201 @@
+{
+  "schema": "cozy.document-description.v2",
+  "id": "ddd-order-persistence-guide",
+  "core": {
+    "id": "ddd-order-persistence"
+  },
+  "locale": "ja",
+  "document": {
+    "title": "注文の永続化を担う境界",
+    "sections": [
+      {
+        "id": "persistence",
+        "heading": "保存形式への変換",
+        "coreRefs": {
+          "steps": [
+            "root",
+            "child"
+          ],
+          "claims": [
+            "root-claim",
+            "child-claim"
+          ],
+          "nodes": [
+            "rs",
+            "rt",
+            "cs",
+            "ct"
+          ],
+          "relations": [
+            "rm",
+            "cm"
+          ],
+          "flows": [
+            "rf",
+            "cf"
+          ]
+        },
+        "blocks": [
+          {
+            "id": "persistence-terms",
+            "kind": "paragraph",
+            "inline": [
+              {
+                "text": "更新規則は"
+              },
+              {
+                "termRef": "aggregate",
+                "visibleText": "集約モデル"
+              },
+              {
+                "text": "で扱います。注文は"
+              },
+              {
+                "termRef": "repository",
+                "visibleText": "リポジトリ"
+              },
+              {
+                "text": "を通して取得します。型と保存形式の変換は"
+              },
+              {
+                "termRef": "data-mapper",
+                "visibleText": "データ・マッパー"
+              },
+              {
+                "text": "が担います。一時的な障害には"
+              },
+              {
+                "termRef": "retry",
+                "visibleText": "再試行"
+              },
+              {
+                "text": "を適用します。インターフェース名は"
+              },
+              {
+                "code": "EntityStore"
+              },
+              {
+                "text": "です。"
+              },
+              {
+                "text": " また、"
+              },
+              {
+                "termRef": "data-mapper",
+                "visibleText": "データ・マッパー"
+              },
+              {
+                "text": "を参照してください。"
+              }
+            ],
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          },
+          {
+            "id": "persistence-flow",
+            "kind": "figure",
+            "asset": "images/order-model-execution-ja.png",
+            "caption": "注文処理と保存の境界",
+            "alt": "注文処理の流れ",
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          },
+          {
+            "id": "persistence-contracts",
+            "kind": "table",
+            "caption": "保存の責務",
+            "columns": [
+              {
+                "id": "model",
+                "heading": "モデル"
+              },
+              {
+                "id": "responsibility",
+                "heading": "責務"
+              }
+            ],
+            "rows": [
+              {
+                "id": "order",
+                "cells": [
+                  "Order",
+                  "更新規則"
+                ]
+              },
+              {
+                "id": "store",
+                "cells": [
+                  "EntityStore",
+                  "取得と保存"
+                ]
+              }
+            ],
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          }
+        ],
+        "sections": []
+      }
+    ]
+  },
+  "labels": {
+    "steps": [
+      {
+        "stepRef": "root",
+        "text": "更新規則"
+      },
+      {
+        "stepRef": "child",
+        "text": "保存形式への変換"
+      }
+    ],
+    "nodes": [
+      {
+        "nodeRef": "rs",
+        "text": "業務上の型"
+      },
+      {
+        "nodeRef": "rt",
+        "text": "保存形式"
+      },
+      {
+        "nodeRef": "cs",
+        "text": "注文"
+      },
+      {
+        "nodeRef": "ct",
+        "text": "保存された注文"
+      }
+    ]
+  }
+}

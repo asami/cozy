@@ -1,0 +1,201 @@
+{
+  "schema": "cozy.document-description.v2",
+  "id": "ddd-order-persistence-guide",
+  "core": {
+    "id": "ddd-order-persistence"
+  },
+  "locale": "en",
+  "document": {
+    "title": "Order persistence boundaries",
+    "sections": [
+      {
+        "id": "persistence",
+        "heading": "Persistence mapping",
+        "coreRefs": {
+          "steps": [
+            "root",
+            "child"
+          ],
+          "claims": [
+            "root-claim",
+            "child-claim"
+          ],
+          "nodes": [
+            "rs",
+            "rt",
+            "cs",
+            "ct"
+          ],
+          "relations": [
+            "rm",
+            "cm"
+          ],
+          "flows": [
+            "rf",
+            "cf"
+          ]
+        },
+        "blocks": [
+          {
+            "id": "persistence-terms",
+            "kind": "paragraph",
+            "inline": [
+              {
+                "text": "Use an "
+              },
+              {
+                "termRef": "aggregate",
+                "visibleText": "Aggregate"
+              },
+              {
+                "text": " for update rules. The "
+              },
+              {
+                "termRef": "repository",
+                "visibleText": "Repository"
+              },
+              {
+                "text": " exposes order access. The "
+              },
+              {
+                "termRef": "data-mapper",
+                "visibleText": "Data Mapper"
+              },
+              {
+                "text": " translates between representations. "
+              },
+              {
+                "termRef": "retry",
+                "visibleText": "Retry"
+              },
+              {
+                "text": " applies to transient failures. The interface name "
+              },
+              {
+                "code": "EntityStore"
+              },
+              {
+                "text": " stays the same."
+              },
+              {
+                "text": " The mapping is explicit in the "
+              },
+              {
+                "termRef": "data-mapper",
+                "visibleText": "Data Mapper"
+              },
+              {
+                "text": "."
+              }
+            ],
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          },
+          {
+            "id": "persistence-flow",
+            "kind": "figure",
+            "asset": "images/order-model-execution-en.png",
+            "caption": "Order processing and persistence boundary",
+            "alt": "Order processing flow",
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          },
+          {
+            "id": "persistence-contracts",
+            "kind": "table",
+            "caption": "Persistence responsibilities",
+            "columns": [
+              {
+                "id": "model",
+                "heading": "Model"
+              },
+              {
+                "id": "responsibility",
+                "heading": "Responsibility"
+              }
+            ],
+            "rows": [
+              {
+                "id": "order",
+                "cells": [
+                  "Order",
+                  "Update invariants"
+                ]
+              },
+              {
+                "id": "store",
+                "cells": [
+                  "EntityStore",
+                  "Access and persistence"
+                ]
+              }
+            ],
+            "coreRefs": {
+              "steps": [
+                "child"
+              ],
+              "claims": [
+                "root-claim",
+                "child-claim"
+              ],
+              "nodes": [],
+              "relations": [],
+              "flows": []
+            }
+          }
+        ],
+        "sections": []
+      }
+    ]
+  },
+  "labels": {
+    "steps": [
+      {
+        "stepRef": "root",
+        "text": "Update responsibilities"
+      },
+      {
+        "stepRef": "child",
+        "text": "Persistence mapping"
+      }
+    ],
+    "nodes": [
+      {
+        "nodeRef": "rs",
+        "text": "Domain type"
+      },
+      {
+        "nodeRef": "rt",
+        "text": "Storage format"
+      },
+      {
+        "nodeRef": "cs",
+        "text": "Order"
+      },
+      {
+        "nodeRef": "ct",
+        "text": "Recorded order"
+      }
+    ]
+  }
+}

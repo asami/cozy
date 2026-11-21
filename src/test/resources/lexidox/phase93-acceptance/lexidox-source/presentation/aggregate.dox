@@ -1,0 +1,23 @@
+Aggregate｜集約モデル
+===============
+
+# HEAD
+
+lexidox {
+  version = 1
+  profile = "simplemodeling-v1"
+  space = "software-architecture"
+  term_iri = "https://example.org/term/aggregate"
+  concept_iri = "https://example.org/concept/aggregate"
+  page_iri = "https://example.org/page/aggregate"
+  presentation {
+    version = 1
+    role = "ordinary-term"
+    original = { collection = "titles", language = "en", text = "Aggregate" }
+    canonical = [ { collection = "titles", language = "ja", text = "集約モデル" } ]
+  }
+}
+
+# DEFINITION
+
+An Aggregate groups related business objects whose invariants share an update boundary.

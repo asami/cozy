@@ -1,0 +1,10 @@
+Order persistence terms
+=======================
+
+# HEAD
+
+lexidox { version = 1, space = "software-architecture" }
+
+# BODY
+
+Access an <lexiref term="Aggregate">aggregate</lexiref> through a <lexiref term="Repository">repository</lexiref>. Use a <lexiref term="Data Mapper">mapper</lexiref> and apply <lexiref term="Retry">retry</lexiref> to transient failures.

@@ -1,0 +1,3 @@
+# Order persistence boundaries
+
+Use an Aggregate for update rules. The Repository exposes order access. The Data Mapper translates between representations. Retry applies to transient failures. The interface name `EntityStore` stays the same.

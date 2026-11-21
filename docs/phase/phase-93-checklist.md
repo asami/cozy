@@ -48,6 +48,8 @@ P93-01 design evidence: [presentation contract](../spec/term-pattern-presentatio
 
 - [ ] Space lookup and Term/Concept resolution precede label selection; all profiles retain the resolved page/link target and ambiguity/undefined diagnostics without broader-Space retry or rendered-text lookup.
 
+P93-02 was accepted as a Step at commit `ceb0615ed603a78f730af8883309d92c237ca3e2`: its independent re-review records successful compile and 122 focused tests, including normal build-path catalog resolution. The unchecked lines above remain Phase-level qualifications; Step acceptance alone does not establish every end-to-end condition.
+
 ## P93-03: HTML and LaTeX/PDF presentation
 
 - [ ] Shared semantic roles/configuration drive both HTML and LaTeX/PDF presentation while retaining independent renderer syntax.
@@ -59,6 +61,8 @@ P93-01 design evidence: [presentation contract](../spec/term-pattern-presentatio
 - [ ] Links, text readability and existing unconfigured output behavior meet the accepted contract without per-occurrence manuscript styling.
 
 - [ ] HTML and LaTeX/PDF consume supported Core-originating label/style intent, including English named patterns, bold emphasis and configured color, without manual per-occurrence markup.
+
+P93-03 was accepted as a Step at commit `b549b6a3893bc7cd95a3389258c072f52ca98d95`: its independent review records successful compile and 128 focused tests and verifies the renderer handoff. That review did not independently observe actual PDF output or browser switching; those Phase-level qualifications remain below.
 
 ## P93-04: Integrated acceptance and downstream handoff
 
@@ -72,3 +76,5 @@ P93-01 design evidence: [presentation contract](../spec/term-pattern-presentatio
 - [ ] Reuse Phase 92 source fixtures under the accepted compatible extension and all presentation profiles; verify unchanged classification, knowledge form, definitions, provenance, relations, Space/page identity and canonical RDF/JSON-LD/SKOS knowledge.
 - [ ] Phase/checklist/Strategy closure records agree with actual evidence and the prescribed completion procedure.
 - [ ] The documentation handoff states that live DDD adoption and selected regeneration follow Phase 93 completion; no manuscript or published-output migration is claimed by this Phase.
+
+P93-04 native observations and remaining gates are recorded in the [acceptance journal](../journal/2026/11/2026-11-21-phase-93-native-renderer-acceptance.md). Checkboxes remain open until the current fixture, validation and independent review are accepted.

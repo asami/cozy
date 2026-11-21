@@ -1,0 +1,44 @@
+Retry｜再試行
+=========
+
+# HEAD
+
+aliases { ja = ["リトライ", "再試行パターン"] }
+lexidox {
+  version = 1
+  profile = "simplemodeling-v1"
+  space = "software-architecture"
+  term_iri = "https://example.org/term/retry"
+  concept_iri = "https://example.org/concept/retry"
+  page_iri = "https://example.org/page/retry"
+  concept_type = "process"
+  knowledge_form = "pattern"
+  presentation {
+    version = 1
+    original = { collection = "titles", language = "en", text = "Retry" }
+    canonical = [ { collection = "titles", language = "ja", text = "再試行" } ]
+    established_japanese = { collection = "aliases", language = "ja", text = "リトライ" }
+    preferences = [ { document_language = "en", label = { collection = "aliases", language = "ja", text = "再試行パターン" } } ]
+    role = "named-pattern"
+  }
+}
+
+# DEFINITION
+
+Retry a failed operation after [adjusting delay](https://example.org/backoff).
+
+# CONTEXT
+
+A transient failure may succeed on retry.
+
+# PROBLEM
+
+A single attempt can fail transiently.
+
+# SOLUTION
+
+Repeat the operation under a bounded policy.
+
+# CONSEQUENCES
+
+Retries add load.
