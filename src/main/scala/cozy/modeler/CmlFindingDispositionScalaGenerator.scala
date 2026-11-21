@@ -8,7 +8,8 @@ import CmlFindingDisposition._
 
 /** Projects CML properties; the generated consumer invokes the CNCF V1 decoder.
  * @since   Nov.  5, 2026
- * @version Nov.  9, 2026
+ *  version Nov.  9, 2026
+ * @version Nov. 20, 2026
  */
 private[modeler] object CmlFindingDispositionScalaGenerator {
   def fromModel(model: KaleidoxModel): Either[Vector[Diagnostic], Option[Realm]] = {
@@ -28,6 +29,8 @@ private[modeler] object CmlFindingDispositionScalaGenerator {
               _quote(p.reason), _quote(p.provenance)).mkString(", ") + ")"
           }.mkString(",\n")
           val source = s"""package ${namespace.split("\\.").map(part => "`" + part + "`").mkString(".")}
+            |
+            |import scala.language.strictEquality
             |
             |import org.goldenport.Consequence
             |import org.goldenport.cncf.finding.{FindingDispositionRepresentation, FindingDispositionV1}

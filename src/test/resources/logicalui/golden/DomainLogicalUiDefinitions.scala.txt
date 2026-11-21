@@ -1,5 +1,7 @@
 package domain.logicalui
 
+import scala.language.strictEquality
+
 import org.goldenport.cncf.display.GeneratedLogicalUiAbi
 
 object DomainLogicalUiDefinitions {

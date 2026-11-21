@@ -91,6 +91,8 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         Files.readString(normalabi) should include("final case class Failed(failure: StateMachineOperationFailure) extends ActionExecution")
         val expectedbootstrap = """package domain.statemachine.workflow
           |
+          |import scala.language.strictEquality
+          |
           |object StateMachineWorkflowComponentFactoryBootstrap {
           |  val schemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v1"
           |  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = Vector(OrderProgressStateMachineWorkflow1.componentFactoryMetadata)

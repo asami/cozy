@@ -7,7 +7,8 @@ import ValidationMetadataCml._
 
 /*
  * @since   Oct. 18, 2026
- * @version Oct. 18, 2026
+ *  version Oct. 18, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the normalized CNCF source ABI into the consumer's executable Test artifact. */
@@ -51,6 +52,8 @@ private[modeler] object ValidationMetadataScalaGenerator {
   private def _source(declaration: SourceDeclaration): String = {
     val provider = declaration.provider
     s"""package ${provider.packageName}
+       |
+       |import scala.language.strictEquality
        |
        |import org.goldenport.cncf.validation.{ValidationCmlMappingV1, ValidationDeclarationProvider, ValidationMetadataV1}
        |import org.goldenport.cncf.workflow.WorkflowProtocolV1

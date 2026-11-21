@@ -5,7 +5,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep. 17, 2026
- * @version Oct.  3, 2026
+ *  version Oct.  3, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the additive StateMachine/Workflow schema and direct bootstrap metadata. */
@@ -122,6 +123,8 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     val outcomefield = if (outcomebearing) ", semanticOutcomes: Vector[SemanticOutcomeDeclaration] = Vector.empty" else ""
     s"""package domain.statemachine.workflow
        |
+       |import scala.language.strictEquality
+       |
        |object StateMachineWorkflowAbi {
        |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing, outcomebearing))}
        |
@@ -182,6 +185,8 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     val metadata = _vector(references)
     s"""package domain.statemachine.workflow
        |
+       |import scala.language.strictEquality
+       |
        |object StateMachineWorkflowComponentFactoryBootstrap {
        |  val schemaVersion: String = ${_quote(if (outcomebearing) semanticOutcomeBootstrapSchemaVersion else if (safetybearing) executionSafetyBootstrapSchemaVersion else if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = $metadata
@@ -198,6 +203,8 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     outcomebearing: Boolean
   ): String =
     s"""package domain.statemachine.workflow
+       |
+       |import scala.language.strictEquality
        |
        |object $objectname {
        |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing, safetybearing, outcomebearing)}

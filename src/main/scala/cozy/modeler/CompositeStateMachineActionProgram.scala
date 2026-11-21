@@ -5,7 +5,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep.  8, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the additive logical-action-to-UnitOfWork producer ABI from normalized Composite StateMachine definitions. */
@@ -48,11 +49,13 @@ private[modeler] object CompositeStateMachineActionProgram {
   private def _abi_source: String =
     s"""package domain.composite.statemachine.actionprogram
        |
+       |import scala.language.strictEquality
+       |
        |object CompositeStateMachineActionProgramAbi {
        |  val VERSION: String = ${_quote(schemaVersion)}
        |
        |  final case class SourceIdentity(line: Option[Int])
-       |  final case class Operation(service: String, name: String, inputType: Option[String])
+       |  final case class Operation(service: String, name: String, inputType: Option[String]) derives CanEqual
        |  final case class Idempotency(required: Boolean, keyRef: Option[String])
        |  final case class ActionMetadata(effectClass: String, transactionRequirement: String, idempotency: Idempotency, compensationHandlerRef: Option[String])
        |  final case class LogicalActionDescriptor(actionId: String, kind: String, operation: Operation, inputBinding: Option[String], actionSource: SourceIdentity, metadata: Option[ActionMetadata])
@@ -64,6 +67,8 @@ private[modeler] object CompositeStateMachineActionProgram {
 
   private def _compiler_source: String =
     """package domain.composite.statemachine.actionprogram
+       |
+       |import scala.language.strictEquality
        |
        |import cats.free.Free
        |
@@ -179,6 +184,8 @@ private[modeler] object CompositeStateMachineActionProgram {
     }
     s"""package domain.composite.statemachine.actionprogram
        |
+       |import scala.language.strictEquality
+       |
        |object CompositeStateMachineActionProgramBootstrap {
        |  val schemaVersion: String = ${_quote(schemaVersion)}
        |  val definitions: Vector[CompositeStateMachineActionProgramAbi.Definition] = $definitionvector
@@ -191,6 +198,8 @@ private[modeler] object CompositeStateMachineActionProgram {
     objectname: String
   ): String =
     s"""package domain.composite.statemachine.actionprogram
+       |
+       |import scala.language.strictEquality
        |
        |object $objectname {
        |  val definition: CompositeStateMachineActionProgramAbi.Definition = ${_definition(definition)}

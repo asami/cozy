@@ -645,3 +645,39 @@ EOF evidence is reused. Repository-full SBT and broader integration remain
 **deferred-not-run to PHASE-71.7**. This documentation editor ran no tests,
 self-review, source edit, Git mutation or workflow transition. No Step, Phase
 or all-removal acceptance is claimed.
+
+## Development publication bindings (sbt-bridge v2)
+
+The development-only selected-generator interface is specified in
+[development-artifact-generation.md](development-artifact-generation.md).
+Its explicit selected publication, base version, scope and completed-batch
+binding does not change ordinary or release version matching. Cozy compares its
+actual BuildInfo and the backend artifact's own manifest version with the
+selected base versions; it does not remove development suffixes. The SBT
+resolution record and the child JVM's actual loaded origins are distinct facts.
+The separately owned sbt-cozy adapter must isolate the Scala 2.12 generator
+closure from the Scala 3/CNCF consumer graph and qualify real selected execution.
+
+## Development bridge v3 compatibility boundary
+
+The explicit v3 request, result, batch and control schemas are specified in
+[development-artifact-generation.md](development-artifact-generation.md).
+The v1 and v2 contracts and ordinary generation remain unchanged. V3 retains
+real module identities separately from artifact keys and the ordered runtime
+classpath. A completed private batch supplies exact alias/base bindings and
+complete published artifact sets; an individual consumer may select only the
+runtime subset. Cozy rejects a foreign or incomplete batch, conflicting version,
+missing artifact, mismatched loaded origin or backend, or unsupported target
+without falling back to an ordinary artifact. Existing generation compatibility,
+source, component, CNCF descriptor and CAR/SAR rules remain applicable.
+
+The same successful SBT generator update is authoritative for the supplied
+public report projection. Its owning producer retains that value in memory and
+reconciles the real child result; serialized input alone is not proof of the
+update. Cozy reports the input separately from actual JVM, resource, CodeSource,
+BuildInfo, backend version and generated inventory observations. Profile traces
+and effective POM export may be unavailable and are not a new compatibility
+gate; v3 does not add a second resolver. The original adapter's five ordered
+conditions and the original nine shared conditions, including real compiler,
+isolation, lifecycle and delivery qualification, continue independently of this
+supplier contract.

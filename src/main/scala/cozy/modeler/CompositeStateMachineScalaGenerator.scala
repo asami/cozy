@@ -5,7 +5,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the standalone, versioned Scala ABI for normalized Composite StateMachine definitions. */
@@ -25,6 +26,8 @@ private[modeler] object CompositeStateMachineScalaGenerator {
 
   private def _abi_source: String =
     s"""package domain.composite.statemachine
+       |
+       |import scala.language.strictEquality
        |
        |object CompositeStateMachineAbi {
        |  val VERSION: String = ${_quote(CompositeStateMachineDefinition.ABI_VERSION)}
@@ -56,6 +59,8 @@ private[modeler] object CompositeStateMachineScalaGenerator {
     }
     s"""package domain.composite.statemachine
        |
+       |import scala.language.strictEquality
+       |
        |object CompositeStateMachineBootstrap {
        |  val bootstrapAbiVersion: String = ${_quote(CompositeStateMachineDefinition.bootstrapAbiVersion)}
        |  val definitions: Vector[CompositeStateMachineAbi.Definition] = $definitionvector
@@ -68,6 +73,8 @@ private[modeler] object CompositeStateMachineScalaGenerator {
     objectname: String
   ): String =
     s"""package domain.composite.statemachine
+       |
+       |import scala.language.strictEquality
        |
        |object $objectname {
        |  val definition: CompositeStateMachineAbi.Definition = ${_definition(definition)}

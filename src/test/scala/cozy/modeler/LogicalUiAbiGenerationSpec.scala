@@ -19,7 +19,7 @@ import LogicalUiProducer.DiagnosticCode._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+  * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 class LogicalUiAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -322,7 +322,7 @@ class LogicalUiAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhe
             text should endWith("\n")
             text should not include "\r"
             text.split("\n", -1).toVector.filter(_.startsWith("import ")) shouldBe
-              Vector("import org.goldenport.cncf.display.GeneratedLogicalUiAbi")
+              Vector("import scala.language.strictEquality", "import org.goldenport.cncf.display.GeneratedLogicalUiAbi")
             Vector("cozy.ui", "cozy.modeler", "Flutter", "TFAF", "http://", "https://", "generated-time").foreach { dependency =>
               text should not include dependency
             }

@@ -6,7 +6,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep. 22, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -265,6 +266,8 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
   private def _abi_source: String =
     s"""package domain.statemachine.candidateadmission
        |
+       |import scala.language.strictEquality
+       |
        |object CandidateAdmissionProducerAbi {
        |  val VERSION: String = ${_quote(schemaVersion)}
        |  val GENERATOR: String = ${_quote(generatorIdentity)}
@@ -290,6 +293,8 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
     })
     s"""package domain.statemachine.candidateadmission
        |
+       |import scala.language.strictEquality
+       |
        |object CandidateAdmissionProducerComponentFactoryBootstrap {
        |  val schemaVersion: String = ${_quote(bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[CandidateAdmissionProducerAbi.ComponentFactoryMetadata] = $metadata
@@ -299,6 +304,8 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
 
   private def _model_source(value: ProducerModel, objectname: String): String =
     s"""package domain.statemachine.candidateadmission
+       |
+       |import scala.language.strictEquality
        |
        |object $objectname {
        |  val producer: CandidateAdmissionProducerAbi.ProducerDescriptor = ${_producer_descriptor(value)}

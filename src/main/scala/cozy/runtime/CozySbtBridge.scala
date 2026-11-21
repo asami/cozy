@@ -22,7 +22,8 @@ import java.nio.file.{Files, Path, Paths}
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
  *  version Sep. 28, 2026
- * @version Oct.  9, 2026
+ *  version Oct.  9, 2026
+ * @version Nov. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -32,6 +33,10 @@ private[cozy] object CozySbtBridge {
     args match {
       case "v1" :: rest =>
         _execute_v1(rest)
+      case "v2" :: rest =>
+        CozyDevelopmentGeneration.execute(_required_path(rest, "request"))
+      case "v3" :: rest =>
+        CozyDevelopmentGeneration.executeV3(_required_path(rest, "request"))
       case _ =>
         RAISE.invalidArgumentFault("Missing sbt-bridge version. Expected: sbt-bridge v1 --request <file>")
     }
@@ -82,6 +87,9 @@ private[cozy] object CozySbtBridge {
         RAISE.invalidArgumentFault(s"Unsupported sbt-bridge v1 action: $other")
     }
   }
+
+  private[cozy] def runDevelopmentGeneration(args: Vector[String], settings: Map[String, String]): Unit =
+    _run_generation(args, settings)
 
   private def _run_generation(args: Vector[String], settings: Map[String, String]): Unit =
     args.toList match {

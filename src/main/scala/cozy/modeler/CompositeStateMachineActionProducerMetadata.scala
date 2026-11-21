@@ -5,7 +5,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep.  8, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Nov. 20, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the additive, versioned producer metadata surface for normalized Composite StateMachine Actions. */
@@ -41,6 +42,8 @@ private[modeler] object CompositeStateMachineActionProducerMetadata {
   private def _abi_source: String =
     s"""package domain.composite.statemachine.actionproducer
        |
+       |import scala.language.strictEquality
+       |
        |object CompositeStateMachineActionProducerMetadataAbi {
        |  val VERSION: String = ${_quote(schemaVersion)}
        |
@@ -61,6 +64,8 @@ private[modeler] object CompositeStateMachineActionProducerMetadata {
     }
     s"""package domain.composite.statemachine.actionproducer
        |
+       |import scala.language.strictEquality
+       |
        |object CompositeStateMachineActionProducerMetadataBootstrap {
        |  val schemaVersion: String = ${_quote(schemaVersion)}
        |  val metadata: Vector[CompositeStateMachineActionProducerMetadataAbi.ActionMetadata] = $metadatavector
@@ -74,6 +79,8 @@ private[modeler] object CompositeStateMachineActionProducerMetadata {
     objectname: String
   ): String =
     s"""package domain.composite.statemachine.actionproducer
+       |
+       |import scala.language.strictEquality
        |
        |object $objectname {
        |  val metadata: Vector[CompositeStateMachineActionProducerMetadataAbi.ActionMetadata] = ${_vector(actions.map(_action_metadata_source(definition, _)))}

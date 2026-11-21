@@ -119,7 +119,12 @@ final class WorkflowLifecycleAbiGenerationSpec extends AnyWordSpec with Matchers
         }
 
         Then("all four outputs retain the independently recorded bytes across routes and repetitions")
-        products.foreach(_ shouldBe expected)
+        products.foreach { product =>
+          product.foreach { case (path, bytes) =>
+            val projected = if (path.endsWith(".scala")) _without_strict_import(bytes.toArray).toVector else bytes
+            projected shouldBe expected(path)
+          }
+        }
         products.distinct.size shouldBe 1
       }
     }
@@ -250,7 +255,7 @@ final class WorkflowLifecycleAbiGenerationSpec extends AnyWordSpec with Matchers
         }
         val references = names.zipWithIndex.map { case (name, index) => s"${name}StateMachineWorkflow${index + 1}.componentFactoryMetadata" }
         _realm_string(first, _bootstrap_path) shouldBe
-          "package domain.statemachine.workflow\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v3\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = " + references.mkString("Vector(", ", ", ")") + "\n}\n"
+          "package domain.statemachine.workflow\n\nimport scala.language.strictEquality\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v3\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = " + references.mkString("Vector(", ", ", ")") + "\n}\n"
         (records.head \ "invocationPolicies").as[Vector[JsValue]] shouldBe Vector.empty
         (records.head \ "lifecyclePolicy").get shouldBe JsNull
         (records.head \ "waits").as[Vector[JsValue]] shouldBe Vector.empty
@@ -299,7 +304,7 @@ final class WorkflowLifecycleAbiGenerationSpec extends AnyWordSpec with Matchers
         Then("empty input retains the exact v1 sidecar, bootstrap and legacy shared ABI")
         json shouldBe "{\"schemaVersion\":\"cozy.cml.statemachine-workflow-abi.v1\",\"workflows\":[]}"
         _realm_string(realm, _abi_path) shouldBe _realm_string(legacyrealm, _abi_path)
-        _realm_string(realm, _bootstrap_path) shouldBe "package domain.statemachine.workflow\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v1\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = Vector.empty\n}\n"
+        _realm_string(realm, _bootstrap_path) shouldBe "package domain.statemachine.workflow\n\nimport scala.language.strictEquality\n\nobject StateMachineWorkflowComponentFactoryBootstrap {\n  val schemaVersion: String = \"cozy.cml.statemachine-workflow-bootstrap.v1\"\n  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = Vector.empty\n}\n"
         StateMachineWorkflowAbiGenerator.schemaVersion shouldBe "cozy.cml.statemachine-workflow-abi.v1"
         StateMachineWorkflowAbiGenerator.bootstrapSchemaVersion shouldBe "cozy.cml.statemachine-workflow-bootstrap.v1"
         StateMachineWorkflowAbiGenerator.lifecycleSchemaVersion shouldBe "cozy.cml.statemachine-workflow-abi.v3"
@@ -433,4 +438,13 @@ final class WorkflowLifecycleAbiGenerationSpec extends AnyWordSpec with Matchers
     |  val actualCancellationData: Option[String] = edge.lifecyclePolicy.flatMap(_.cancellation).map(cancellationData)
     |}
     |""".stripMargin
+  // Preserve the archived bytes/hash while checking exactly one newly emitted import.
+  private def _without_strict_import(bytes: Array[Byte]): Array[Byte] = {
+    val text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+    val line = "import scala.language.strictEquality\n\n"
+    val index = text.indexOf(line)
+    require(index >= 0 && index == text.lastIndexOf(line), "Expected exactly one strictEquality import")
+    (text.take(index) + text.drop(index + line.length)).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+  }
+
 }
