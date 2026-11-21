@@ -33,6 +33,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   final case class Labels(steps: Vector[StepLabel], nodes: Vector[NodeLabel])
   sealed trait Inline
   final case class InlineText(text: String) extends Inline
+  final case class InlineCode(text: String) extends Inline
   final case class InlineTerm(binding: CozyDocumentPatternCodec.TermBinding, visibleText: String) extends Inline
   final case class ListItem(id: String, text: String, coreRefs: References, inline: Vector[Inline] = Vector.empty)
   sealed trait Block { def id: String }
@@ -443,6 +444,8 @@ private[cozy] object CozyDocumentDescriptionV2 {
             val text = _string(obj, "text", itempath)
             if (text.isEmpty) _fail("DESCRIPTION_V2_WORDING", s"$itempath.text", "must be nonempty")
             InlineText(text): Inline
+          } else if (obj.keys.toSet == Set("code")) {
+            InlineCode(_text(_string(obj, "code", itempath), s"$itempath.code")): Inline
           } else {
             _exact_fields(obj, Set("termRef", "visibleText"), itempath)
             val id = _id(_string(obj, "termRef", itempath), s"$itempath.termRef")
@@ -452,7 +455,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
           }
         }
         if (values.isEmpty) _fail("DESCRIPTION_V2_WORDING", s"$path.inline", "must contain at least one inline item")
-        val text = values.map { case InlineText(value) => value; case InlineTerm(_, visible) => visible }.mkString
+        val text = values.map { case InlineText(value) => value; case InlineCode(value) => value; case InlineTerm(_, visible) => visible }.mkString
         (_text(text, s"$path.inline"), values)
     }
   }

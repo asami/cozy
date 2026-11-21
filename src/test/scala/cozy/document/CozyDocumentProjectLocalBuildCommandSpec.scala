@@ -30,6 +30,71 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
   import CozyDocumentProjectLocalBuildCommandSpec.Fixture
 
   "Cozy Document Project local-build command" should {
+    "render a typed locale through the public build command and retain legacy output" in {
+      _with_temp_dir("cozy-term-presentation-cli") { root =>
+        Given("a localized recursive Core, real producer catalog, and an independent manuscript")
+        val fixture = _fixture(root)
+        val core = """{
+          "schema":"cozy.content-core.logic-tree.v2",
+          "core":{"schema":"cozy.content-core.logic-tree.v1","id":"sample","root":{
+            "id":"root","semanticRole":"explanation","claims":["root-claim"],
+            "structure":{"pattern":"mapping","nodes":[{"id":"rs","role":"source"},{"id":"rt","role":"target"}],"relations":[{"id":"rm","relationType":"maps-to","from":"rs","to":"rt"}]},
+            "flow":{"id":"rf","transitions":[]},"steps":[{"id":"child","semanticRole":"explanation","claims":["child-claim"],
+              "structure":{"pattern":"mapping","nodes":[{"id":"cs","role":"source"},{"id":"ct","role":"target"}],"relations":[{"id":"cm","relationType":"maps-to","from":"cs","to":"ct"}]},
+              "flow":{"id":"cf","transitions":[]},"steps":[]}]}},
+          "catalog":{"id":"cozy.document-section-patterns","version":1},
+          "documentPattern":{"pattern":"background-first","roles":[{"id":"dr","role":"lead","step":"child"},{"id":"di","role":"introduction","step":"child"},{"id":"dd","role":"definition","step":"child"},{"id":"dc","role":"composition","step":"child"},{"id":"du","role":"usage","step":"child"},{"id":"dz","role":"conclusion","step":"child"}]},
+          "sections":[{"step":"root","pattern":"definition","question":"qr","answer":"root-claim","roles":[{"id":"ra","role":"definition","target":{"kind":"claim","id":"root-claim"}},{"id":"rr","role":"properties","target":{"kind":"child","id":"child","explainsClaim":"root-claim"}}],"inheritedContext":[]},
+            {"step":"child","pattern":"mechanism","question":"qc","answer":"child-claim","roles":[{"id":"cr","role":"principle","target":{"kind":"claim","id":"child-claim"}},{"id":"co","role":"operation","target":{"kind":"claim","id":"child-claim"}},{"id":"ce","role":"result-condition","target":{"kind":"claim","id":"child-claim"}}],"inheritedContext":[]}],
+          "terminology":{"version":1,"bindings":[{"id":"retry","claimRef":"root-claim","space":"software-architecture","term":"https://example.org/term/retry","concept":"https://example.org/concept/retry","page":"https://example.org/page/retry","role":"named-pattern","emphasis":"bold","styleRole":"pattern"}]}}
+        """
+        val document = """{"schema":"cozy.document-description.v2","id":"doc","core":{"id":"sample"},"locale":"ja",
+          "document":{"title":"用語付き文書","sections":[{"id":"chapter","heading":"説明",
+            "coreRefs":{"steps":["root","child"],"claims":["root-claim","child-claim"],"nodes":["rs","rt","cs","ct"],"relations":["rm","cm"],"flows":["rf","cf"]},
+            "blocks":[{"id":"paragraph","kind":"paragraph","inline":[{"text":"参照: "},{"termRef":"retry","visibleText":"Retry"},{"text":" code: "},{"code":"RetryCode"}],
+              "coreRefs":{"steps":["child"],"claims":["root-claim","child-claim"],"nodes":[],"relations":[],"flows":[]}}],"sections":[]}]},
+          "labels":{"steps":[{"stepRef":"root","text":"Root"},{"stepRef":"child","text":"Child"}],"nodes":[{"nodeRef":"rs","text":"RS"},{"nodeRef":"rt","text":"RT"},{"nodeRef":"cs","text":"CS"},{"nodeRef":"ct","text":"CT"}]}}"""
+        _write(fixture.core, core)
+        _write(fixture.document, document)
+        val site = root.resolve("site")
+        val metadata = Files.createDirectories(site.resolve("metadata/lexidox"))
+        Files.copy(_resource("/lexidox/phase93-producer-knowledge-v1.json"), metadata.resolve("knowledge-v1.json"))
+        _write(metadata.resolve("knowledge-v1.ttl"), "# fixture")
+        _write(metadata.resolve("knowledge-v1.jsonld"), "{}")
+        val config = _write(fixture.project.resolve("build/terms.yaml"), """profile: japanese
+          |htmlSwitch: true
+          |named:
+          |  symbol: pattern
+          |  font: sans-serif
+          |  color: '#23456a'
+          |""".stripMargin)
+        val command = List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html")
+        When("the normal build entry point opts into Japanese presentation")
+        _execute(command ++ List("--locale", "ja", "--lexidox-root", site.toString, "--term-presentation", "build/terms.yaml"))
+        val html = _html(fixture.project, "smartdox-article-html")
+        Then("the selected label, switch choices, identity, code and style are present")
+        html should include ("data-smartdox-term-control")
+        html should include ("data-label-original=\"Retry\"")
+        html should include ("data-label-established-japanese=\"リトライ\"")
+        html should include ("data-label-japanese=\"再試行\"")
+        html should include (">再試行</a>")
+        html should include ("RetryCode")
+        html should include ("<code")
+        html should include ("font-weight:bold")
+        html should include ("data-term-id=\"https://example.org/term/retry\"")
+        When("the same entry point builds without the opt-in")
+        _execute(command ++ List("--force"))
+        val legacy = _html(fixture.project, "smartdox-article-html")
+        Then("the manuscript is used and no term switch is installed")
+        legacy should include ("The direct article source.")
+        legacy should not include ("data-smartdox-term-control")
+        When("the configured profile is invalid")
+        _write(config, "profile: invalid\n")
+        Then("the public entry point rejects the configuration")
+        _failure(command ++ List("--locale", "ja", "--lexidox-root", site.toString, "--term-presentation", "build/terms.yaml")) should include ("unknown presentation profile")
+      }
+    }
+
     "scope child temporary and cache settings to the external run" in {
       _with_temp_dir("cozy-document-project-child-environment") { root =>
         Given("an admitted external run and its scoped media runner")

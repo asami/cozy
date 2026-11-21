@@ -56,12 +56,20 @@ private[cozy] object CozyDocumentProjectSmartDoxArticleHtml extends HtmlTransfor
 
   def render(prepared: Prepared, locale: Option[String] = None): Result = {
     val document = _localized(prepared.document, prepared.sourcePath, locale)
+    _render_document(prepared.sourcePath, document, prepared.assets, locale, None)
+  }
+
+  def renderTyped(source: Path, input: CozyDocumentTermPresentation.RenderInput, assets: CozyDocumentFigureAssets.Materialized, locale: String): Result =
+    _render_document(source, input.document, assets, Some(locale), Some(input.options))
+
+  private def _render_document(sourcepath: Path, document: Dox, assets: CozyDocumentFigureAssets.Materialized,
+    locale: Option[String], options: Option[org.smartdox.semanticweb.TermPresentation.Options]): Result = {
     val references = _image_references(document).flatMap { uri =>
       val relative = _relative_reference(uri)
       Vector(uri.toString -> relative, uri.toASCIIString -> relative)
     }.toMap
     val context = locale.map(value => SmartDoxContext.create().withTargetI18NContext(java.util.Locale.forLanguageTag(value))).getOrElse(SmartDoxContext.create())
-    val dom = new Dox2DomHtmlTransformer(context, _rule.toDox2DomHtmlTransformerRule)
+    val dom = new Dox2DomHtmlTransformer(context, _rule.copy(termPresentation = options).toDox2DomHtmlTransformerRule)
       .transformG(document).take
 
     def _attach_(node: Node): Unit = {
@@ -70,7 +78,7 @@ private[cozy] object CozyDocumentProjectSmartDoxArticleHtml extends HtmlTransfor
           val source = image.getAttribute("src")
           val relative = references.getOrElse(source, throw CozyDocumentFigureAssets.FigureAssetFault(
             "FIGURE_ASSET_PATH", source, "native image has no admitted article reference"))
-          image.setAttribute("src", prepared.assets.dataUri(relative))
+          image.setAttribute("src", assets.dataUri(relative))
         case _ => ()
       }
       val children = node.getChildNodes
@@ -78,7 +86,7 @@ private[cozy] object CozyDocumentProjectSmartDoxArticleHtml extends HtmlTransfor
     }
 
     _attach_(dom)
-    Result(_renderer_identity, prepared.sourcePath, to_html(dom), prepared.assets.sourcePaths)
+    Result(_renderer_identity, sourcepath, to_html(dom), assets.sourcePaths)
   }
 
   private def _localized(document: Dox, source: Path, locale: Option[String]): Dox = {

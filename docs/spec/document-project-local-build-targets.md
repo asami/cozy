@@ -7,7 +7,7 @@ This is the normative P600 specification for the implemented Document Project lo
 The public grammar is exactly:
 
 ```text
-cozy document-project build <project> [--target <target-id>] [--force] [--lexidox-root <producer-site-output>]
+cozy document-project build <project> [--target <target-id>] [--force] [--lexidox-root <producer-site-output>] [--locale ja|en] [--term-presentation <project-relative-yaml>]
 ```
 
 `<project>` MUST name an existing direct, non-symlink `.dox` package. This operation MUST admit that package without a descriptor: it MUST NOT load or require `document-project.yaml`.
@@ -113,3 +113,5 @@ Rendering MUST complete before output writing. A renderer failure therefore leav
 The closed `cozy.document-project.v2` descriptor schema and the document-production workflow matrix remain unchanged. The existing `document-project review --kind article` command and its article-review receipt behavior remain unchanged, as does the existing `document-confirmation` command.
 
 This specification adds no receipt or hash management, publication, deployment, external project work, or Phase 60.1 work. It does not make a local target a site build, source mutation, acceptance record, or publication operation.
+
+Term presentation is an explicit option for `smartdox-article-html` and locale-matched `article-pdf` builds. It requires `--locale` and `--lexidox-root`; the project-relative configuration and renderer settings are described in the [presentation contract](term-pattern-presentation.md#renderer-integration-in-progress). The opt-in source is the admitted localized Document and its Core rather than inferred occurrences in manuscript text.

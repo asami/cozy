@@ -411,6 +411,10 @@ private[cozy] object CozyMedia {
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String =
     _build(config, runner, None, CozyVideo.VideoProcessRunner.default, CozyVideo.VideoToolRegistry.default)
 
+  private[cozy] def buildTermPresentation(config: CommandConfig, runner: ProcessRunner,
+    input: cozy.document.CozyDocumentTermPresentation.RenderInput, settings: cozy.document.CozyDocumentTermPresentation.PdfSettings): String =
+    _build(config, runner, None, CozyVideo.VideoProcessRunner.default, CozyVideo.VideoToolRegistry.default, Some(input -> settings))
+
   private[cozy] def buildWithVideoRunner(config: CommandConfig, runner: CozyVideo.VideoProcessRunner,
     toolRegistry: CozyVideo.VideoToolRegistry = CozyVideo.VideoToolRegistry.default): String =
     _build(config, ProcessRunner.default, None, runner, toolRegistry)
@@ -419,7 +423,7 @@ private[cozy] object CozyMedia {
     _build(config, runner, Some(pageSetInput), CozyVideo.VideoProcessRunner.default, CozyVideo.VideoToolRegistry.default)
 
   private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path], videorunner: CozyVideo.VideoProcessRunner,
-    toolregistry: CozyVideo.VideoToolRegistry): String = {
+    toolregistry: CozyVideo.VideoToolRegistry, termpresentation: Option[(cozy.document.CozyDocumentTermPresentation.RenderInput, cozy.document.CozyDocumentTermPresentation.PdfSettings)] = None): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
@@ -444,7 +448,8 @@ private[cozy] object CozyMedia {
           runner,
           if (resolved.resource.build == "summary-slides-pdf") pagesetinput else None,
           videorunner,
-          toolregistry
+          toolregistry,
+          termpresentation
         )
       }
     }
@@ -861,7 +866,8 @@ private[cozy] object CozyMedia {
 
   private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner, pagesetinput: Option[Path] = None,
     videorunner: CozyVideo.VideoProcessRunner = CozyVideo.VideoProcessRunner.default,
-    toolregistry: CozyVideo.VideoToolRegistry = CozyVideo.VideoToolRegistry.default): String =
+    toolregistry: CozyVideo.VideoToolRegistry = CozyVideo.VideoToolRegistry.default,
+    termpresentation: Option[(cozy.document.CozyDocumentTermPresentation.RenderInput, cozy.document.CozyDocumentTermPresentation.PdfSettings)] = None): String =
     resolved.action match {
       case Action.MissingSource =>
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
@@ -889,7 +895,7 @@ private[cozy] object CozyMedia {
           case "presentation" =>
             return CozyMediaPresentation.build(plan, resolved, runner)
           case "article-pdf" =>
-            return CozyMediaPdf.build(plan, resolved, runner)
+            return CozyMediaPdf.build(plan, resolved, runner, termpresentation)
           case "summary-slides-pdf" =>
             return CozyMediaSummarySlidesPdf.build(plan, resolved, pagesetinput.getOrElse(source), runner)
           case other =>

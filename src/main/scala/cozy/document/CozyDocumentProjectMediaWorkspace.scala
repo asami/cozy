@@ -8,10 +8,10 @@ import scala.util.control.NonFatal
 
 /** Materializes the selected native media inputs into an owned external run. */
 private[cozy] object CozyDocumentProjectMediaWorkspace {
-  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None): String =
-    buildCandidate(project, workspace, target, locale, processRunner).report
+  def build(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None, termPresentation: Option[String] = None, lexidoxRoot: Option[Path] = None): String =
+    buildCandidate(project, workspace, target, locale, processRunner, termPresentation = termPresentation, lexidoxRoot = lexidoxRoot).report
 
-  def buildCandidate(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None, validateOnly: Boolean = false): CozyDocumentProjectPackage.Candidate = {
+  def buildCandidate(project: Path, workspace: CozyDocumentProjectWorkRoot.Run, target: String, locale: String, processRunner: Option[CozyMedia.ProcessRunner] = None, validateOnly: Boolean = false, termPresentation: Option[String] = None, lexidoxRoot: Option[Path] = None): CozyDocumentProjectPackage.Candidate = {
     if (!Set("ja", "en").contains(locale))
       _failure("media build requires --locale ja or en")
     val mediafile = project.resolve("media.yaml")
@@ -30,6 +30,20 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
     val articleid = summary.map(_.get[String]("articlePdf").toOption.getOrElse(_failure("summary article PDF is missing")))
       .orElse(if (kind == "article-pdf") Some(id) else None)
     val article = articleid.map(_resource_)
+    if (termPresentation.nonEmpty && (kind != "article-pdf" || lexidoxRoot.isEmpty))
+      _failure("term presentation requires an article-pdf target and --lexidox-root")
+    val typed = termPresentation.map { relative =>
+      val configuration = CozyDocumentTermPresentation.load(project, relative)
+      val core = CozyDocumentProject._direct_file(project, "content/core.yaml", "term presentation core")
+      val doc = CozyDocumentProject._direct_file(project, s"content/$locale/document.yaml", "term presentation document")
+      val vocabularypath = CozyDocumentProject._direct_file(project, s"content/$locale/confirmation-vocabulary.yaml", "term presentation vocabulary")
+      val document = CozyDocumentProjectLocalBuildCommand.resolveDocument(CozyDocumentDescriptionV2.loadDocument(core, doc), lexidoxRoot)
+      val vocabulary = CozyDocumentConfirmationVocabulary.loadDocument(vocabularypath, locale)
+      val settingspath = CozyDocumentProject._direct_file(project, relative, "term presentation configuration")
+      (CozyDocumentTermPresentation.assemble(document, configuration, vocabulary), configuration.pdf,
+        CozyDocumentFigureAssets.materialize(project, document).sourcePaths, Vector(core, doc, vocabularypath, settingspath),
+        lexidoxRoot.toVector.flatMap(CozyDocumentProjectLocalBuildCommand._producer_inputs))
+    }
     val infographicid = summary.map(_.get[String]("infographic").toOption.getOrElse(_failure("summary infographic is missing")))
       .orElse(article.flatMap(_.hcursor.downField("articlePdf").get[String]("infographic").toOption))
       .orElse(if (kind == "svg-to-png") Some(id) else None)
@@ -90,7 +104,7 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
         _failure(s"article image requires a resolvable project-relative input: $value")
       _direct_input(project, project.relativize(value).toString)
     }
-    val inputpaths = (sources.map(value => _direct_input(project, value)) ++ articlefiles).distinct
+    val inputpaths = (sources.map(value => _direct_input(project, value)) ++ articlefiles ++ typed.toVector.flatMap(value => value._3 ++ value._4)).distinct
     inputpaths.foreach { value =>
       if (generatedpaths.contains(value)) _failure(s"media source is also a declared generated output: $value")
       if (value.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".svg")) _validate_svg(value)
@@ -137,10 +151,29 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
       val name = root.relativize(destination).toString.replace('\\', '/')
       input.mapObject(_.add("path", Json.fromString(name)))
     }
+    val typedinputs = typed.toVector.flatMap { value =>
+      val local = (value._4 ++ value._3).distinct.zipWithIndex.map { case (source, index) =>
+        val relative = root.relativize(root.resolve(project.relativize(source))).toString.replace('\\', '/')
+        (s"term-presentation-local-$index", "term-presentation-input", relative)
+      }
+      val catalog = value._5.zipWithIndex.map { case (source, index) =>
+        val destination = workspace.root.resolve("presentation-inputs").resolve(index.toString).resolve(source.getFileName)
+        Files.createDirectories(destination.getParent)
+        Files.copy(source, destination)
+        (s"term-presentation-catalog-$index", "lexidox-input", root.relativize(destination).toString.replace('\\', '/'))
+      }
+      (local ++ catalog).map { case (id, role, path) =>
+        Json.obj("id" -> Json.fromString(id), "role" -> Json.fromString(role), "path" -> Json.fromString(path), "normalization" -> Json.fromString("bytes"))
+      }
+    }
+    val receiptinputs = rewritten ++ typedinputs
+    val receiptids = receiptinputs.flatMap(_.hcursor.get[String]("id").toOption)
+    if (receiptids.distinct.size != receiptids.size) _failure("term presentation receipt input identity conflicts with media descriptor")
     val result = descriptor.mapObject { fields =>
       val withresources = fields.add("resources", Json.fromValues(projected))
       fields("receipt") match {
-        case Some(receipt) => withresources.add("receipt", receipt.mapObject(_.add("inputs", Json.fromValues(rewritten))))
+        case Some(receipt) => withresources.add("receipt", receipt.mapObject(_.add("inputs", Json.fromValues(receiptinputs))))
+        case None if typedinputs.nonEmpty => withresources.add("receipt", Json.obj("inputs" -> Json.fromValues(receiptinputs)))
         case None => withresources
       }
     }
@@ -148,7 +181,13 @@ private[cozy] object CozyDocumentProjectMediaWorkspace {
     Files.writeString(materialized, result.noSpaces, StandardCharsets.UTF_8)
     if (validateOnly) return CozyDocumentProjectPackage.Candidate(materialized, "validated media inputs")
     val runner = processRunner.getOrElse(CozyMedia.ProcessRunner.external(workspace, project))
-    val report = buildids.map(value => CozyMedia.build(CozyMedia.CommandConfig(materialized, target = Some(value)), runner)).mkString("\n")
+    val report = buildids.map { value =>
+      val config = CozyMedia.CommandConfig(materialized, target = Some(value))
+      if (value == id && typed.nonEmpty) {
+        val value = typed.get
+        CozyMedia.buildTermPresentation(config, runner, value._1, value._2)
+      } else CozyMedia.build(config, runner)
+    }.mkString("\n")
     val output = cursor.get[String]("output").toOption.getOrElse(_failure("selected media output is missing"))
     val candidate = root.resolve(output).normalize()
     if (!candidate.startsWith(root) || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
