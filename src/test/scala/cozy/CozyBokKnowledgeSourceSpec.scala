@@ -21,6 +21,26 @@ class CozyBokKnowledgeSourceSpec
     with CozySpecVocabulary {
   "Cozy BoK KnowledgeSource publication" should {
     "publish the CNCF KnowledgeSource manifest" which {
+      "preserve LexiDox producer files through the normal site build" in {
+        _with_temp_dir("cozy-bok-lexidox-build") { dir =>
+          Given("a site runner emitting the versioned LexiDox handoff")
+          _write_site_source(dir, glossaryterm = false)
+          val artifacts = Vector(
+            "json" -> "{\"schema\":\"lexidox-knowledge/1\",\"pages\":[],\"diagnostics\":[]}",
+            "ttl" -> "producer turtle\n",
+            "jsonld" -> "producer jsonld\n"
+          )
+
+          When("the normal BoK site build consumes those generated files")
+          CozyBok.build(_build_config(dir), new MetadataRunner(includeterms = false, includerdf = false, lexidox = artifacts))
+
+          Then("the public metadata contains the original files")
+          artifacts.foreach { case (suffix, content) =>
+            _read(dir.resolve(s"website.d/metadata/lexidox/knowledge-v1.$suffix")) shouldBe content
+          }
+        }
+      }
+
       "lists generated glossary and RDF metadata using relative references" in {
         _with_temp_dir("cozy-bok-knowledge-source") { dir =>
           Given("a BoK site with explicit identity and complete SmartDox metadata")
@@ -524,10 +544,14 @@ class CozyBokKnowledgeSourceSpec
       includerdf: Boolean,
       includecomponents: Boolean = false,
       rdfgraph: String = "{\"nodes\":[],\"edges\":[],\"truncated\":false}\n",
-      componentreferences: Vector[(String, String)] = Vector.empty
+      componentreferences: Vector[(String, String)] = Vector.empty,
+      lexidox: Vector[(String, String)] = Vector.empty
   ) extends CozyBok.Runner {
     def run(command: Vector[String], cwd: Path): Unit =
       if (command.take(2) == Vector("dox", "site")) {
+        lexidox.foreach { case (suffix, content) =>
+          _write(cwd.resolve(s"doxsite.d/metadata/lexidox/knowledge-v1.$suffix"), content)
+        }
         if (includeterms)
           _write(cwd.resolve("doxsite.d/metadata/glossary/terms.json"), "{\"terms\":[]}\n")
         if (includerdf) {

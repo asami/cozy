@@ -83,7 +83,8 @@ private[cozy] object CozyBokModel {
     title: String,
     reading: Option[String],
     categoryslug: String,
-    categorytitle: String
+    categorytitle: String,
+    aliases: Vector[String] = Vector.empty
   )
 
   private[bok] final case class ArticleIndexItem(
@@ -194,16 +195,25 @@ private[cozy] object CozyBokModel {
     actor: Option[TermActor],
     role: Option[TermRole],
     quality: TermQuality,
-    tags: Vector[String]
+    tags: Vector[String],
+    space: Option[String] = None,
+    spaceiri: Option[String] = None,
+    termiri: Option[String] = None,
+    conceptiri: Option[String] = None,
+    pageiri: Option[String] = None,
+    sourcedocumentiri: Option[String] = None,
+    knowledgeform: Option[String] = None,
+    legacyrefs: Vector[String] = Vector.empty,
+    lexidoxPage: Option[cozy.document.CozyGlossaryPresentation.Page] = None
   ) {
     def categorySlug: String = category.getOrElse("glossary")
-    def glossaryHref: String = publicpath.stripPrefix("glossary/")
+    def glossaryHref: String = if (pageiri.contains(publicpath)) publicpath else if (pageiri.isDefined) "../" + publicpath else publicpath.stripPrefix("glossary/")
     def termHubHrefFromHome: String = publicpath
-    def termHubHrefFromCategory: String = "../" + publicpath
-    def rdfHrefFromHome: String = s"rdf/index.html?term=${_url_query_escape(id)}"
-    def rdfHrefFromGlossary: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
-    def rdfHrefFromCategory: String = s"../rdf/index.html?term=${_url_query_escape(id)}"
-    def rdfHrefFromTerm: String = s"../../rdf/index.html?term=${_url_query_escape(id)}"
+    def termHubHrefFromCategory: String = if (pageiri.contains(publicpath)) publicpath else "../" + publicpath
+    def rdfHrefFromHome: String = conceptiri.getOrElse(s"rdf/index.html?term=${_url_query_escape(id)}")
+    def rdfHrefFromGlossary: String = conceptiri.getOrElse(s"../rdf/index.html?term=${_url_query_escape(id)}")
+    def rdfHrefFromCategory: String = conceptiri.getOrElse(s"../rdf/index.html?term=${_url_query_escape(id)}")
+    def rdfHrefFromTerm: String = conceptiri.getOrElse(s"../../rdf/index.html?term=${_url_query_escape(id)}")
     def monoKotoKind: String =
       termtype match {
         case "event" => "koto"

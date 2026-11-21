@@ -4,6 +4,7 @@ import io.circe.Json
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
 import scala.collection.mutable
+import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
@@ -16,7 +17,8 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     targetId: String,
     inputs: Vector[String],
     output: String,
-    outcome: String
+    outcome: String,
+    resolvedTerms: Vector[CozyDocumentDescriptionV2.ResolvedTerm] = Vector.empty
   ) {
     def report: String = {
       val inputlines = inputs.map(value => s"  - $value").mkString("\n")
@@ -36,20 +38,27 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     locale: Option[String],
     document: Option[CozyDocumentDescriptionV2.ValidatedDocument],
     assets: CozyDocumentFigureAssets.Materialized,
-    article: Option[CozyDocumentProjectSmartDoxArticleHtml.Prepared]
+    article: Option[CozyDocumentProjectSmartDoxArticleHtml.Prepared],
+    presentation: Option[CozyDocumentTermPresentation.Configuration]
   )
 
   private val _schema = "cozy.document-project.local-build-targets.v1"
   private val _config_relative = "build/document-project-targets.yaml"
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
 
-  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None, articleLocale: Option[String] = None): Result = {
+  def execute(project: Path, targetId: Option[String], force: Boolean, workRoot: Option[Path] = None, articleLocale: Option[String] = None, lexidoxRoot: Option[Path] = None, termPresentation: Option[String] = None): Result = {
     val selected = try CozyDocumentProjectLocalBuild.select(targetId) catch {
       case value: CozyDocumentProjectLocalBuild.UnknownTarget =>
         CozyDocumentProject._failure("DP-CLI-001", value.getMessage)
     }
+    if (termPresentation.nonEmpty && !articleLocale.exists(Set("ja", "en")))
+      _failure("term presentation requires --locale ja or en", selected.id)
+    if (termPresentation.nonEmpty && (selected.id != "smartdox-article-html" || articleLocale.isEmpty || lexidoxRoot.isEmpty))
+      _failure("term presentation requires smartdox-article-html, --locale and --lexidox-root", selected.id)
+    if (lexidoxRoot.nonEmpty && !Set("document-structure-html", "document-reader-html").contains(selected.id) && termPresentation.isEmpty)
+      _failure("lexidox root is supported for document targets", selected.id)
     val configuration = _load_configuration(project)
-    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project), articleLocale)
+    val closure = _closure(project, configuration, selected.id, workRoot.getOrElse(project), articleLocale, lexidoxRoot, termPresentation)
     val plans = closure.map(value => value.contract.id -> value).toMap
     val outcomes = mutable.Map.empty[String, String]
 
@@ -85,7 +94,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     }
 
     val plan = plans(selected.id)
-    Result(selected.id, plan.inputs.map(_._1), if (workRoot.isDefined) plan.output.toString else _project_relative(project, plan.output), outcomes(selected.id))
+    Result(selected.id, plan.inputs.map(_._1), if (workRoot.isDefined) plan.output.toString else _project_relative(project, plan.output), outcomes(selected.id), plan.document.toVector.flatMap(_.resolvedTerms))
   }
 
   def validateTargetConfiguration(project: Path, targetId: String): Vector[String] = {
@@ -153,7 +162,7 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     TargetDefinition(inputs, prerequisites)
   }
 
-  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path, articlelocale: Option[String] = None): Vector[Plan] = {
+  private def _closure(project: Path, configuration: Configuration, selectedid: String, outputroot: Path, articlelocale: Option[String] = None, lexidoxroot: Option[Path] = None, termpresentation: Option[String] = None): Vector[Plan] = {
     val contracts = CozyDocumentProjectLocalBuild.targetContracts.map(value => value.id -> value).toMap
     val plans = mutable.Map.empty[String, Plan]
     val complete = mutable.Set.empty[String]
@@ -163,21 +172,26 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
     def _plan_(id: String): Plan = plans.getOrElseUpdate(id, {
       val contract = contracts.getOrElse(id, _failure("missing target producer", id))
       val definition = configuration.definitions.getOrElse(id, _failure("missing target definition", id))
-      val locale = _locale_for(id, contract, definition.inputs)
+      val declaredlocale = _locale_for(id, contract, definition.inputs)
+      val locale = if (id == "smartdox-article-html" && termpresentation.nonEmpty) articlelocale else declaredlocale
       val baseinputs = Vector(_config_relative -> configuration.path) ++ definition.inputs.map { relative =>
         relative -> CozyDocumentProject._direct_file(project, relative, s"local-build $id input")
       }
       val document = locale.map { selectedlocale =>
-        CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
+        val loaded = CozyDocumentDescriptionV2.loadDocument(project.resolve("content/core.yaml"), project.resolve(s"content/$selectedlocale/document.yaml"))
+        resolveDocument(loaded, lexidoxroot)
       }
       val assets = document.map(CozyDocumentFigureAssets.materialize(project, _)).getOrElse(CozyDocumentFigureAssets.empty)
-      val article = if (id == "smartdox-article-html") Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project, articlelocale)) else None
+      val presentation = if (id == "smartdox-article-html") termpresentation.map(CozyDocumentTermPresentation.load(project, _)) else None
+      val article = if (id == "smartdox-article-html" && presentation.isEmpty) Some(CozyDocumentProjectSmartDoxArticleHtml.prepare(project, articlelocale)) else None
       val usedassets = article.map(_.assets).getOrElse(assets)
-      val inputs = baseinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path)
+      val producerinputs = if (locale.nonEmpty) lexidoxroot.toVector.flatMap(_producer_inputs) else Vector.empty
+      val presentationinputs = if (presentation.nonEmpty) Vector("content/core.yaml", s"content/${locale.get}/document.yaml", s"content/${locale.get}/confirmation-vocabulary.yaml", termpresentation.get).map(relative => relative -> CozyDocumentProject._direct_file(project, relative, "term presentation input")) else Vector.empty
+      val inputs = baseinputs ++ presentationinputs ++ usedassets.sourcePaths.map(path => _project_relative(project, path) -> path) ++ producerinputs.map(path => path.toString -> path)
       val output = _output(outputroot, contract)
       if (inputs.exists { case (_, input) => output == input || output.startsWith(input) })
         _failure("target output collides with a declared source", id)
-      Plan(project, outputroot, contract, definition, inputs, output, locale, document, assets, article)
+      Plan(project, outputroot, contract, definition, inputs, output, locale, document, assets, article, presentation)
     })
 
     def _visit_(id: String): Unit = {
@@ -208,6 +222,66 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       }
     }
     values
+  }
+
+  private[cozy] def resolveDocument(loaded: CozyDocumentDescriptionV2.ValidatedDocument, lexidoxroot: Option[Path]): CozyDocumentDescriptionV2.ValidatedDocument = {
+    val occurrences = _term_occurrences(loaded)
+    if (occurrences.isEmpty && lexidoxroot.isEmpty) loaded else {
+      val root = lexidoxroot.getOrElse(_failure("LEX_PRESENTATION_CATALOG_REQUIRED", "typed terms require --lexidox-root"))
+      val locale = loaded.description.locale
+      val catalog = _catalog(root, locale)
+      val resolved = occurrences.map { case (block, item, index, term) =>
+        def _resolve_(profile: Option[String]): CozyGlossaryPresentation.ResolvedSelection =
+          CozyGlossaryPresentation.resolve(term, catalog, locale, profile).fold(problem => _failure(problem.code, problem.message), identity)
+        CozyDocumentDescriptionV2.ResolvedTerm(block, item, index, term.binding, term.visibleText,
+          _resolve_(None), Vector("original", "established-japanese", "japanese").map(p => p -> _resolve_(Some(p))))
+      }
+      loaded.copy(resolvedTerms = resolved)
+    }
+  }
+
+  private def _term_occurrences(document: CozyDocumentDescriptionV2.ValidatedDocument): Vector[(String, Option[String], Int, CozyDocumentDescriptionV2.InlineTerm)] = {
+    import CozyDocumentDescriptionV2._
+    def _inline_(block: String, item: Option[String], values: Vector[Inline]): Vector[(String, Option[String], Int, InlineTerm)] =
+      values.zipWithIndex.collect { case (term: InlineTerm, index) => (block, item, index, term) }
+    def _section_(section: Section): Vector[(String, Option[String], Int, InlineTerm)] =
+      section.blocks.flatMap {
+        case p: Paragraph => _inline_(p.id, None, p.inline)
+        case l: ListBlock => l.items.flatMap(i => _inline_(l.id, Some(i.id), i.inline))
+        case _ => Vector.empty
+      } ++ section.sections.flatMap(_section_)
+    document.description.document.sections.flatMap(_section_)
+  }
+
+  private def _direct_path(path: Path, directory: Boolean): Path = {
+    val absolute = path.toAbsolutePath.normalize()
+    if (path.toString.isEmpty || path.toString != path.toString.trim || absolute.getParent == null || path.iterator().asScala.exists(p => Set(".", "..").contains(p.toString)))
+      _failure("unsafe LexiDox path", path.toString)
+    var current = absolute.getRoot
+    absolute.iterator().asScala.foreach { part =>
+      current = current.resolve(part)
+      if (Files.isSymbolicLink(current)) _failure("LexiDox path contains a symbolic link", current.toString)
+    }
+    if (directory && !Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)) _failure("LexiDox root must be a direct directory", absolute.toString)
+    absolute
+  }
+
+  private[cozy] def _producer_inputs(path: Path): Vector[Path] = {
+    val root = _direct_path(path, true)
+    val paths = Vector("metadata/lexidox/knowledge-v1.json", "metadata/lexidox/knowledge-v1.ttl", "metadata/lexidox/knowledge-v1.jsonld", "metadata/documents/fragments.json").map(root.resolve(_))
+    paths.foreach { p =>
+      _direct_path(p, false)
+      if (Files.exists(p, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS)) _failure("LexiDox input must be a direct file", p.toString)
+    }
+    paths.filter(Files.exists(_, LinkOption.NOFOLLOW_LINKS))
+  }
+
+  private def _catalog(path: Path, locale: String): CozyGlossaryPresentation.Catalog = {
+    val root = _direct_path(path, true)
+    _producer_inputs(root)
+    val config = cozy.bok.CozyBokImplementation.BuildConfig.create(List(root.getParent.toString, "--strategy", "preview"))
+      .copy(doxsite = root.getFileName.toString, defaultLocale = locale)
+    cozy.bok.CozyBokImplementation._presentation_catalog(config).getOrElse(_failure("LEX_PRESENTATION_CATALOG_REQUIRED", root.toString))
   }
 
   private def _output(project: Path, contract: CozyDocumentProjectLocalBuild.TargetContract): Path = {
@@ -243,7 +317,14 @@ private[cozy] object CozyDocumentProjectLocalBuildCommand {
       val vocabulary = _vocabulary(plan, validated)
       CozyDocumentReaderProjectionV2.render(validated, vocabulary, plan.assets).html
     case "smartdox-article-html" =>
-      CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id)), articlelocale).html
+      plan.presentation match {
+        case Some(configuration) =>
+          val document = _document(plan)
+          val vocabulary = CozyDocumentConfirmationVocabulary.loadDocument(CozyDocumentProject._direct_file(plan.project, s"content/${plan.locale.get}/confirmation-vocabulary.yaml", "term presentation vocabulary"), plan.locale.get)
+          val input = CozyDocumentTermPresentation.assemble(document, configuration, vocabulary)
+          CozyDocumentProjectSmartDoxArticleHtml.renderTyped(plan.project.resolve("index.dox"), input, plan.assets, plan.locale.get).html
+        case None => CozyDocumentProjectSmartDoxArticleHtml.render(plan.article.getOrElse(_failure("article target admission is missing", plan.contract.id)), articlelocale).html
+      }
     case value => _failure("target renderer is missing", value)
   }
 

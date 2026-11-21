@@ -1,0 +1,43 @@
+Data Mapper｜データ・マッパー
+====================
+
+# HEAD
+
+lexidox {
+  version = 1
+  profile = "simplemodeling-v1"
+  space = "software-architecture"
+  term_iri = "https://example.org/term/data-mapper"
+  concept_iri = "https://example.org/concept/data-mapper"
+  page_iri = "https://example.org/page/data-mapper"
+  knowledge_form = "pattern"
+  presentation {
+    version = 1
+    role = "named-pattern"
+    original = { collection = "titles", language = "en", text = "Data Mapper" }
+    canonical = [ { collection = "titles", language = "ja", text = "データ・マッパー" } ]
+  }
+}
+
+# DEFINITION
+
+A Data Mapper translates between domain types and storage representations.
+
+# CONTEXT
+
+An order application stores entities using a representation chosen for persistence.
+
+
+# PROBLEM
+
+The order model and storage format evolve independently.
+
+
+# SOLUTION
+
+Use a mapper at the persistence boundary to translate representations.
+
+
+# CONSEQUENCES
+
+The model and representation can evolve independently, with explicit mapping work.

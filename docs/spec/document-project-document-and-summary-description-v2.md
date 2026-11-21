@@ -148,3 +148,7 @@ The [explanatory figure/table contract](document-project-explanatory-figures-and
 supersedes only the earlier closed-kind, asset and pure-input clauses for this
 extension. Implementation and executable acceptance are in progress; no PASS
 is claimed. Phase 71 hash-removal semantics remain authoritative.
+
+## Terminology in localized content (Phase 93)
+
+Paragraph and list-item content may select an ordered `inline` array in place of `text` when their recursive Core supplies terminology bindings. `text`, `code`, and `termRef`/`visibleText` items retain source order; a `code` item is a single-key object containing a nonempty code identifier and is rendered in the code role; a referenced binding's claim must occur in the content's own `coreRefs.claims`. The [presentation contract](term-pattern-presentation.md#cozy-recursive-core-and-localized-document-contract) defines the binding and compatibility rules. Renderer projection and producer-page resolution remain separate integration work.

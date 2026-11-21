@@ -1,0 +1,36 @@
+{
+  "profileOrder": [
+    "original",
+    "established-japanese",
+    "japanese"
+  ],
+  "labels": {
+    "retry": [
+      "Retry",
+      "リトライ",
+      "再試行"
+    ],
+    "data-mapper": [
+      "Data Mapper",
+      "Data Mapper",
+      "データ・マッパー"
+    ],
+    "aggregate": [
+      "Aggregate",
+      "Aggregate",
+      "集約モデル"
+    ],
+    "repository": {
+      "en": "Repository",
+      "ja": "リポジトリ"
+    }
+  },
+  "linkIdentity": {
+    "retry": "https://example.org/page/retry",
+    "data-mapper": "https://example.org/page/data-mapper",
+    "aggregate": "https://example.org/page/aggregate",
+    "repository": "https://example.org/page/repository"
+  },
+  "codeIdentifier": "EntityStore",
+  "figurePngBase64": "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"
+}

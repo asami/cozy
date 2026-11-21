@@ -284,8 +284,9 @@ private[cozy] trait CozyBokSitePages {
 
   private def _inject_antora_sie_term_links(config: BuildConfig, target: Path, locale: String): Unit = {
     val index = _sie_index(config)
-    _terms(config).foreach { term =>
-      val instances = _sie_information_for_term(index, term)
+    val terms = _terms(config)
+    terms.filterNot(term => term.pageiri.contains(term.publicpath)).foreach { term =>
+      val instances = _sie_information_for_term(index, term, terms)
       val page = target.resolve(term.publicpath)
       if (instances.nonEmpty && Files.isRegularFile(page)) {
         val content = Files.readString(page, StandardCharsets.UTF_8)

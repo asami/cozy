@@ -198,14 +198,14 @@ private[cozy] trait CozyBokProjectPages {
     target: Path
   ): String = {
     val terms = _terms(config)
-    val directterms = terms.filter(term => project.terms.exists(_term_reference_matches(_, term)))
+    val directterms = project.terms.flatMap(value => _term_reference_candidates(value, terms)).distinct
     val cmlrows = project.cml.toVector.flatMap(_project_cml_term_rows(locale, _, terms))
     val cmlterms = cmlrows.flatMap(_.terms)
     val relatedterms = (directterms ++ cmlterms).groupBy(_.id).values.map(_.head).toVector.sortBy(_.title)
     val scenarios = _scenario_index(config).toVector.flatMap(_.scenarios).
-      filter(scenario => relatedterms.exists(scenario.isRelatedTo)).sortBy(_.title)
+      filter(scenario => relatedterms.exists(term => _scenario_related_to_term(scenario, term, terms))).sortBy(_.title)
     val termitems = relatedterms.map { term =>
-      val href = _relative_href(page, target.resolve(term.publicpath))
+      val href = _term_href(page, target, term)
       s"""<li><a href="${_html_escape(href)}">${_html_escape(term.title)}</a></li>"""
     }.mkString
     val scenarioitems = scenarios.map { scenario =>
@@ -247,9 +247,10 @@ private[cozy] trait CozyBokProjectPages {
 
   private[bok] def _sie_information_for_term(
     index: CozyBokSieHandoff.Index,
-    term: TermEntry
+    term: TermEntry,
+    terms: Vector[TermEntry]
   ): Vector[CozyBokSieHandoff.InformationInstance] =
-    index.informationinstances.filter(instance => instance.termrefs.exists(_term_reference_matches(_, term))).
+    index.informationinstances.filter(instance => instance.termrefs.exists(value => _term_reference_candidates(value, terms).contains(term))).
       sortBy(x => (x.label, x.id, x.projection))
 
   private[bok] def _sie_information_section(
@@ -280,7 +281,7 @@ private[cozy] trait CozyBokProjectPages {
     term: TermEntry,
     locale: String
   ): String = {
-    val instances = _sie_information_for_term(_sie_index(config), term)
+    val instances = _sie_information_for_term(_sie_index(config), term, _terms(config))
     if (instances.isEmpty)
       ""
     else
@@ -732,7 +733,7 @@ private[cozy] trait CozyBokProjectPages {
             s"""<span class="bok-project-unlinked-term">-</span>"""
           else
             row.terms.map { term =>
-              val href = _relative_href(page, target.resolve(term.publicpath))
+              val href = _term_href(page, target, term)
               s"""<a href="${_html_escape(href)}">${_html_escape(term.title)}</a>"""
             }.mkString("""<span class="bok-project-linked-terms">""", "", "</span>")
         val signaturecell =

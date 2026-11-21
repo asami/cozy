@@ -83,7 +83,8 @@ private[cozy] object CozyMediaPdf {
       _invalid(s"Article PDF source must be a direct regular non-symlink file: $source")
   }
 
-  def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, runner: CozyMedia.ProcessRunner): String = {
+  def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, runner: CozyMedia.ProcessRunner,
+    termPresentation: Option[(cozy.document.CozyDocumentTermPresentation.RenderInput, cozy.document.CozyDocumentTermPresentation.PdfSettings)] = None): String = {
     val resource = resolved.resource
     val configuration = resource.articlePdf.getOrElse(_invalid(s"Article PDF configuration is missing: ${resource.id}"))
     val sitecontext = CozyMedia.requireSiteContext(plan)
@@ -106,9 +107,21 @@ private[cozy] object CozyMediaPdf {
     ) ++ sitecontext.toVector.flatMap { context =>
       Vector("--site-root", context.root.toString, "--site-config", context.config.toString)
     }
-    val exit = runner.run(command, plan.descriptorRoot)
-    if (exit != 0)
-      _invalid(s"Article PDF renderer failed for ${resource.id}: exit=$exit")
+    termPresentation match {
+      case None =>
+        val exit = runner.run(command, plan.descriptorRoot)
+        if (exit != 0) _invalid(s"Article PDF renderer failed for ${resource.id}: exit=$exit")
+      case Some((input, settings)) =>
+        val args = Vector("--renderer", "latex", "--latex-engine", settings.latexEngine,
+          "--dependency-mode", settings.dependencyMode, "--latex-format", configuration.latexFormat,
+          "--output", output.toString) ++ settings.docker.toVector.flatMap(value => Vector("--docker", value)) ++
+          settings.dockerImage.toVector.flatMap(value => Vector("--docker-image", value)) ++
+          sitecontext.toVector.flatMap(context => Vector("--site-root", context.root.toString, "--site-config", context.config.toString)) :+ source.toString
+        val request = org.goldenport.cli.Request.create(org.smartdox.service.operations.PdfOperationClass.specification, args.toArray)
+        val cmd = org.smartdox.service.operations.PdfOperationClass.PdfCommand.create(request)
+        val pdf = org.smartdox.service.operations.PdfOperationClass.execute(org.goldenport.cli.Environment.createJaJp(), cmd, input.document, input.options, resource.language)
+        Files.copy(pdf.artifact.toFile.toPath, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
     if (!_direct_regular_file(output) || !_pdf(output))
       _invalid(s"Article PDF renderer did not create a direct regular PDF output: ${resource.id}")
     s"${resource.id}: built $output"

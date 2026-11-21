@@ -1,0 +1,17 @@
+Repository｜リポジトリ
+================
+
+# HEAD
+
+lexidox {
+  version = 1
+  profile = "simplemodeling-v1"
+  space = "software-architecture"
+  term_iri = "https://example.org/term/repository"
+  concept_iri = "https://example.org/concept/repository"
+  page_iri = "https://example.org/page/repository"
+}
+
+# DEFINITION
+
+A Repository mediates access to domain objects through a domain-oriented interface.

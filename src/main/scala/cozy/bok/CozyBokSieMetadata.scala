@@ -76,6 +76,9 @@ private[cozy] trait CozyBokSieMetadata {
     "rdf/site.jsonld",
     "metadata/rdf/graph.json",
     "metadata/glossary/terms.json",
+    "metadata/lexidox/knowledge-v1.json",
+    "metadata/lexidox/knowledge-v1.ttl",
+    "metadata/lexidox/knowledge-v1.jsonld",
     "metadata/bibliography/bibliography.json",
     "metadata/scenarios/scenarios.json",
     "metadata/tags/tags.json",
@@ -124,6 +127,10 @@ private[cozy] trait CozyBokSieMetadata {
     _copy_finalization_file(source, target, "site.jsonld", "rdf/site.jsonld")
     _copy_finalization_file(source, target, "metadata/rdf/graph.json", "metadata/rdf/graph.json")
     _copy_finalization_file(source, target, "metadata/glossary/terms.json", "metadata/glossary/terms.json")
+    Vector("json", "ttl", "jsonld").foreach { suffix =>
+      val relative = s"metadata/lexidox/knowledge-v1.$suffix"
+      _copy_finalization_file(source, target, relative, relative)
+    }
     _copy_finalization_file(source, target, "metadata/bibliography/bibliography.json", "metadata/bibliography/bibliography.json")
     _copy_finalization_file(source, target, "metadata/scenarios/scenarios.json", "metadata/scenarios/scenarios.json")
     _copy_finalization_file(source, target, "metadata/tags/tags.json", "metadata/tags/tags.json")
@@ -179,7 +186,47 @@ private[cozy] trait CozyBokSieMetadata {
 
   private def _validate_published_resources(source: Path): Unit = {
     _validate_generated_glossary(source)
+    _validate_lexidox_envelope(source)
     Vector("car", "sar").foreach(kind => _validate_generated_component_reference_index(source, kind))
+  }
+
+  private[bok] def _admit_lexidox_input(config: BuildConfig): Option[Path] = {
+    val projectroot = _finalization_project_root(config.project)
+    val path = config.doxsitePath.toAbsolutePath.normalize()
+    if (!path.startsWith(projectroot))
+      RAISE.invalidArgumentFault(s"BoK generated metadata root must be a direct directory inside the project root: $path")
+    _validate_finalization_parent(projectroot, Option(path.getParent).getOrElse(projectroot))
+    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))
+      None
+    else {
+      val source = _finalization_root(path, projectroot, "BoK generated metadata root")
+      _validate_lexidox_envelope(source)
+      val input = _finalization_input(source, "metadata/lexidox/knowledge-v1.json")
+      if (Files.exists(input, LinkOption.NOFOLLOW_LINKS)) Some(input) else None
+    }
+  }
+
+  private def _validate_lexidox_envelope(source: Path): Unit = {
+    val relative = "metadata/lexidox/knowledge-v1.json"
+    val paths = Vector("json", "ttl", "jsonld").map { suffix =>
+      _finalization_input(source, s"metadata/lexidox/knowledge-v1.$suffix")
+    }
+    val present = paths.filter(Files.exists(_, LinkOption.NOFOLLOW_LINKS))
+    present.foreach { path =>
+      if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+        RAISE.invalidArgumentFault(s"BoK generated metadata input must be a regular file when present: $path")
+    }
+    if (present.nonEmpty && present.size != paths.size)
+      RAISE.invalidArgumentFault("Incomplete LexiDox metadata handoff: JSON, Turtle and JSON-LD must be present together")
+    if (present.nonEmpty) {
+      val path = paths.head
+      val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid LexiDox metadata $relative: ${error.message}"),
+        identity
+      )
+      if (!json.hcursor.get[String]("schema").toOption.contains("lexidox-knowledge/1"))
+        RAISE.invalidArgumentFault(s"Unsupported LexiDox metadata schema in $relative")
+    }
   }
 
   private def _validate_generated_glossary(source: Path): Unit = {
@@ -769,6 +816,9 @@ private[cozy] trait CozyBokSieMetadata {
       )
     val resources = Vector(
       KnowledgeSourceResource("glossary-terms", "metadata/glossary/terms.json", "application/json"),
+      KnowledgeSourceResource("lexidox-knowledge", "metadata/lexidox/knowledge-v1.json", "application/json"),
+      KnowledgeSourceResource("lexidox-rdf-turtle", "metadata/lexidox/knowledge-v1.ttl", "text/turtle"),
+      KnowledgeSourceResource("lexidox-rdf-jsonld", "metadata/lexidox/knowledge-v1.jsonld", "application/ld+json"),
       KnowledgeSourceResource("rdf-jsonld", "rdf/site.jsonld", "application/ld+json"),
       KnowledgeSourceResource("rdf-turtle", "rdf/site.ttl", "text/turtle"),
       KnowledgeSourceResource("rdf-graph-summary", "metadata/rdf/graph.json", "application/json"),

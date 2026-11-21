@@ -38,8 +38,131 @@ import io.circe.syntax._
 
 private[cozy] trait CozyBokTagPages {
   self: CozyBokImplementation.type =>
-  private[bok] def _terms(config: BuildConfig): Vector[TermEntry] =
-    _term_index(config).map(_.terms).filter(_.nonEmpty).getOrElse(Vector.empty)
+  private[bok] def _terms(config: BuildConfig): Vector[TermEntry] = {
+    val legacy = _term_index(config).map(_.terms).getOrElse(Vector.empty)
+    val typed = _lexidox_terms(config)
+    val merged = typed.map { term =>
+      val matches = legacy.filter(x => term.sourcepath.nonEmpty && x.sourcepath == term.sourcepath)
+      val typedmatches = typed.count(x => term.sourcepath.nonEmpty && x.sourcepath == term.sourcepath)
+      if (matches.size == 1 && typedmatches == 1) {
+        val original = matches.head
+        term.copy(
+          reading = original.reading,
+          category = original.category,
+          aliases = (term.aliases ++ original.aliases).distinct,
+          articlerefs = original.articlerefs,
+          termrefs = (term.termrefs ++ original.termrefs).distinct,
+          rdfrefs = original.rdfrefs,
+          videorefs = original.videorefs,
+          resourcetype = original.resourcetype,
+          cml = original.cml,
+          event = original.event,
+          actor = original.actor,
+          role = original.role,
+          quality = original.quality,
+          tags = original.tags,
+          legacyrefs = (Vector(original.id, original.title, original.slug) ++ original.aliases ++ original.legacyrefs).distinct
+        )
+      } else term
+    }
+    val replaced = typed.filter(term => term.sourcepath.nonEmpty &&
+      typed.count(_.sourcepath == term.sourcepath) == 1 &&
+      legacy.count(_.sourcepath == term.sourcepath) == 1).map(_.sourcepath).toSet
+    legacy.filterNot(x => replaced.contains(x.sourcepath)) ++ merged
+  }
+
+  private[cozy] def _presentation_catalog(config: BuildConfig): Option[cozy.document.CozyGlossaryPresentation.Catalog] =
+    _admit_lexidox_input(config).map { path =>
+      val catalog = cozy.document.CozyGlossaryPresentation.read(path)
+      catalog.copy(pages = _project_lexidox_terms(config, catalog).flatMap(_.lexidoxPage))
+    }
+
+  private def _lexidox_terms(config: BuildConfig): Vector[TermEntry] =
+    _admit_lexidox_input(config).map { path =>
+      _project_lexidox_terms(config, cozy.document.CozyGlossaryPresentation.read(path))
+    }.getOrElse(Vector.empty)
+
+  private def _project_lexidox_terms(
+    config: BuildConfig,
+    catalog: cozy.document.CozyGlossaryPresentation.Catalog
+  ): Vector[TermEntry] = {
+    val pages = catalog.pages
+    val fragments = _document_fragment_index(config).toVector.flatMap(_.fragments)
+    val terms = pages.map { page =>
+      val c = page.raw.hcursor
+      def _field_(name: String): String = c.get[String](name).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid LexiDox page $name: ${error.message}"), identity)
+      val sections = c.get[Vector[Json]]("sections").getOrElse(Vector.empty)
+      val sources = sections.flatMap(_.hcursor.downField("span").get[String]("source").toOption).distinct
+      val source = if (sources.size == 1) sources.head else ""
+      val matches = fragments.filter(_.sourcepath == source)
+      val preferred = matches.filter(_.locale == config.defaultLocale)
+      val paths = (if (preferred.nonEmpty) preferred else matches).map(_.publicpath).distinct
+      val titles = c.get[Vector[Json]]("titles").getOrElse(Vector.empty).flatMap(_.hcursor.get[String]("text").toOption)
+      if (titles.isEmpty)
+        RAISE.invalidArgumentFault(s"LexiDox page has no title: $source")
+      val aliases = c.get[Vector[Json]]("aliases").getOrElse(Vector.empty).flatMap(_.hcursor.get[String]("text").toOption)
+      val definition = sections.find(_.hcursor.get[String]("name").toOption.contains("DEFINITION")).
+        flatMap(_.hcursor.downField("content").get[String]("text").toOption).getOrElse("")
+      def _iri_(name: String): String = {
+        val value = _field_(name)
+        val valid = try {
+          val iri = new java.net.URI(value)
+          iri.isAbsolute && Option(iri.getScheme).exists(x => x.equalsIgnoreCase("http") || x.equalsIgnoreCase("https")) &&
+            Option(iri.getHost).exists(_.nonEmpty)
+        } catch {
+          case NonFatal(_) => false
+        }
+        if (!valid)
+          RAISE.invalidArgumentFault(s"Invalid absolute HTTP(S) LexiDox IRI $name: $value")
+        value
+      }
+      val pageiri = _iri_("page_iri")
+      val publicpath = if (paths.size == 1 && _safe_lexidox_path(paths.head)) paths.head else pageiri
+      TermEntry(pageiri, if (source.nonEmpty) source else pageiri, titles.head, None, None, source, publicpath,
+        _html_escape(definition), Some(definition), aliases, Vector.empty, Vector.empty,
+        Vector.empty, Vector.empty, c.get[Option[String]]("concept_type").getOrElse(None).getOrElse(""),
+        None, Vector.empty, None, None, None, TermQuality(false, false, false), Vector.empty,
+        Some(_field_("space")), Some(_iri_("space_iri")), Some(_iri_("term_iri")),
+        Some(_iri_("concept_iri")), Some(pageiri), Some(_iri_("source_document_iri")),
+        c.get[Option[String]]("knowledge_form").getOrElse(None),
+        lexidoxPage = Some(page.copy(link = publicpath)))
+    }
+    val references = catalog.references
+    terms.map { term =>
+      val refs = references.filter(_.issue.isEmpty).flatMap { reference =>
+        val c = reference.raw.hcursor
+        val source = c.downField("span").get[String]("source").toOption
+        val resolution = c.downField("resolution")
+        val target = resolution.get[String]("page_iri").toOption
+        if (term.sourcepath.nonEmpty && source.contains(term.sourcepath) && resolution.get[String]("status").toOption.contains("resolved"))
+          target.toVector.flatMap { iri =>
+            terms.filter(_.pageiri.contains(iri)).filter { page =>
+              val full = for {
+                space <- resolution.get[String]("space").toOption
+                term <- resolution.get[String]("term_iri").toOption
+                concept <- resolution.get[String]("concept_iri").toOption
+              } yield page.space.contains(space) && page.termiri.contains(term) && page.conceptiri.contains(concept)
+              full.getOrElse(page.lexidoxPage.forall(p => p.presentation.isEmpty && p.presentationIssue.isEmpty))
+            }.map { page =>
+              TermReference(reference.visibleText.getOrElse(c.get[String]("label").getOrElse(page.title)), page.publicpath, "lexiref")
+            }
+          }
+        else
+          Vector.empty
+      }
+      term.copy(termrefs = refs)
+    }
+  }
+
+  private def _safe_lexidox_path(path: String): Boolean =
+    try {
+      val value = Paths.get(path)
+      path.nonEmpty && !value.isAbsolute && !value.iterator.asScala.exists(_.toString == "..") &&
+        !path.exists(ch => ch == '\\' || ch == ':' || ch == '%' || ch == '?' || ch == '#' || Character.isISOControl(ch))
+    } catch {
+      case NonFatal(_) => false
+    }
 
   private def _term_index(config: BuildConfig): Option[TermIndex] = {
     val paths = Vector(

@@ -39,6 +39,22 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
     }
   }
   "The v2 pattern codec" should {
+    "admit scoped terminology bindings while retaining legacy envelopes" in {
+      Given("a recursive Core with one claim-bound term and a legacy envelope")
+      val binding = """{"version":1,"bindings":[{"id":"retry","claimRef":"root-claim","space":"software-architecture","term":"https://example.org/term/retry","concept":"https://example.org/concept/retry","page":"https://example.org/page/retry","role":"named-pattern","emphasis":"bold","styleRole":"pattern"}]}"""
+      val legacy = parse(_source).toOption.get
+      val extended = legacy.mapObject(_.add("terminology", parse(binding).toOption.get))
+      When("the envelope is decoded and invalid claim or duplicate identities are presented")
+      val result = CozyDocumentPatternCodec.decode(extended)
+      val missing = extended.deepMerge(parse("""{"terminology":{"bindings":[{"id":"retry","claimRef":"missing","space":"software-architecture","term":"https://example.org/t","concept":"https://example.org/c","page":"https://example.org/p","role":"ordinary-term"}]}}""").toOption.get)
+      val fault = intercept[CozyDocumentLogicTree.LogicTreeFault](CozyDocumentPatternCodec.decode(missing))
+      Then("the exact identities survive and an unresolved claim fails")
+      result.source.terminology.head.claimRef shouldBe "root-claim"
+      result.source.terminology.head.page shouldBe "https://example.org/page/retry"
+      CozyDocumentPatternCodec.decode(legacy).source.terminology shouldBe empty
+      fault.code shouldBe "PATTERN_REFERENCE"
+    }
+
     "preserve independent recursive selections and discriminated references" in {
       Given("a v1 recursive core embedded in a v2 envelope")
       val json = parse(_source).toOption.get
@@ -307,7 +323,7 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
   "The v2 authoring to reader handoff" should {
     "admit the same embedded Core in both Document paths and keep authoring labels out of SmartDox" in {
       Given("a complete v2 envelope, explicitly authored Document and separate SmartDox article")
-      val root = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-document-handoff")
+      val root = java.nio.file.Files.createTempDirectory(java.nio.file.Files.createDirectories(java.nio.file.Paths.get("target", "CozyDocumentPatternCodecSpec", "work")), "pattern-document-handoff").toRealPath()
       val project = java.nio.file.Files.createDirectory(root.resolve("article.dox"))
       val content = java.nio.file.Files.createDirectory(project.resolve("content"))
       val locale = java.nio.file.Files.createDirectory(content.resolve("en"))
@@ -340,7 +356,94 @@ final class CozyDocumentPatternCodecSpec extends AnyWordSpec with Matchers with 
         Vector("Background First", "Worked Example", "Roles and reading order", "root-claim", "background-first").foreach { label => html should not include (label) }
         java.nio.file.Files.readString(article) shouldBe s"# Reader heading\n\n$prose\n"
         java.nio.file.Files.readString(document) shouldBe documentjson
+
+        Given("a legacy v2 Core without terminology and text-only inline content")
+        val oldparagraph = documentjson.replace("\"text\":\"" + prose + "\"", """"inline":[{"text":"Legacy"}]""")
+        val oldlist = documentjson.replace("\"kind\":\"paragraph\",\"text\":\"" + prose + "\"", """"kind":"list","items":[{"id":"item","inline":[{"text":"Legacy"}],"coreRefs":{"steps":[],"claims":["root-claim"],"nodes":[],"relations":[],"flows":[]}}]""")
+        When("both Document loaders encounter inline content in either block form")
+        val faults = Vector(oldparagraph, oldlist).flatMap { value =>
+          java.nio.file.Files.writeString(document, value)
+          Vector(
+            intercept[CozyDocumentDescriptionV2.DescriptionV2Fault](CozyDocumentDescriptionV2.loadDocument(core, document)),
+            intercept[CozyDocumentDescriptionV2.DescriptionV2Fault](CozyDocumentDescriptionV2.loadSourceDocument(core, document))
+          )
+        }
+        Then("both forms retain the prior closed admission boundary")
+        faults.map(_.code) shouldBe Vector.fill(4)("DESCRIPTION_V2_REFERENCE")
+        faults.foreach(_.path should endWith (".inline"))
+
+        Given("the same recursive Core with an explicit claim-bound terminology declaration")
+        val binding = """{"version":1,"bindings":[{"id":"retry","claimRef":"root-claim","space":"software-architecture","term":"https://example.org/t","concept":"https://example.org/c","page":"https://example.org/p","role":"named-pattern","emphasis":"bold"}]}"""
+        val extended = parse(_source).toOption.get.mapObject(_.add("terminology", parse(binding).toOption.get))
+        val localized = documentjson.replace("\"text\":\"" + prose + "\"", """"inline":[{"text":"Use "},{"termRef":"retry","visibleText":"Retry"},{"text":" now."}]""")
+        java.nio.file.Files.writeString(core, extended.noSpaces)
+        java.nio.file.Files.writeString(document, localized)
+        When("the real strict and source Document loaders read ordered inline content")
+        val paragraph = CozyDocumentDescriptionV2.loadDocument(core, document).description.document.sections.head.blocks.head.asInstanceOf[CozyDocumentDescriptionV2.Paragraph]
+        val sourceparagraph = CozyDocumentDescriptionV2.loadSourceDocument(core, document).document.sections.head.blocks.head.asInstanceOf[CozyDocumentDescriptionV2.Paragraph]
+        Then("the ordered localized wording and stable Core identities are retained")
+        paragraph.text shouldBe "Use Retry now."
+        paragraph.inline shouldBe sourceparagraph.inline
+        paragraph.inline.collect { case CozyDocumentDescriptionV2.InlineTerm(value, visible) => (value.id, value.claimRef, value.page, visible) } shouldBe
+          Vector(("retry", "root-claim", "https://example.org/p", "Retry"))
+        Given("the producer handoff and the normal local-build target definition")
+        val handoff = java.nio.file.Files.createDirectories(root.resolve("site/metadata/lexidox"))
+        val input = getClass.getResourceAsStream("/lexidox/phase93-producer-knowledge-v1.json")
+        try java.nio.file.Files.copy(input, handoff.resolve("knowledge-v1.json")) finally input.close()
+        java.nio.file.Files.writeString(handoff.resolve("knowledge-v1.ttl"), "# fixture")
+        java.nio.file.Files.writeString(handoff.resolve("knowledge-v1.jsonld"), "{}")
+        val realbinding = binding.replace("https://example.org/t", "https://example.org/term/retry")
+          .replace("https://example.org/c", "https://example.org/concept/retry")
+          .replace("https://example.org/p", "https://example.org/page/retry")
+        java.nio.file.Files.writeString(core, parse(_source).toOption.get.mapObject(_.add("terminology", parse(realbinding).toOption.get)).noSpaces)
+        val build = java.nio.file.Files.createDirectories(project.resolve("build"))
+        val config = """schema: cozy.document-project.local-build-targets.v1
+          |targets:
+          |  document-structure-html:
+          |    inputs: [content/core.yaml, content/en/document.yaml, content/en/confirmation-vocabulary.yaml]
+          |  document-reader-html:
+          |    inputs: [content/core.yaml, content/en/document.yaml, content/en/confirmation-vocabulary.yaml]
+          |  smartdox-article-html:
+          |    inputs: [index.dox]
+          |""".stripMargin
+        java.nio.file.Files.writeString(build.resolve("document-project-targets.yaml"), config)
+        java.nio.file.Files.copy(java.nio.file.Paths.get(getClass.getResource("/cozy/document/phase-87/tier-protection/content/en/confirmation-vocabulary.yaml").toURI), locale.resolve("confirmation-vocabulary.yaml"))
+        When("the native local build admits the actual localized Document and producer files")
+        val result = CozyDocumentProjectLocalBuildCommand.execute(project, Some("document-reader-html"), true, lexidoxRoot = Some(root.resolve("site")))
+        Then("the resolved ordered occurrence preserves identity and all profile labels")
+        result.resolvedTerms.map(_.profiles.map(_._2.selection.get.label)) shouldBe Vector(Vector("Retry", "リトライ", "再試行"))
+        result.resolvedTerms.head.binding.page shouldBe "https://example.org/page/retry"
+        result.inputs should contain (handoff.resolve("knowledge-v1.json").toAbsolutePath.normalize.toString)
+        val japanese = java.nio.file.Files.createDirectories(content.resolve("ja"))
+        java.nio.file.Files.writeString(japanese.resolve("document.yaml"), localized.replace("\"locale\":\"en\"", "\"locale\":\"ja\""))
+        java.nio.file.Files.copy(java.nio.file.Paths.get(getClass.getResource("/cozy/document/phase-87/tier-protection/content/ja/confirmation-vocabulary.yaml").toURI), japanese.resolve("confirmation-vocabulary.yaml"))
+        java.nio.file.Files.writeString(build.resolve("document-project-targets.yaml"), config.replace("content/en/", "content/ja/"))
+        val jaresult = CozyDocumentProjectLocalBuildCommand.execute(project, Some("document-reader-html"), true, lexidoxRoot = Some(root.resolve("site")))
+        jaresult.resolvedTerms.map(_.profiles.map(_._2.selection.get.label)) shouldBe Vector(Vector("Retry", "リトライ", "再試行"))
+        java.nio.file.Files.writeString(build.resolve("document-project-targets.yaml"), config)
+        java.nio.file.Files.writeString(core, parse(_source).toOption.get.mapObject(_.add("terminology", parse(realbinding.replace("https://example.org/page/retry", "https://example.org/page/wrong")).toOption.get)).noSpaces)
+        intercept[RuntimeException] {
+          CozyDocumentProjectLocalBuildCommand.execute(project, Some("document-reader-html"), true, lexidoxRoot = Some(root.resolve("site")))
+        }.getMessage should include ("LEX_PRESENTATION_UNDEFINED")
+        java.nio.file.Files.writeString(core, extended.noSpaces)
+        java.nio.file.Files.writeString(document, localized.replace("\"termRef\":\"retry\"", "\"termRef\":\"unknown\""))
+        intercept[CozyDocumentDescriptionV2.DescriptionV2Fault](CozyDocumentDescriptionV2.loadDocument(core, document)).code shouldBe "DESCRIPTION_V2_REFERENCE"
       } finally {
+        java.nio.file.Files.deleteIfExists(locale.resolve("confirmation-vocabulary.yaml"))
+        if (java.nio.file.Files.exists(root.resolve("site"))) {
+          val cleanup = java.nio.file.Files.walk(root.resolve("site"))
+          try cleanup.sorted(java.util.Comparator.reverseOrder[java.nio.file.Path]()).forEach(p => java.nio.file.Files.deleteIfExists(p)) finally cleanup.close()
+        }
+        java.nio.file.Files.deleteIfExists(content.resolve("ja/document.yaml"))
+        java.nio.file.Files.deleteIfExists(content.resolve("ja/confirmation-vocabulary.yaml"))
+        java.nio.file.Files.deleteIfExists(content.resolve("ja"))
+        java.nio.file.Files.deleteIfExists(project.resolve("build/document-project-targets.yaml"))
+        java.nio.file.Files.deleteIfExists(project.resolve("build"))
+        val output = project.resolve("target")
+        if (java.nio.file.Files.exists(output)) {
+          val stream = java.nio.file.Files.walk(output)
+          try stream.sorted(java.util.Comparator.reverseOrder[java.nio.file.Path]()).forEach(p => java.nio.file.Files.deleteIfExists(p)) finally stream.close()
+        }
         java.nio.file.Files.deleteIfExists(article)
         java.nio.file.Files.deleteIfExists(document)
         java.nio.file.Files.deleteIfExists(core)

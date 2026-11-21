@@ -7,7 +7,7 @@ This is the normative P600 specification for the implemented Document Project lo
 The public grammar is exactly:
 
 ```text
-cozy document-project build <project> [--target <target-id>] [--force]
+cozy document-project build <project> [--target <target-id>] [--force] [--lexidox-root <producer-site-output>] [--locale ja|en] [--term-presentation <project-relative-yaml>]
 ```
 
 `<project>` MUST name an existing direct, non-symlink `.dox` package. This operation MUST admit that package without a descriptor: it MUST NOT load or require `document-project.yaml`.
@@ -86,6 +86,12 @@ source inputs remain unchanged.
 
 Core remains authoritative for logical meaning, the localized Document Description for document organization and prose, and `index.dox` for the SmartDox-targeted article. A Document-only change MUST NOT make a current article output stale when `index.dox` and the article's actual inputs are current. Local Document rendering MUST NOT claim reflection into `index.dox`.
 
+## LexiDox term admission
+
+The two Document targets accept `--lexidox-root` as an existing direct producer site output directory. The usual BoK admission requires the named JSON, Turtle and JSON-LD handoff together. The optional document fragment index supplies the existing safe local page route; otherwise the page IRI remains the link. The present handoff files and fragment index participate in input freshness. Plain Documents do not need a catalog. A Document with typed term occurrences requires the root and fails admission when the exact Space, Term, Concept and page are absent, ambiguous, inconsistent or conflict with the declared role.
+
+The admitted Document retains occurrences in document order, with the original binding and visible wording, resolved page and link, default selection, and selections for all three profiles. This is an input and model handoff; rendering and reader switching are specified separately. No labels are inferred from prose or a broader Space.
+
 ## Prerequisites, reuse, and failures
 
 The command MUST resolve generated prerequisites from the closed target catalog and build each prerequisite before its dependent. It MUST reject a missing producer or dependency cycle before the affected renderer runs. Required inputs and output-root confinement MUST be checked before rendering.
@@ -107,3 +113,5 @@ Rendering MUST complete before output writing. A renderer failure therefore leav
 The closed `cozy.document-project.v2` descriptor schema and the document-production workflow matrix remain unchanged. The existing `document-project review --kind article` command and its article-review receipt behavior remain unchanged, as does the existing `document-confirmation` command.
 
 This specification adds no receipt or hash management, publication, deployment, external project work, or Phase 60.1 work. It does not make a local target a site build, source mutation, acceptance record, or publication operation.
+
+Term presentation is an explicit option for `smartdox-article-html` and locale-matched `article-pdf` builds. It requires `--locale` and `--lexidox-root`; the project-relative configuration and renderer settings are described in the [presentation contract](term-pattern-presentation.md#renderer-integration-in-progress). The opt-in source is the admitted localized Document and its Core rather than inferred occurrences in manuscript text.

@@ -1,0 +1,83 @@
+{
+  "schema": "cozy.media.v1",
+  "knowledge": {
+    "id": "phase-93/order-persistence",
+    "source": "index.dox"
+  },
+  "resources": [
+    {
+      "id": "infographic-ja",
+      "kind": "infographic",
+      "language": "ja",
+      "source": "images/infographic.svg",
+      "output": "target/cozy-media/infographic-ja.png",
+      "build": "svg-to-png",
+      "articleMedia": {
+        "role": "infographic",
+        "publicPath": "/articles/phase-93/infographic-ja.png"
+      }
+    },
+    {
+      "id": "article-pdf-ja",
+      "kind": "document",
+      "language": "ja",
+      "source": "index.dox",
+      "output": "target/cozy-media/article-ja.pdf",
+      "build": "article-pdf",
+      "articleMedia": {
+        "role": "article_pdf",
+        "mediaType": "application/pdf",
+        "label": "Article PDF",
+        "publicPath": "/articles/phase-93/article-ja.pdf"
+      },
+      "articlePdf": {
+        "latexFormat": "business",
+        "infographic": "infographic-ja",
+        "renderer": {
+          "name": "simplemodeling-smartdox-pdf",
+          "version": "1",
+          "command": [
+            "./render-pdf"
+          ]
+        }
+      }
+    },
+    {
+      "id": "infographic-en",
+      "kind": "infographic",
+      "language": "en",
+      "source": "images/infographic.svg",
+      "output": "target/cozy-media/infographic-en.png",
+      "build": "svg-to-png",
+      "articleMedia": {
+        "role": "infographic",
+        "publicPath": "/articles/phase-93/infographic-en.png"
+      }
+    },
+    {
+      "id": "article-pdf-en",
+      "kind": "document",
+      "language": "en",
+      "source": "index.dox",
+      "output": "target/cozy-media/article-en.pdf",
+      "build": "article-pdf",
+      "articleMedia": {
+        "role": "article_pdf",
+        "mediaType": "application/pdf",
+        "label": "Article PDF",
+        "publicPath": "/articles/phase-93/article-en.pdf"
+      },
+      "articlePdf": {
+        "latexFormat": "business",
+        "infographic": "infographic-en",
+        "renderer": {
+          "name": "simplemodeling-smartdox-pdf",
+          "version": "1",
+          "command": [
+            "./render-pdf"
+          ]
+        }
+      }
+    }
+  ]
+}

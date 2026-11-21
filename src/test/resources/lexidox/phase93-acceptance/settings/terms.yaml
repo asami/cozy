@@ -1,0 +1,15 @@
+{
+  "profile": "original",
+  "htmlSwitch": true,
+  "glossaryBase": "https://example.org/",
+  "ordinary": {
+    "symbol": "ordinary",
+    "font": "serif",
+    "color": "#5a3a19"
+  },
+  "named": {
+    "symbol": "pattern",
+    "font": "sans-serif",
+    "color": "#23456a"
+  }
+}
